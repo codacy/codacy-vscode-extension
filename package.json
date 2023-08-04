@@ -1,0 +1,78 @@
+{
+  "name": "codacy-companion",
+  "displayName": "Codacy Companion",
+  "description": "Official Codacy extension for Visual Studio Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codacy-main",
+          "title": "Codacy",
+          "icon": "resources/icons/codacy-logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "codacy-main": [
+        {
+          "id": "codacy:login",
+          "name": "Codacy Login",
+          "icon": "$(git-pull-request)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "codacy:login",
+        "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "codacy.helloWorld",
+        "title": "Hello World",
+        "category": "Codacy commands"
+      },
+      {
+        "command": "codacy.signIn",
+        "title": "Sign in to Codacy",
+        "category": "Codacy commands"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "20.4.7",
+    "@types/vscode": "^1.81.0",
+    "@typescript-eslint/eslint-plugin": "^6.2.1",
+    "@typescript-eslint/parser": "^6.2.1",
+    "@vscode/test-electron": "^2.3.4",
+    "eslint": "^8.46.0",
+    "glob": "^10.3.3",
+    "mocha": "^10.2.0",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "@codacy/api-typescript": "^1.2.29",
+    "eslint-config-prettier": "^8.10.0",
+    "lodash": "^4.17.21"
+  }
+}

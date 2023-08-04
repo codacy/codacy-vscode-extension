@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+
+# Misc
+.DS_Store
+
+# Output
+out/
+coverage/
+
+# Ignore generated packages
+*.vsix
+
+# Ignore vscode local settings
+.vscode/*
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json

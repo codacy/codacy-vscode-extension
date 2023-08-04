@@ -1,0 +1,1 @@
+# Codacy VSCode Extension
