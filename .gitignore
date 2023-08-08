@@ -6,6 +6,12 @@ node_modules
 
 # Output
 out/
+dist/
+coverage/
+releases/
+
+# Tests
+.vscode-test/
 coverage/
 
 # Ignore generated packages

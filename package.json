@@ -1,8 +1,14 @@
 {
-  "name": "codacy-companion",
-  "displayName": "Codacy Companion",
+  "name": "codacy",
+  "displayName": "Codacy",
   "description": "Official Codacy extension for Visual Studio Code",
+  "icon": "resources/icons/extension-logo.png",
   "version": "0.0.1",
+  "publisher": "Codacy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codacy/codacy-vscode-extension"
+  },
   "engines": {
     "vscode": "^1.81.0"
   },
@@ -10,7 +16,7 @@
     "Other"
   ],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -26,7 +32,7 @@
         {
           "id": "codacy:login",
           "name": "Codacy Login",
-          "icon": "$(git-pull-request)"
+          "icon": "resources/icons/codacy-logo.svg"
         }
       ]
     },
@@ -38,41 +44,64 @@
     ],
     "commands": [
       {
-        "command": "codacy.helloWorld",
-        "title": "Hello World",
-        "category": "Codacy commands"
-      },
-      {
         "command": "codacy.signIn",
         "title": "Sign in to Codacy",
         "category": "Codacy commands"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Codacy Companion",
+      "properties": {
+        "codacy.apiBaseUri": {
+          "type": "string",
+          "description": "Codacy API URL",
+          "default": "https://app.codacy.com"
+        },
+        "codacy.apiToken": {
+          "type": "string",
+          "description": "API Personal Token"
+        }
+      }
+    }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "package-visx": "vsce package --out releases",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:coverage": "c8 --check-coverage npm run test",
+    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/30.5.23/apiv3.yaml -o ./api-v3/api-swagger.yaml",
+    "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios",
+    "update-api": "npm run fetch-api && npm run generate-api"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
+    "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.4.7",
     "@types/vscode": "^1.81.0",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",
     "@vscode/test-electron": "^2.3.4",
+    "c8": "^8.0.1",
     "eslint": "^8.46.0",
+    "eslint-config-prettier": "^8.10.0",
     "glob": "^10.3.3",
     "mocha": "^10.2.0",
-    "typescript": "^5.1.6"
+    "openapi-typescript-codegen": "^0.25.0",
+    "ts-loader": "^9.4.3",
+    "typescript": "^5.1.6",
+    "webpack": "^5.85.0",
+    "webpack-cli": "^5.1.1"
   },
   "dependencies": {
-    "@codacy/api-typescript": "^1.2.29",
-    "eslint-config-prettier": "^8.10.0",
+    "axios": "^1.4.0",
+    "form-data": "^4.0.0",    
     "lodash": "^4.17.21"
   }
 }

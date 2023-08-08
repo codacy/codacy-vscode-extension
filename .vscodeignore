@@ -1,9 +1,14 @@
 .vscode/**
 .vscode-test/**
+api-v3/**
+coverage/**
+node_modules/**
+out/**
+releases/**
 src/**
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
+**/webpack.config.js
+**/.gitignore
+**/.c8rc
 **/tsconfig.json
 **/.eslintrc.json
 **/*.map

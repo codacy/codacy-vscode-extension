@@ -1,0 +1,16 @@
+/* generated using openapi-typescript-codegen -- do no edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+
+export type FileExtensionsUpdate = {
+  /**
+   * Language name
+   */
+  name: string;
+  /**
+   * List of custom file extensions for the language
+   */
+  extensions: Array<string>;
+};
+

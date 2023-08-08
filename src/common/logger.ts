@@ -5,7 +5,7 @@ class Log {
   private _activePerfMarkers: Map<string, number> = new Map()
 
   constructor() {
-    this._outputChannel = vscode.window.createOutputChannel('Codacy', { log: true })
+    this._outputChannel = vscode.window.createOutputChannel('Codacy Companion', { log: true })
   }
 
   public startPerfMarker(marker: string) {
