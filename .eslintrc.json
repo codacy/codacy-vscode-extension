@@ -21,6 +21,7 @@
         "out",
         "dist",
         "**/*.d.ts",
-        "postGenerate.ts"
+        "postGenerate.ts",
+        "webpack.config.js"
     ]
 }
