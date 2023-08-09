@@ -39,3 +39,9 @@ To run the extension:
 
 ### Update API 
 
+We use [OpenAPI Typescript Codegen](https://github.com/ferdikoomen/openapi-typescript-codegen) to generate the API client. The API client is generated automatically when the extension is built. If you want to update the API client to a newer version, you can do so by running the following command:
+
+1. Update the API version in the `fetch-api` script in `package.json` to the desired version.
+1. Run `npm run update-api` to fetch the API specification from Codacy and generate the Typescript client code.
+
+
