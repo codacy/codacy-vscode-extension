@@ -32,6 +32,9 @@ jobs:
       - run:
           name: Upload coverage
           command: bash <(curl -Ls https://coverage.codacy.com/get.sh) report
+      - run:
+          name: Pack extension
+          command: npm run package-visx         
 
 workflows:
   compile_test_deploy:
