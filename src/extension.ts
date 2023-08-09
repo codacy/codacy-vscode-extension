@@ -1,7 +1,8 @@
 import * as vscode from 'vscode'
 import { CommandType, wrapCommandWithCatch } from './common/utils'
-import { signIn } from './commands/index'
+import { signIn } from './commands'
 import Logger from './common/logger'
+import { InitializeApi } from './api'
 
 const registerCommands = (context: vscode.ExtensionContext) => {
   const commands: Record<string, CommandType> = {
@@ -16,6 +17,8 @@ const registerCommands = (context: vscode.ExtensionContext) => {
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+
+  InitializeApi()
 
   registerCommands(context)
 }

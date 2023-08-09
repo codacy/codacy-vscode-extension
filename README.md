@@ -30,8 +30,12 @@ npm install --global @vscode/vsce
 
 To build the extension:
 ```
-npm run pack
+npm run package-visx
 ```
 
 To run the extension: 
 - Select extention.ts file and then press F5 (Run -> Start Debug)
+
+
+### Update API 
+

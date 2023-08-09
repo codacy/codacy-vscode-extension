@@ -53,11 +53,6 @@
       "type": "object",
       "title": "Codacy Companion",
       "properties": {
-        "codacy.apiBaseUri": {
-          "type": "string",
-          "description": "Codacy API URL",
-          "default": "https://app.codacy.com"
-        },
         "codacy.apiToken": {
           "type": "string",
           "description": "API Personal Token"
@@ -76,8 +71,9 @@
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 --check-coverage npm run test",
     "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/30.5.23/apiv3.yaml -o ./api-v3/api-swagger.yaml",
-    "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios",
-    "update-api": "npm run fetch-api && npm run generate-api"
+    "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios && node ./postGenerate.ts",
+    "update-api": "npm run fetch-api && npm run generate-api",
+    "postinstall": "npm run update-api"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",

@@ -1,12 +1,10 @@
-import { Api } from '../api/ApiClient'
+import { Api } from '../api'
 import Logger from '../common/logger'
 
 export const signIn = async () => {
-  Logger.appendLine('Oh Hi Mark!')
-  console.log('Ohhhh Hiiiii Mark!')
-
+  // TODO: Implement signIn
   try {
-    const res = await Api.Configuration.getConfigurationStatus()
+    const res = await Api.Account.getUser()
     Logger.appendLine(JSON.stringify(res))
   } catch (e) {
     Logger.appendLine(JSON.stringify(e))
