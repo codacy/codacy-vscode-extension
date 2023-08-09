@@ -69,11 +69,12 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "test:coverage": "c8 --check-coverage npm run test",
+    "test:coverage": "c8 npm run test",
     "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/30.5.23/apiv3.yaml -o ./api-v3/api-swagger.yaml",
     "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios && node ./postGenerate.ts",
     "update-api": "npm run fetch-api && npm run generate-api",
-    "postinstall": "npm run update-api"
+    "postinstall": "npm run update-api",
+    "check-types": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",

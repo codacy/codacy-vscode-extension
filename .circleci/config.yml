@@ -1,0 +1,40 @@
+version: 2.1
+
+orbs:
+  codacy: codacy/base@10.8.0
+
+references:
+  steps:
+    - &checkout_and_version
+      codacy/checkout_and_version:
+        overwrite_package_json_version: true  
+
+    - &run_tests
+      run_tests:
+        context: CodacyAWS
+        requires:
+          - codacy/checkout_and_version
+
+jobs:
+  run_tests:
+    docker:
+      - image: cimg/node:20.5.0
+    working_directory: ~/workdir
+    steps:
+      - attach_workspace:
+          at: ~/workdir
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Run tests
+          command: npm run test:coverage
+      - run:
+          name: Upload coverage
+          command: bash <(curl -Ls https://coverage.codacy.com/get.sh) report
+
+workflows:
+  compile_test_deploy:
+    jobs:
+      - *checkout_and_version
+      - *run_tests

@@ -12,4 +12,7 @@
 		"strict": true,
 		"allowSyntheticDefaultImports": true
 	},
+	"include": [
+		"src/**/*"
+	]
 }
