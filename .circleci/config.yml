@@ -18,7 +18,7 @@ references:
 jobs:
   run_tests:
     docker:
-      - image: cimg/node:20.5.0
+      - image: cimg/node:20.5.0-browsers
     working_directory: ~/workdir
     steps:
       - attach_workspace:
