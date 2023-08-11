@@ -22,7 +22,7 @@ import {
   VersionService,
 } from './client'
 
-export const InitializeApi = () => {
+export const initializeApi = () => {
   OpenAPI.HEADERS = async () => {
     const wsConfig = vscode.workspace.getConfiguration('codacy')
     const token = wsConfig.get<string>('apiToken')
