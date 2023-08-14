@@ -53,27 +53,32 @@
       {
         "view": "codacy:statuses",
         "contents": "No repositories open.",
-        "when": "RepositoryManagerStateContext == NoRepository"
+        "when": "Codacy:RepositoryManagerStateContext == NoRepository"
       },
       {
         "view": "codacy:statuses",
         "contents": "No remote repositories configured.",
-        "when": "RepositoryManagerStateContext == NoRemote"
+        "when": "Codacy:RepositoryManagerStateContext == NoRemote"
       },
       {
         "view": "codacy:statuses",
         "contents": "Codacy is initializing...",
-        "when": "RepositoryManagerStateContext == Initializing"
+        "when": "Codacy:RepositoryManagerStateContext == Initializing"
       },
       {
         "view": "codacy:statuses",
         "contents": "Codacy needs authentication.",
-        "when": "RepositoryManagerStateContext == NeedsAuthentication"
+        "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
       {
         "view": "codacy:statuses",
-        "contents": "Codacy is ready.",
-        "when": "RepositoryManagerStateContext == Loaded"
+        "contents": "Codacy is ready, no PR yet.",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Codacy is ready. Pull request found.",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded"
       }
     ],
     "commands": [
@@ -81,6 +86,18 @@
         "command": "codacy.signIn",
         "title": "Sign in to Codacy",
         "category": "Codacy commands"
+      },
+      {
+        "command": "pr.load",
+        "title": "Load Pull Request",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+      },
+      {
+        "command": "pr.refresh",
+        "title": "Refresh Pull Request",
+        "category": "Codacy commands",
+        "when": "Codacy:PullRequestStateContext == Loaded"
       }
     ],
     "configuration": {
