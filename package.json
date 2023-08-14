@@ -15,7 +15,11 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+	"activationEvents": [
+		"onStartupFinished",
+		"onFileSystem:pr",
+		"onFileSystem:githubpr"
+	],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -33,6 +37,11 @@
           "id": "codacy:login",
           "name": "Codacy Login",
           "icon": "resources/icons/codacy-logo.svg"
+        },
+        {
+          "id": "codacy:statuses",
+          "name": "Codacy Statuses",
+          "icon": "$(library)"
         }
       ]
     },
@@ -40,6 +49,31 @@
       {
         "view": "codacy:login",
         "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "No repositories open.",
+        "when": "RepositoryManagerStateContext == NoRepository"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "No remote repositories configured.",
+        "when": "RepositoryManagerStateContext == NoRemote"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Codacy is initializing...",
+        "when": "RepositoryManagerStateContext == Initializing"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Codacy needs authentication.",
+        "when": "RepositoryManagerStateContext == NeedsAuthentication"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Codacy is ready.",
+        "when": "RepositoryManagerStateContext == Loaded"
       }
     ],
     "commands": [
@@ -58,7 +92,10 @@
           "description": "API Personal Token"
         }
       }
-    }
+    },
+    "permissions": [
+      "git"
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
