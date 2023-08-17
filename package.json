@@ -15,11 +15,11 @@
   "categories": [
     "Other"
   ],
-	"activationEvents": [
-		"onStartupFinished",
-		"onFileSystem:pr",
-		"onFileSystem:githubpr"
-	],
+  "activationEvents": [
+    "onStartupFinished",
+    "onFileSystem:pr",
+    "onFileSystem:githubpr"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -45,12 +45,12 @@
           "icon": "$(library)",
           "when": "Codacy:RepositoryManagerStateContext != Loaded || Codacy:PullRequestStateContext != Loaded"
         },
-				{
-					"id": "codacy:prSummary",
-					"name": "Pull request",
-					"when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
-					"icon": "$(git-pull-request)"
-				}
+        {
+          "id": "codacy:prSummary",
+          "name": "Pull request",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
+          "icon": "$(git-pull-request)"
+        }
       ]
     },
     "viewsWelcome": [
@@ -89,19 +89,19 @@
         "command": "codacy.signIn",
         "title": "Sign in to Codacy",
         "category": "Codacy commands"
-      },      
+      },
       {
         "command": "pr.load",
         "title": "Look for Pull Request",
         "category": "Codacy commands",
-        "icon": "$(sync)",        
+        "icon": "$(sync)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded"
       },
       {
         "command": "pr.refresh",
         "title": "Refresh Pull Request",
         "category": "Codacy commands",
-        "icon": "$(refresh)",        
+        "icon": "$(refresh)",
         "when": "Codacy:PullRequestStateContext == Loaded"
       },
       {
@@ -152,7 +152,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
-    "compile-tests": "tsc -p . --outDir out",    
+    "compile-tests": "tsc -p . --outDir out",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "package-visx": "vsce package --out releases",
