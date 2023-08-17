@@ -5,6 +5,8 @@ import Logger from './common/logger'
 import { initializeApi } from './api'
 import { GitProvider } from './git/GitProvider'
 import { RepositoryManager } from './git/RepositoryManager'
+import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
+import { StatusBar } from './views/StatusBar'
 
 /**
  * Helper function to register all extension commands
@@ -75,6 +77,10 @@ export async function activate(context: vscode.ExtensionContext) {
   await registerGitProvider(context, repositoryManager)
 
   await registerCommands(context, repositoryManager)
+
+  // add views
+  context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
+  context.subscriptions.push(new StatusBar(context, repositoryManager))
 }
 
 // This method is called when your extension is deactivated

@@ -36,13 +36,21 @@
         {
           "id": "codacy:login",
           "name": "Codacy Login",
-          "icon": "resources/icons/codacy-logo.svg"
+          "icon": "resources/icons/codacy-logo.svg",
+          "when": "false"
         },
         {
           "id": "codacy:statuses",
           "name": "Codacy Statuses",
-          "icon": "$(library)"
-        }
+          "icon": "$(library)",
+          "when": "Codacy:RepositoryManagerStateContext != Loaded || Codacy:PullRequestStateContext != Loaded"
+        },
+				{
+					"id": "codacy:prSummary",
+					"name": "Pull request",
+					"when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
+					"icon": "$(git-pull-request)"
+				}
       ]
     },
     "viewsWelcome": [
@@ -72,13 +80,8 @@
       },
       {
         "view": "codacy:statuses",
-        "contents": "Codacy is ready, no PR yet.",
+        "contents": "No open pull request found.\n[Try again](command:pr.load)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
-      },
-      {
-        "view": "codacy:statuses",
-        "contents": "Codacy is ready. Pull request found.",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded"
       }
     ],
     "commands": [
@@ -86,20 +89,52 @@
         "command": "codacy.signIn",
         "title": "Sign in to Codacy",
         "category": "Codacy commands"
-      },
+      },      
       {
         "command": "pr.load",
-        "title": "Load Pull Request",
+        "title": "Look for Pull Request",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+        "icon": "$(sync)",        
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
       },
       {
         "command": "pr.refresh",
         "title": "Refresh Pull Request",
         "category": "Codacy commands",
+        "icon": "$(refresh)",        
+        "when": "Codacy:PullRequestStateContext == Loaded"
+      },
+      {
+        "command": "pr.openSummary",
+        "title": "Open Pull Request Summary",
+        "category": "Codacy commands",
         "when": "Codacy:PullRequestStateContext == Loaded"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pr.load",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded"
+        },
+        {
+          "command": "pr.refresh",
+          "when": "Codacy:PullRequestStateContext == Loaded"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "pr.load",
+          "when": "view == codacy:statuses",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.refresh",
+          "when": "view == codacy:prSummary",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "Codacy Companion",
