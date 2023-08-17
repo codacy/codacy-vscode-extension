@@ -18,13 +18,14 @@ export class PullRequestSummaryNode extends vscode.TreeItem {
 
 export class PullRequestInformationNode extends PullRequestSummaryNode {
   constructor(data: PullRequestWithAnalysis) {
-    let statusMessage
+    let status
 
-    if (data.isAnalysing) statusMessage = 'analysing'
-    else if (data.isUpToStandards) statusMessage = 'up to standards'
-    else if (data.isUpToStandards === false) statusMessage = 'not up to standards'
+    if (data.isAnalysing) status = ['Analysing...', 'loading~spin']
+    else if (data.isUpToStandards) status = ['Up to standards', 'check']
+    else if (data.isUpToStandards === false) status = ['Not up to standards', 'error']
+    else status = ['Not analysed', 'circle-slash']
 
-    super(`Pull Request #${data.pullRequest.number}${statusMessage ? `, ${statusMessage}` : ''}`, 'git-pull-request')
+    super(status[0], status[1])
   }
 }
 

@@ -16,7 +16,7 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
   const commands: Record<string, CommandType> = {
     'codacy.signIn': signIn,
     'pr.load': () => repositoryManager.loadPullRequest(),
-    'pr.refresh': () => repositoryManager.refreshPullRequest(),
+    'pr.refresh': () => repositoryManager.pullRequest?.refresh(), ///refreshPullRequest(),
   }
 
   Object.keys(commands).forEach((cmd) => {
