@@ -1,8 +1,15 @@
 import * as vscode from 'vscode'
 import Logger from './logger'
+import { CoreApiError } from '../api/client'
 
 export const handleError = (e: Error): void => {
-  Logger.error(e.message)
+  if (e instanceof CoreApiError) {
+    const err = e as CoreApiError
+    Logger.error(`${err.message} (${err.statusText})`)
+  } else {
+    const err = e as Error
+    Logger.error(err.message)
+  }
 
   const showErrorMessage = async () => {
     const choice = await vscode.window.showErrorMessage(e.message, 'Show Logs')

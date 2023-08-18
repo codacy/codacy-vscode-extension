@@ -4,15 +4,19 @@ import { signIn } from './commands'
 import Logger from './common/logger'
 import { initializeApi } from './api'
 import { GitProvider } from './git/GitProvider'
-import { RepositoryManager } from './git/RepositoriesManager'
+import { RepositoryManager } from './git/RepositoryManager'
+import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
+import { StatusBar } from './views/StatusBar'
 
 /**
  * Helper function to register all extension commands
  * @param context
  */
-const registerCommands = (context: vscode.ExtensionContext) => {
+const registerCommands = async (context: vscode.ExtensionContext, repositoryManager: RepositoryManager) => {
   const commands: Record<string, CommandType> = {
     'codacy.signIn': signIn,
+    'pr.load': () => repositoryManager.loadPullRequest(),
+    'pr.refresh': () => repositoryManager.refreshPullRequest(),
   }
 
   Object.keys(commands).forEach((cmd) => {
@@ -72,7 +76,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
   await registerGitProvider(context, repositoryManager)
 
-  registerCommands(context)
+  await registerCommands(context, repositoryManager)
+
+  // add views
+  context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
+  context.subscriptions.push(new StatusBar(context, repositoryManager))
 }
 
 // This method is called when your extension is deactivated

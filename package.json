@@ -15,11 +15,11 @@
   "categories": [
     "Other"
   ],
-	"activationEvents": [
-		"onStartupFinished",
-		"onFileSystem:pr",
-		"onFileSystem:githubpr"
-	],
+  "activationEvents": [
+    "onStartupFinished",
+    "onFileSystem:pr",
+    "onFileSystem:githubpr"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -36,12 +36,20 @@
         {
           "id": "codacy:login",
           "name": "Codacy Login",
-          "icon": "resources/icons/codacy-logo.svg"
+          "icon": "resources/icons/codacy-logo.svg",
+          "when": "false"
         },
         {
           "id": "codacy:statuses",
           "name": "Codacy Statuses",
-          "icon": "$(library)"
+          "icon": "$(library)",
+          "when": "Codacy:RepositoryManagerStateContext != Loaded || Codacy:PullRequestStateContext != Loaded"
+        },
+        {
+          "id": "codacy:prSummary",
+          "name": "Pull request",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
+          "icon": "$(git-pull-request)"
         }
       ]
     },
@@ -53,27 +61,27 @@
       {
         "view": "codacy:statuses",
         "contents": "No repositories open.",
-        "when": "RepositoryManagerStateContext == NoRepository"
+        "when": "Codacy:RepositoryManagerStateContext == NoRepository"
       },
       {
         "view": "codacy:statuses",
         "contents": "No remote repositories configured.",
-        "when": "RepositoryManagerStateContext == NoRemote"
+        "when": "Codacy:RepositoryManagerStateContext == NoRemote"
       },
       {
         "view": "codacy:statuses",
         "contents": "Codacy is initializing...",
-        "when": "RepositoryManagerStateContext == Initializing"
+        "when": "Codacy:RepositoryManagerStateContext == Initializing"
       },
       {
         "view": "codacy:statuses",
         "contents": "Codacy needs authentication.",
-        "when": "RepositoryManagerStateContext == NeedsAuthentication"
+        "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
       {
         "view": "codacy:statuses",
-        "contents": "Codacy is ready.",
-        "when": "RepositoryManagerStateContext == Loaded"
+        "contents": "No open pull request found.\n[Try again](command:pr.load)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       }
     ],
     "commands": [
@@ -81,8 +89,52 @@
         "command": "codacy.signIn",
         "title": "Sign in to Codacy",
         "category": "Codacy commands"
+      },
+      {
+        "command": "pr.load",
+        "title": "Look for Pull Request",
+        "category": "Codacy commands",
+        "icon": "$(sync)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+      },
+      {
+        "command": "pr.refresh",
+        "title": "Refresh Pull Request",
+        "category": "Codacy commands",
+        "icon": "$(refresh)",
+        "when": "Codacy:PullRequestStateContext == Loaded"
+      },
+      {
+        "command": "pr.openSummary",
+        "title": "Open Pull Request Summary",
+        "category": "Codacy commands",
+        "when": "Codacy:PullRequestStateContext == Loaded"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pr.load",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded"
+        },
+        {
+          "command": "pr.refresh",
+          "when": "Codacy:PullRequestStateContext == Loaded"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "pr.load",
+          "when": "view == codacy:statuses",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.refresh",
+          "when": "view == codacy:prSummary",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "Codacy Companion",
@@ -100,7 +152,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
-    "compile-tests": "tsc -p . --outDir out",    
+    "compile-tests": "tsc -p . --outDir out",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "package-visx": "vsce package --out releases",
