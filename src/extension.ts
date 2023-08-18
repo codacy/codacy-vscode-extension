@@ -7,6 +7,7 @@ import { GitProvider } from './git/GitProvider'
 import { RepositoryManager } from './git/RepositoryManager'
 import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
 import { StatusBar } from './views/StatusBar'
+import { ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 
 /**
  * Helper function to register all extension commands
@@ -77,6 +78,9 @@ export async function activate(context: vscode.ExtensionContext) {
   await registerGitProvider(context, repositoryManager)
 
   await registerCommands(context, repositoryManager)
+
+  // initialize the problems diagnostic collection
+  new ProblemsDiagnosticCollection(repositoryManager)
 
   // add views
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))

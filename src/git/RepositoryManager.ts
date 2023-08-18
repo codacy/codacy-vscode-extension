@@ -158,6 +158,10 @@ export class RepositoryManager implements vscode.Disposable {
     return this._current?.state.HEAD?.name
   }
 
+  get rootUri() {
+    return this._current?.rootUri
+  }
+
   set state(state: RepositoryManagerState) {
     const stateChange = state !== this._state
     this._state = state
