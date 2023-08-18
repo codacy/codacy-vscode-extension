@@ -38,7 +38,13 @@ export class PullRequestIssuesNode extends PullRequestSummaryNode {
 export class PullRequestDuplicationNode extends PullRequestSummaryNode {
   constructor(data: PullRequestWithAnalysis) {
     super(
-      data.deltaClonesCount !== undefined ? `${data.deltaClonesCount || 0} new clones` : 'No duplication information',
+      data.deltaClonesCount !== undefined
+        ? data.deltaClonesCount > 0
+          ? `${data.deltaClonesCount} new clones`
+          : data.deltaClonesCount < 0
+          ? `${data.deltaClonesCount * -1} fixed clones`
+          : 'No new clones'
+        : 'No duplication information',
       'versions'
     )
   }
