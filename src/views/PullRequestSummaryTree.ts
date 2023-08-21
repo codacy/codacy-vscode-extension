@@ -42,6 +42,12 @@ export class PullRequestSummaryTree
     // subscribe to changes in the pull request
     this._repositoryManager.onDidUpdatePullRequest(() => {
       this._onDidChangeTreeData.fire()
+
+      if (this._repositoryManager.pullRequest) {
+        this._view.title = `Pull Request #${this._repositoryManager.pullRequest.meta.number}`
+      } else {
+        this._view.title = 'Pull Request'
+      }
     })
   }
 
@@ -51,7 +57,7 @@ export class PullRequestSummaryTree
 
   async getChildren(element?: PullRequestSummaryNode | undefined) {
     if (!element) {
-      const pr = this._repositoryManager.pullRequest
+      const pr = this._repositoryManager.pullRequest?.analysis
       if (pr) {
         return [
           new PullRequestInformationNode(pr),

@@ -2,7 +2,16 @@ import * as vscode from 'vscode'
 import { GitExtension, API as GitAPI, Repository, APIState } from './git'
 import Logger from '../common/logger'
 
-export class GitProvider implements vscode.Disposable {
+export interface IGitProvider extends vscode.Disposable {
+  repositories: Repository[]
+  state: APIState
+  onDidOpenRepository: vscode.Event<Repository>
+  onDidCloseRepository: vscode.Event<Repository>
+  onDidChangeState: vscode.Event<APIState>
+  // onDidPublish: vscode.Event<PublishEvent>
+}
+
+export class GitProvider implements IGitProvider {
   get repositories(): Repository[] {
     return this._gitAPI.repositories
   }

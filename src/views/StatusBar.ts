@@ -21,10 +21,10 @@ export class StatusBar {
   }
 
   private update() {
-    const pr = this._repositoryManager.pullRequest
+    const pr = this._repositoryManager.pullRequest?.analysis
     if (pr) {
       if (pr.isAnalysing) {
-        this._statusBarItem.text = `$(sync~spin) Analysing ...`
+        this._statusBarItem.text = `$(loading~spin) Analysing ...`
         this._statusBarItem.color = new vscode.ThemeColor('statusBar.debuggingForeground')
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBar.debuggingBackground')
       } else if (pr.isUpToStandards) {
@@ -32,11 +32,14 @@ export class StatusBar {
         this._statusBarItem.color = new vscode.ThemeColor('statusBar.foreground')
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBar.background')
         this._statusBarItem.tooltip = 'Up to standards'
-      } else {
+      } else if (pr.isUpToStandards === false) {
         this._statusBarItem.text = `$(error) Codacy`
         this._statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground')
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground')
         this._statusBarItem.tooltip = 'Not up to standards'
+      } else {
+        this._statusBarItem.text = `$(circle-slash) Codacy`
+        this._statusBarItem.tooltip = 'Not analysed'
       }
 
       this._statusBarItem.show()

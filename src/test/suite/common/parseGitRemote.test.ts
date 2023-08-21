@@ -1,5 +1,5 @@
 import * as assert from 'assert'
-import { parseGitRemote } from '../../common/parseGitRemote'
+import { parseGitRemote } from '../../../common/parseGitRemote'
 
 const GITHUB_SSH_REMOTE_MOCK = 'git@github.com:organization/repository.git'
 const GITHUB_HTTPS_REMOTE_MOCK = 'https://github.com/organization/repository.git'

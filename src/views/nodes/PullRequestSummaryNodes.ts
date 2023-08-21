@@ -18,13 +18,14 @@ export class PullRequestSummaryNode extends vscode.TreeItem {
 
 export class PullRequestInformationNode extends PullRequestSummaryNode {
   constructor(data: PullRequestWithAnalysis) {
-    let statusMessage
+    let status
 
-    if (data.isAnalysing) statusMessage = 'analysing'
-    else if (data.isUpToStandards) statusMessage = 'up to standards'
-    else if (data.isUpToStandards === false) statusMessage = 'not up to standards'
+    if (data.isAnalysing) status = ['Analysing...', 'loading~spin']
+    else if (data.isUpToStandards) status = ['Up to standards', 'check']
+    else if (data.isUpToStandards === false) status = ['Not up to standards', 'error']
+    else status = ['Not analysed', 'circle-slash']
 
-    super(`Pull Request #${data.pullRequest.number}${statusMessage ? `, ${statusMessage}` : ''}`, 'git-pull-request')
+    super(status[0], status[1])
   }
 }
 
@@ -37,7 +38,13 @@ export class PullRequestIssuesNode extends PullRequestSummaryNode {
 export class PullRequestDuplicationNode extends PullRequestSummaryNode {
   constructor(data: PullRequestWithAnalysis) {
     super(
-      data.deltaClonesCount !== undefined ? `${data.deltaClonesCount || 0} new clones` : 'No duplication information',
+      data.deltaClonesCount !== undefined
+        ? data.deltaClonesCount > 0
+          ? `${data.deltaClonesCount} new clones`
+          : data.deltaClonesCount < 0
+          ? `${data.deltaClonesCount * -1} fixed clones`
+          : 'No new clones'
+        : 'No duplication information',
       'versions'
     )
   }
