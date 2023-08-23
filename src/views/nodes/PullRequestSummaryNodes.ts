@@ -21,7 +21,7 @@ export class PullRequestInformationNode extends PullRequestSummaryNode {
     const { analysis } = _pr
     let status
 
-    if (analysis.isAnalysing) status = ['Analysing...', 'loading~spin']
+    if (analysis.isAnalysing) status = ['Analyzing...', 'loading~spin']
     else if (analysis.isUpToStandards) status = ['Up to standards', 'check']
     else if (analysis.isUpToStandards === false) status = ['Not up to standards', 'error']
     else status = ['Not analysed', 'circle-slash']
