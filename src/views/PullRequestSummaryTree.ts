@@ -57,14 +57,13 @@ export class PullRequestSummaryTree
 
   async getChildren(element?: PullRequestSummaryNode | undefined) {
     if (!element) {
-      const pr = this._repositoryManager.pullRequest?.analysis
-      if (pr) {
+      if (this._repositoryManager.pullRequest?.analysis) {
         return [
-          new PullRequestInformationNode(pr),
-          new PullRequestIssuesNode(pr),
-          new PullRequestCoverageNode(pr),
-          new PullRequestDuplicationNode(pr),
-          new PullRequestComplexityNode(pr),
+          new PullRequestInformationNode(this._repositoryManager.pullRequest),
+          new PullRequestIssuesNode(this._repositoryManager.pullRequest),
+          new PullRequestCoverageNode(this._repositoryManager.pullRequest),
+          new PullRequestDuplicationNode(this._repositoryManager.pullRequest),
+          new PullRequestComplexityNode(this._repositoryManager.pullRequest),
         ]
       } else return []
     } else {
