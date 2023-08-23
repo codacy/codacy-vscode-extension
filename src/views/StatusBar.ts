@@ -24,7 +24,7 @@ export class StatusBar {
     const pr = this._repositoryManager.pullRequest?.analysis
     if (pr) {
       if (pr.isAnalysing) {
-        this._statusBarItem.text = `$(loading~spin) Analysing ...`
+        this._statusBarItem.text = `$(loading~spin) Analyzing ...`
         this._statusBarItem.color = new vscode.ThemeColor('statusBar.debuggingForeground')
         this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBar.debuggingBackground')
       } else if (pr.isUpToStandards) {

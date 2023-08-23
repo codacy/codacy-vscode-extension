@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { groupBy } from 'lodash'
+import { groupBy, startCase } from 'lodash'
 import { RepositoryManager } from '../git/RepositoryManager'
 import { PullRequest, PullRequestIssue } from '../git/PullRequest'
 
@@ -45,8 +45,8 @@ export class ProblemsDiagnosticCollection {
       const diagnostics = issues.map((issue) => {
         const line = issue.commitIssue.lineNumber - 1
         const column = 0
-        const message = `[${issue.commitIssue.patternInfo.category}${
-          issue.commitIssue.patternInfo.subCategory ? ` - ${issue.commitIssue.patternInfo.subCategory}` : ''
+        const message = `[${startCase(issue.commitIssue.patternInfo.category)}${
+          issue.commitIssue.patternInfo.subCategory ? ` - ${startCase(issue.commitIssue.patternInfo.subCategory)}` : ''
         }] ${issue.commitIssue.message}`
         const severity = patternSeverityToDiagnosticSeverity(issue.commitIssue.patternInfo.severityLevel)
 
