@@ -7,9 +7,10 @@ import {
 } from '../api/client'
 import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
 import { Api } from '../api'
-import Logger from '../common/logger'
 
 const MAX_IN_MEMORY_ITEMS = 300
+
+const PR_REFRESH_TIME = 2 * 60 * 1000
 
 export interface PullRequestIssue extends CommitDeltaIssue {
   uri?: vscode.Uri
@@ -158,7 +159,11 @@ export class PullRequest {
 
       // all done, trigger the pull request update
       this._onDidUpdatePullRequest.fire(this)
-      Logger.appendLine(`Updated pull request: ${JSON.stringify(this._prWithAnalysis)}`)
+
+      // if the PR is analysing, try again in 2 minutes
+      if (this.analysis.isAnalysing) {
+        setTimeout(() => this.refresh(), PR_REFRESH_TIME)
+      }
     }
 
     vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, fetch)

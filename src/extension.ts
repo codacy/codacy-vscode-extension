@@ -54,7 +54,7 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
     })
 
     // git.onDidPublish((event) => {
-    //   Logger.appendLine(`Git publish event: ${event}`)
+    //   Logger.appendLine(`Git publish event: ${event.branch}`)
     // })
 
     context.subscriptions.push(git)

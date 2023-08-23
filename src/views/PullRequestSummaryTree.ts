@@ -40,11 +40,11 @@ export class PullRequestSummaryTree
     )
 
     // subscribe to changes in the pull request
-    this._repositoryManager.onDidUpdatePullRequest(() => {
+    this._repositoryManager.onDidUpdatePullRequest((pr) => {
       this._onDidChangeTreeData.fire()
 
-      if (this._repositoryManager.pullRequest) {
-        this._view.title = `Pull Request #${this._repositoryManager.pullRequest.meta.number}`
+      if (pr) {
+        this._view.title = `Pull Request #${pr.meta.number}`
       } else {
         this._view.title = 'Pull Request'
       }
