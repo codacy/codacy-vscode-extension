@@ -6,6 +6,7 @@ import { Api } from '../api'
 import { CoreApiError, Repository } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest } from './PullRequest'
+import { Config } from '../common/config'
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -83,13 +84,21 @@ export class RepositoryManager implements vscode.Disposable {
           this.loadPullRequest()
         }
       } catch (e) {
-        handleError(e as Error)
-        if (e instanceof CoreApiError) {
+        const apiToken = await Config.getApiToken()
+
+        if (e instanceof CoreApiError && !apiToken) {
           this.state = RepositoryManagerState.NeedsAuthentication
         } else {
+          handleError(e as Error)
           this.state = RepositoryManagerState.NoRepository
         }
       }
+    }
+
+    const apiToken = await Config.getApiToken()
+    if (!apiToken) {
+      this.state = RepositoryManagerState.NeedsAuthentication
+      return
     }
 
     if (this._current !== gitRepository) {

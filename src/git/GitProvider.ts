@@ -8,7 +8,6 @@ export interface IGitProvider extends vscode.Disposable {
   onDidOpenRepository: vscode.Event<Repository>
   onDidCloseRepository: vscode.Event<Repository>
   onDidChangeState: vscode.Event<APIState>
-  // onDidPublish: vscode.Event<PublishEvent>
 }
 
 export class GitProvider implements IGitProvider {
@@ -26,8 +25,6 @@ export class GitProvider implements IGitProvider {
   readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event
   private _onDidChangeState = new vscode.EventEmitter<APIState>()
   readonly onDidChangeState: vscode.Event<APIState> = this._onDidChangeState.event
-  // private _onDidPublish = new vscode.EventEmitter<PublishEvent>()
-  // readonly onDidPublish: vscode.Event<PublishEvent> = this._onDidPublish.event
 
   private _gitAPI: GitAPI
   private _disposables: vscode.Disposable[]
@@ -46,7 +43,6 @@ export class GitProvider implements IGitProvider {
     this._disposables.push(this._gitAPI.onDidCloseRepository((e) => this._onDidCloseRepository.fire(e)))
     this._disposables.push(this._gitAPI.onDidOpenRepository((e) => this._onDidOpenRepository.fire(e)))
     this._disposables.push(this._gitAPI.onDidChangeState((e) => this._onDidChangeState.fire(e)))
-    // this._disposables.push(this._gitAPI.onDidPublish((e) => this._onDidPublish.fire(e)))
   }
 
   static async init(): Promise<GitProvider | undefined> {
@@ -57,15 +53,6 @@ export class GitProvider implements IGitProvider {
     }
     return undefined
   }
-
-  //   registerPostCommitCommandsProvider?(provider: any): vscode.Disposable {
-  //     if (this._gitAPI.registerPostCommitCommandsProvider) {
-  //       return this._gitAPI.registerPostCommitCommandsProvider(provider)
-  //     }
-  //     return {
-  //       dispose: () => {},
-  //     }
-  //   }
 
   dispose() {
     this._disposables.forEach((disposable) => disposable.dispose())

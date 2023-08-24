@@ -1,6 +1,5 @@
 import * as vscode from 'vscode'
 import { CommandType, wrapCommandWithCatch } from './common/utils'
-import { signIn } from './commands'
 import Logger from './common/logger'
 import { initializeApi } from './api'
 import { GitProvider } from './git/GitProvider'
@@ -8,6 +7,8 @@ import { RepositoryManager } from './git/RepositoryManager'
 import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
 import { StatusBar } from './views/StatusBar'
 import { ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
+import { Config } from './common/config'
+import { AuthUriHandler, signIn } from './auth'
 
 /**
  * Helper function to register all extension commands
@@ -16,8 +17,9 @@ import { ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollecti
 const registerCommands = async (context: vscode.ExtensionContext, repositoryManager: RepositoryManager) => {
   const commands: Record<string, CommandType> = {
     'codacy.signIn': signIn,
+    'codacy.signOut': () => Config.storeApiToken(undefined),
     'pr.load': () => repositoryManager.loadPullRequest(),
-    'pr.refresh': () => repositoryManager.pullRequest?.refresh(), ///refreshPullRequest(),
+    'pr.refresh': () => repositoryManager.pullRequest?.refresh(),
   }
 
   Object.keys(commands).forEach((cmd) => {
@@ -53,10 +55,6 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
       }
     })
 
-    // git.onDidPublish((event) => {
-    //   Logger.appendLine(`Git publish event: ${event.branch}`)
-    // })
-
     context.subscriptions.push(git)
 
     return git
@@ -70,6 +68,8 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+
+  Config.init(context)
 
   initializeApi()
 
@@ -85,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // add views
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
   context.subscriptions.push(new StatusBar(context, repositoryManager))
+  context.subscriptions.push(AuthUriHandler.register())
 }
 
 // This method is called when your extension is deactivated
