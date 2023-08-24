@@ -151,8 +151,41 @@ export class PullRequest {
     } while (nextCursor && this._files.length < MAX_IN_MEMORY_ITEMS)
   }
 
+  private showAnalysisNotification() {
+    if (this.analysis.isUpToStandards) {
+      if (
+        (this.analysis.newIssues || 0) > 0 ||
+        (this.analysis.deltaClonesCount || 0) > 0 ||
+        (this.analysis.deltaComplexity || 0) > 0 ||
+        (this.analysis.coverage?.deltaCoverage !== undefined && this.analysis.coverage?.deltaCoverage < -0.05) ||
+        (this.analysis.coverage?.diffCoverage?.value !== undefined && this.analysis.coverage?.diffCoverage?.value < 50)
+      ) {
+        vscode.window
+          .showWarningMessage(
+            `Your pull request is up to standards! Check how to improve your code even more`,
+            'Show results'
+          )
+          .then((value) => {
+            if (value === 'Show results') {
+              vscode.commands.executeCommand('pr.openSummary')
+            }
+          })
+      } else {
+        vscode.window.showInformationMessage(`Your pull request is up to standards!`)
+      }
+    } else {
+      vscode.window.showWarningMessage('Your pull request is not up to standards', 'Show problems').then((value) => {
+        if (value === 'Show problems') {
+          vscode.commands.executeCommand('pr.openSummary')
+        }
+      })
+    }
+  }
+
   public async refresh(avoidMetadataFetch = false) {
     const fetch = async () => {
+      const wasAnalysing = this.analysis.isAnalysing
+
       if (!avoidMetadataFetch) await this.fetchMetadata()
 
       await this.fetchQualityGates()
@@ -170,6 +203,9 @@ export class PullRequest {
       ) {
         this._refreshTimeout && clearTimeout(this._refreshTimeout)
         this._refreshTimeout = setTimeout(() => this.refresh(), PR_REFRESH_TIME)
+      } else if (wasAnalysing) {
+        // PR has new results, show a notification depending on them
+        this.showAnalysisNotification()
       }
     }
 
