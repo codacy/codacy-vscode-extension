@@ -7,9 +7,10 @@ import {
 } from '../api/client'
 import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
 import { Api } from '../api'
-import Logger from '../common/logger'
 
 const MAX_IN_MEMORY_ITEMS = 300
+
+const PR_REFRESH_TIME = 1 * 60 * 1000
 
 export interface PullRequestIssue extends CommitDeltaIssue {
   uri?: vscode.Uri
@@ -31,6 +32,8 @@ export class PullRequest {
 
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
+
+  private _refreshTimeout: NodeJS.Timeout | undefined
 
   constructor(
     prWithAnalysis: PullRequestWithAnalysis,
@@ -158,7 +161,16 @@ export class PullRequest {
 
       // all done, trigger the pull request update
       this._onDidUpdatePullRequest.fire(this)
-      Logger.appendLine(`Updated pull request: ${JSON.stringify(this._prWithAnalysis)}`)
+
+      // if the PR is still analysing, or...
+      // if commit heads don't match, and everything was pushed, try again
+      if (
+        this.analysis.isAnalysing ||
+        (this._headCommit !== this._repositoryManager.head?.commit && this._repositoryManager.head?.ahead === 0)
+      ) {
+        this._refreshTimeout && clearTimeout(this._refreshTimeout)
+        this._refreshTimeout = setTimeout(() => this.refresh(), PR_REFRESH_TIME)
+      }
     }
 
     vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, fetch)
@@ -169,7 +181,11 @@ export class PullRequest {
   }
 
   get meta() {
-    return this._prWithAnalysis.pullRequest
+    return {
+      ...this._prWithAnalysis.pullRequest,
+      headCommitSHA: this._headCommit,
+      commonAncestorCommitSHA: this._baseCommit,
+    }
   }
 
   get gates() {

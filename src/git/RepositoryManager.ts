@@ -23,11 +23,16 @@ export enum PullRequestState {
 const RM_STATE_CONTEXT_KEY = 'Codacy:RepositoryManagerStateContext'
 const PR_STATE_CONTEXT_KEY = 'Codacy:PullRequestStateContext'
 
+const LOAD_RETRY_TIME = 2 * 60 * 1000
+const MAX_LOAD_ATTEMPTS = 5
+
 export class RepositoryManager implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: Repository | undefined
-  private _pullRequest: PullRequest | undefined
   private _state: RepositoryManagerState = RepositoryManagerState.Initializing
+
+  private _branch: string | undefined
+  private _pullRequest: PullRequest | undefined
   private _prState: PullRequestState = PullRequestState.NoPullRequest
 
   private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
@@ -36,33 +41,41 @@ export class RepositoryManager implements vscode.Disposable {
   private _onDidLoadRepository = new vscode.EventEmitter<Repository>()
   readonly onDidLoadRepository: vscode.Event<Repository> = this._onDidLoadRepository.event
 
-  private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
-  readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
+  private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest | undefined>()
+  readonly onDidUpdatePullRequest: vscode.Event<PullRequest | undefined> = this._onDidUpdatePullRequest.event
+
+  private _loadAttempts = 0
+  private _loadTimeout: NodeJS.Timeout | undefined
+  private _refreshTimeout: NodeJS.Timeout | undefined
+
+  private _disposables: vscode.Disposable[] = []
 
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
     vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, this._prState)
   }
 
-  public async open(repository: GitRepository) {
+  public async open(gitRepository: GitRepository) {
     const openRepository = async () => {
-      this._current = repository
+      this._current = gitRepository
 
       try {
-        if (repository.state.HEAD === undefined) {
+        if (gitRepository.state.HEAD === undefined) {
           this.state = RepositoryManagerState.Initializing
         } else {
-          if (!repository.state.remotes[0]?.pushUrl) {
+          if (!gitRepository.state.remotes[0]?.pushUrl) {
             this.state = RepositoryManagerState.NoRemote
             Logger.error('No remote found')
             return
           }
 
-          const repo = parseGitRemote(repository.state.remotes[0].pushUrl)
+          const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
           const { data } = await Api.Repository.getRepository(repo.provider, repo.organization, repo.repository)
 
           this._repository = data
           this._onDidLoadRepository.fire(data)
+
+          this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
 
           this.state = RepositoryManagerState.Loaded
 
@@ -79,17 +92,59 @@ export class RepositoryManager implements vscode.Disposable {
       }
     }
 
-    vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, openRepository)
+    if (this._current !== gitRepository) {
+      vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, openRepository)
+    }
+  }
+
+  private handleStateChange() {
+    // check if the branch changed
+    if (this._current?.state.HEAD?.name !== this._branch) {
+      Logger.appendLine(`Branch changed: ${this._current?.state.HEAD?.name}, looking for pull request...`)
+
+      // update the branch
+      this._branch = this._current?.state.HEAD?.name
+
+      // clean up the pull request
+      this._pullRequest = undefined
+      this._onDidUpdatePullRequest.fire(undefined)
+      this.prState = PullRequestState.NoPullRequest
+
+      // trigger the pull request load
+      this.loadPullRequest()
+    }
+
+    // check if the user commit changes to the current branch
+    else if (
+      this._pullRequest &&
+      this._prState === PullRequestState.Loaded &&
+      this._current?.state.HEAD?.commit !== this._pullRequest.meta.headCommitSHA &&
+      this._current?.state.HEAD?.ahead === 0
+    ) {
+      // trigger a delayed refresh
+      this._refreshTimeout && clearTimeout(this._refreshTimeout)
+      this._refreshTimeout = setTimeout(() => {
+        Logger.appendLine(`Pushed all local commits, refreshing pull request...`)
+        this._pullRequest?.refresh()
+      }, 10000 /* 10 sec */)
+    }
   }
 
   public async loadPullRequest() {
+    this._loadTimeout && clearTimeout(this._loadTimeout)
     if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
 
     const repo = this._repository
-    const currentBranch = this._current?.state.HEAD?.name
+    const currentBranch = this._branch
 
     if (!currentBranch) {
       Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state)}`)
+      this.prState = PullRequestState.NoPullRequest
+      return
+    }
+
+    if (currentBranch === repo.defaultBranch?.name) {
+      Logger.appendLine(`Current branch is the default branch: ${currentBranch}`)
       this.prState = PullRequestState.NoPullRequest
       return
     }
@@ -104,6 +159,14 @@ export class RepositoryManager implements vscode.Disposable {
         if (!pr) {
           Logger.appendLine(`No PR found in Codacy for: ${currentBranch}`)
           this.prState = PullRequestState.NoPullRequest
+
+          // try again in 2 minutes
+          if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
+            console.log(`Retrying... (${this._loadAttempts})`)
+            this._loadTimeout = setTimeout(() => this.loadPullRequest(), LOAD_RETRY_TIME)
+            this._loadAttempts++
+          }
+
           return
         }
 
@@ -118,9 +181,11 @@ export class RepositoryManager implements vscode.Disposable {
           this._onDidUpdatePullRequest.fire(this._pullRequest)
 
           // subscribe to future pull request updates
-          this._pullRequest.onDidUpdatePullRequest((pr) => {
-            this._onDidUpdatePullRequest.fire(pr)
-          })
+          this._disposables.push(
+            this._pullRequest.onDidUpdatePullRequest((pr) => {
+              this._onDidUpdatePullRequest.fire(pr)
+            })
+          )
         }
         this.prState = PullRequestState.Loaded
       } catch (e) {
@@ -154,8 +219,8 @@ export class RepositoryManager implements vscode.Disposable {
     return this._state
   }
 
-  get branch() {
-    return this._current?.state.HEAD?.name
+  get head() {
+    return this._current?.state.HEAD
   }
 
   get rootUri() {
@@ -179,5 +244,10 @@ export class RepositoryManager implements vscode.Disposable {
     }
   }
 
-  public dispose() {}
+  public dispose() {
+    this.clear()
+    this._disposables.forEach((d) => {
+      d.dispose()
+    })
+  }
 }
