@@ -10,7 +10,7 @@ import { Api } from '../api'
 
 const MAX_IN_MEMORY_ITEMS = 300
 
-const PR_REFRESH_TIME = 2 * 60 * 1000
+const PR_REFRESH_TIME = 1 * 60 * 1000
 
 export interface PullRequestIssue extends CommitDeltaIssue {
   uri?: vscode.Uri
@@ -32,6 +32,8 @@ export class PullRequest {
 
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
+
+  private _refreshTimeout: NodeJS.Timeout | undefined
 
   constructor(
     prWithAnalysis: PullRequestWithAnalysis,
@@ -160,9 +162,14 @@ export class PullRequest {
       // all done, trigger the pull request update
       this._onDidUpdatePullRequest.fire(this)
 
-      // if the PR is analysing, try again in 2 minutes
-      if (this.analysis.isAnalysing) {
-        setTimeout(() => this.refresh(), PR_REFRESH_TIME)
+      // if the PR is still analysing, or...
+      // if commit heads don't match, and everything was pushed, try again
+      if (
+        this.analysis.isAnalysing ||
+        (this._headCommit !== this._repositoryManager.head?.commit && this._repositoryManager.head?.ahead === 0)
+      ) {
+        this._refreshTimeout && clearTimeout(this._refreshTimeout)
+        this._refreshTimeout = setTimeout(() => this.refresh(), PR_REFRESH_TIME)
       }
     }
 
@@ -174,7 +181,11 @@ export class PullRequest {
   }
 
   get meta() {
-    return this._prWithAnalysis.pullRequest
+    return {
+      ...this._prWithAnalysis.pullRequest,
+      headCommitSHA: this._headCommit,
+      commonAncestorCommitSHA: this._baseCommit,
+    }
   }
 
   get gates() {

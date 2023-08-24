@@ -24,6 +24,7 @@ const RM_STATE_CONTEXT_KEY = 'Codacy:RepositoryManagerStateContext'
 const PR_STATE_CONTEXT_KEY = 'Codacy:PullRequestStateContext'
 
 const LOAD_RETRY_TIME = 2 * 60 * 1000
+const MAX_LOAD_ATTEMPTS = 5
 
 export class RepositoryManager implements vscode.Disposable {
   private _current: GitRepository | undefined
@@ -45,6 +46,7 @@ export class RepositoryManager implements vscode.Disposable {
 
   private _loadAttempts = 0
   private _loadTimeout: NodeJS.Timeout | undefined
+  private _refreshTimeout: NodeJS.Timeout | undefined
 
   private _disposables: vscode.Disposable[] = []
 
@@ -98,6 +100,8 @@ export class RepositoryManager implements vscode.Disposable {
   private handleStateChange() {
     // check if the branch changed
     if (this._current?.state.HEAD?.name !== this._branch) {
+      Logger.appendLine(`Branch changed: ${this._current?.state.HEAD?.name}, looking for pull request...`)
+
       // update the branch
       this._branch = this._current?.state.HEAD?.name
 
@@ -108,6 +112,21 @@ export class RepositoryManager implements vscode.Disposable {
 
       // trigger the pull request load
       this.loadPullRequest()
+    }
+
+    // check if the user commit changes to the current branch
+    else if (
+      this._pullRequest &&
+      this._prState === PullRequestState.Loaded &&
+      this._current?.state.HEAD?.commit !== this._pullRequest.meta.headCommitSHA &&
+      this._current?.state.HEAD?.ahead === 0
+    ) {
+      // trigger a delayed refresh
+      this._refreshTimeout && clearTimeout(this._refreshTimeout)
+      this._refreshTimeout = setTimeout(() => {
+        Logger.appendLine(`Pushed all local commits, refreshing pull request...`)
+        this._pullRequest?.refresh()
+      }, 10000 /* 10 sec */)
     }
   }
 
@@ -142,7 +161,7 @@ export class RepositoryManager implements vscode.Disposable {
           this.prState = PullRequestState.NoPullRequest
 
           // try again in 2 minutes
-          if (this._loadAttempts < 5) {
+          if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
             console.log(`Retrying... (${this._loadAttempts})`)
             this._loadTimeout = setTimeout(() => this.loadPullRequest(), LOAD_RETRY_TIME)
             this._loadAttempts++
@@ -200,8 +219,8 @@ export class RepositoryManager implements vscode.Disposable {
     return this._state
   }
 
-  get branch() {
-    return this._current?.state.HEAD?.name
+  get head() {
+    return this._current?.state.HEAD
   }
 
   get rootUri() {
