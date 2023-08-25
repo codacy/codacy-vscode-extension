@@ -16,7 +16,7 @@ const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Err
   }
 }
 
-export class ProblemsDiagnosticCollection {
+export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
   private _pr: PullRequest | undefined
 
@@ -71,4 +71,6 @@ export class ProblemsDiagnosticCollection {
   public clear() {
     this._collection.clear()
   }
+
+  public dispose() {}
 }

@@ -84,9 +84,7 @@ export class RepositoryManager implements vscode.Disposable {
           this.loadPullRequest()
         }
       } catch (e) {
-        const apiToken = await Config.getApiToken()
-
-        if (e instanceof CoreApiError && !apiToken) {
+        if (e instanceof CoreApiError && !Config.apiToken) {
           this.state = RepositoryManagerState.NeedsAuthentication
         } else {
           handleError(e as Error)
@@ -95,8 +93,7 @@ export class RepositoryManager implements vscode.Disposable {
       }
     }
 
-    const apiToken = await Config.getApiToken()
-    if (!apiToken) {
+    if (!Config.apiToken) {
       this.state = RepositoryManagerState.NeedsAuthentication
       return
     }
@@ -144,16 +141,16 @@ export class RepositoryManager implements vscode.Disposable {
     if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
 
     const repo = this._repository
-    const currentBranch = this._branch
+    this._branch = this._current?.state.HEAD?.name
 
-    if (!currentBranch) {
-      Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state)}`)
+    if (!this._branch) {
+      Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state.HEAD)}`)
       this.prState = PullRequestState.NoPullRequest
       return
     }
 
-    if (currentBranch === repo.defaultBranch?.name) {
-      Logger.appendLine(`Current branch is the default branch: ${currentBranch}`)
+    if (this._branch === repo.defaultBranch?.name) {
+      Logger.appendLine(`Current branch is the default branch: ${this._branch}`)
       this.prState = PullRequestState.NoPullRequest
       return
     }
@@ -163,15 +160,14 @@ export class RepositoryManager implements vscode.Disposable {
         // look for the pull request in the repository
         const { data: prs } = await Api.Analysis.listRepositoryPullRequests(repo.provider, repo.owner, repo.name, 100)
 
-        const pr = prs.find((pr) => pr.pullRequest.originBranch === currentBranch)
+        const pr = prs.find((pr) => pr.pullRequest.originBranch === this._branch)
 
         if (!pr) {
-          Logger.appendLine(`No PR found in Codacy for: ${currentBranch}`)
+          Logger.appendLine(`No PR found in Codacy for: ${this._branch}`)
           this.prState = PullRequestState.NoPullRequest
 
           // try again in 2 minutes
           if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
-            console.log(`Retrying... (${this._loadAttempts})`)
             this._loadTimeout = setTimeout(() => this.loadPullRequest(), LOAD_RETRY_TIME)
             this._loadAttempts++
           }

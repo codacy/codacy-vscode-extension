@@ -24,14 +24,13 @@ import { Config } from '../common/config'
 
 export const initializeApi = () => {
   OpenAPI.BASE = `${Config.baseUri}/api/v3`
-  OpenAPI.HEADERS = async () => {
-    const token = await Config.getApiToken()
 
-    return token
-      ? {
-          'api-token': token,
-        }
-      : undefined
+  if (Config.apiToken) {
+    OpenAPI.HEADERS = {
+      'api-token': Config.apiToken,
+    }
+  } else {
+    OpenAPI.HEADERS = undefined
   }
 }
 

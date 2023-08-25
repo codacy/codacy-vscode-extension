@@ -1,8 +1,6 @@
 import * as vscode from 'vscode'
 import { Config } from './common/config'
 
-// https://app.codacy.com/login?accessUri=/account/profile
-
 export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements vscode.UriHandler {
   public handleUri(uri: vscode.Uri): void {
     this.fire(uri)

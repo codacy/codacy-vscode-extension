@@ -74,18 +74,36 @@ export async function activate(context: vscode.ExtensionContext) {
   initializeApi()
 
   const repositoryManager = new RepositoryManager()
+  context.subscriptions.push(repositoryManager)
 
-  await registerGitProvider(context, repositoryManager)
+  const gitProvider = await registerGitProvider(context, repositoryManager)
+
+  if (!gitProvider) {
+    Logger.error('Native Git VSCode extension not found')
+    return
+  }
+
+  context.subscriptions.push(gitProvider)
 
   await registerCommands(context, repositoryManager)
 
   // initialize the problems diagnostic collection
-  new ProblemsDiagnosticCollection(repositoryManager)
+  context.subscriptions.push(new ProblemsDiagnosticCollection(repositoryManager))
 
   // add views
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
   context.subscriptions.push(new StatusBar(context, repositoryManager))
   context.subscriptions.push(AuthUriHandler.register())
+
+  // listen for configuration changes
+  context.subscriptions.push(
+    Config.onDidConfigChange(() => {
+      initializeApi()
+      if (gitProvider?.repositories.length) {
+        repositoryManager.open(gitProvider.repositories[0])
+      }
+    })
+  )
 }
 
 // This method is called when your extension is deactivated
