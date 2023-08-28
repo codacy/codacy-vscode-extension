@@ -1,4 +1,3 @@
-import * as vscode from 'vscode'
 import {
   AccountService,
   AdminService,
@@ -21,17 +20,17 @@ import {
   ToolsService,
   VersionService,
 } from './client'
+import { Config } from '../common/config'
 
 export const initializeApi = () => {
-  OpenAPI.HEADERS = async () => {
-    const wsConfig = vscode.workspace.getConfiguration('codacy')
-    const token = wsConfig.get<string>('apiToken')
+  OpenAPI.BASE = `${Config.baseUri}/api/v3`
 
-    return token
-      ? {
-          'api-token': token,
-        }
-      : undefined
+  if (Config.apiToken) {
+    OpenAPI.HEADERS = {
+      'api-token': Config.apiToken,
+    }
+  } else {
+    OpenAPI.HEADERS = undefined
   }
 }
 
