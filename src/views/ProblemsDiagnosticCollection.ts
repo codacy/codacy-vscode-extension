@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { groupBy, startCase } from 'lodash'
 import { RepositoryManager } from '../git/RepositoryManager'
 import { PullRequest, PullRequestIssue } from '../git/PullRequest'
+import { GitProvider } from '../git/GitProvider'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -57,6 +58,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         this.clear()
       }
     })
+
+    GitProvider.instance?.onDidChangeTextDocument((e) => {
+      this.updatePositions(e.document)
+    })
   }
 
   public load(issues: PullRequestIssue[]) {
@@ -72,6 +77,40 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       const diagnostics = issues.map((issue) => new IssueDiagnostic(issue))
       this._collection.set(vscode.Uri.file(`${baseUri}/${filePath}`), diagnostics)
     }
+
+    // go over opened documents and update any previous changes
+    vscode.workspace.textDocuments.forEach((document) => {
+      this.updatePositions(document)
+    })
+  }
+
+  private updatePositions(document: vscode.TextDocument) {
+    const baseUri = this._repositoryManager.rootUri?.path
+    const issues =
+      this._pr?.issues.filter((issue) => `${baseUri}/${issue.commitIssue.filePath}` === document.uri.fsPath) || []
+
+    const documentLines = document.getText().split('\n')
+
+    this._collection.delete(document.uri)
+    const newDiagnostics: IssueDiagnostic[] = []
+
+    issues.forEach((issue) => {
+      if (documentLines[issue.commitIssue.lineNumber - 1] === issue.commitIssue.lineText) {
+        // nothing changed
+        newDiagnostics.push(new IssueDiagnostic(issue))
+      } else {
+        const foundInLine = documentLines.findIndex((line) => line.trim() === issue.commitIssue.lineText.trim())
+
+        // add the issue updating the line
+        if (foundInLine >= 0) {
+          newDiagnostics.push(
+            new IssueDiagnostic({ ...issue, commitIssue: { ...issue.commitIssue, lineNumber: foundInLine + 1 } })
+          )
+        }
+      }
+    })
+
+    this._collection.set(document.uri, newDiagnostics)
   }
 
   public clear() {

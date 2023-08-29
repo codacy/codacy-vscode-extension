@@ -11,6 +11,8 @@ export interface IGitProvider extends vscode.Disposable {
 }
 
 export class GitProvider implements IGitProvider {
+  private static _instance: GitProvider | undefined
+
   get repositories(): Repository[] {
     return this._gitAPI.repositories
   }
@@ -26,6 +28,9 @@ export class GitProvider implements IGitProvider {
   private _onDidChangeState = new vscode.EventEmitter<APIState>()
   readonly onDidChangeState: vscode.Event<APIState> = this._onDidChangeState.event
 
+  private _onDidChangeTextDocument = new vscode.EventEmitter<vscode.TextDocumentChangeEvent>()
+  readonly onDidChangeTextDocument: vscode.Event<vscode.TextDocumentChangeEvent> = this._onDidChangeTextDocument.event
+
   private _gitAPI: GitAPI
   private _disposables: vscode.Disposable[]
 
@@ -40,21 +45,39 @@ export class GitProvider implements IGitProvider {
     }
 
     this._disposables = []
+
     this._disposables.push(this._gitAPI.onDidCloseRepository((e) => this._onDidCloseRepository.fire(e)))
     this._disposables.push(this._gitAPI.onDidOpenRepository((e) => this._onDidOpenRepository.fire(e)))
     this._disposables.push(this._gitAPI.onDidChangeState((e) => this._onDidChangeState.fire(e)))
+    this._disposables.push(
+      vscode.workspace.onDidChangeTextDocument((e) => {
+        if (e.document.uri.fsPath.startsWith('/')) this._onDidChangeTextDocument.fire(e)
+      })
+    )
+    this._disposables.push(
+      vscode.workspace.onDidOpenTextDocument((e) => {
+        if (e.uri.fsPath.startsWith('/'))
+          this._onDidChangeTextDocument.fire({ document: e, contentChanges: [], reason: undefined })
+      })
+    )
   }
 
   static async init(): Promise<GitProvider | undefined> {
     const extension = vscode.extensions.getExtension<GitExtension>('vscode.git')
     if (extension) {
       await extension.activate()
-      return new GitProvider(extension)
+      this._instance = new GitProvider(extension)
+
+      return this._instance
     }
     return undefined
   }
 
   dispose() {
     this._disposables.forEach((disposable) => disposable.dispose())
+  }
+
+  static get instance() {
+    return this._instance
   }
 }
