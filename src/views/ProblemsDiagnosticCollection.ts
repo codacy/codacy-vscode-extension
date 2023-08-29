@@ -16,6 +16,33 @@ const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Err
   }
 }
 
+export class IssueDiagnostic extends vscode.Diagnostic {
+  constructor(readonly issue: PullRequestIssue) {
+    const line = issue.commitIssue.lineNumber - 1
+
+    // initial column = amount of blank spaces at the beginning of the line
+    const startCol = issue.commitIssue.lineText.match(/^(\s*)/)?.[1].length || 0
+    const endCol = startCol + issue.commitIssue.lineText.trim().length
+
+    const message = `[${startCase(issue.commitIssue.patternInfo.category)}${
+      issue.commitIssue.patternInfo.subCategory ? ` - ${startCase(issue.commitIssue.patternInfo.subCategory)}` : ''
+    }] ${issue.commitIssue.message}`
+    const severity = patternSeverityToDiagnosticSeverity(issue.commitIssue.patternInfo.severityLevel)
+
+    const range = new vscode.Range(line, startCol, line, endCol)
+
+    super(range, message, severity)
+
+    this.source = `Codacy [${issue.commitIssue.toolInfo.name.replace('Codacy ', '')}]`
+    this.code = issue.uri
+      ? {
+          value: issue.commitIssue.patternInfo.id,
+          target: issue.uri,
+        }
+      : undefined
+  }
+}
+
 export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
   private _pr: PullRequest | undefined
@@ -42,28 +69,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
     // create diagnostics for each file
     for (const [filePath, issues] of Object.entries(issuesByFile)) {
-      const diagnostics = issues.map((issue) => {
-        const line = issue.commitIssue.lineNumber - 1
-        const column = 0
-        const message = `[${startCase(issue.commitIssue.patternInfo.category)}${
-          issue.commitIssue.patternInfo.subCategory ? ` - ${startCase(issue.commitIssue.patternInfo.subCategory)}` : ''
-        }] ${issue.commitIssue.message}`
-        const severity = patternSeverityToDiagnosticSeverity(issue.commitIssue.patternInfo.severityLevel)
-
-        const range = new vscode.Range(line, column, line, column + 300)
-
-        const diagnostic = new vscode.Diagnostic(range, message, severity)
-        diagnostic.source = `Codacy [${issue.commitIssue.toolInfo.name.replace('Codacy ', '')}]`
-        diagnostic.code = issue.uri
-          ? {
-              value: issue.commitIssue.patternInfo.id,
-              target: issue.uri,
-            }
-          : undefined
-
-        return diagnostic
-      })
-
+      const diagnostics = issues.map((issue) => new IssueDiagnostic(issue))
       this._collection.set(vscode.Uri.file(`${baseUri}/${filePath}`), diagnostics)
     }
   }
@@ -73,4 +79,30 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   public dispose() {}
+}
+
+/**
+ * Custom Code Action Provider to provide quick fixes for Codacy issues
+ */
+export class IssueActionProvider implements vscode.CodeActionProvider {
+  provideCodeActions(
+    document: vscode.TextDocument,
+    range: vscode.Range | vscode.Selection,
+    context: vscode.CodeActionContext
+  ): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
+    const diagnostics = context.diagnostics.filter(
+      (diagnostic) => diagnostic.source?.startsWith('Codacy') && diagnostic.range.contains(range)
+    ) as IssueDiagnostic[]
+
+    return diagnostics
+      .filter((d) => !!d.issue.commitIssue.suggestion)
+      .map((d) => {
+        const action = new vscode.CodeAction('Apply Codacy suggested fix', vscode.CodeActionKind.QuickFix)
+        action.edit = new vscode.WorkspaceEdit()
+        action.edit.replace(document.uri, d.range, d.issue.commitIssue.suggestion!.trim())
+        action.diagnostics = [d]
+        action.isPreferred = true
+        return action
+      })
+  }
 }

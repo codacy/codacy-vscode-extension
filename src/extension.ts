@@ -6,7 +6,7 @@ import { GitProvider } from './git/GitProvider'
 import { RepositoryManager } from './git/RepositoryManager'
 import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
 import { StatusBar } from './views/StatusBar'
-import { ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
+import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 import { Config } from './common/config'
 import { AuthUriHandler, signIn } from './auth'
 
@@ -94,6 +94,8 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
   context.subscriptions.push(new StatusBar(context, repositoryManager))
   context.subscriptions.push(AuthUriHandler.register())
+
+  context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
 
   // listen for configuration changes
   context.subscriptions.push(
