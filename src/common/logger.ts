@@ -49,6 +49,10 @@ class Log {
   public dispose() {
     this._outputChannel.dispose()
   }
+
+  public get outputChannel() {
+    return this._outputChannel
+  }
 }
 
 const Logger = new Log()
