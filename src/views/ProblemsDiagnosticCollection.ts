@@ -95,7 +95,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     const newDiagnostics: IssueDiagnostic[] = []
 
     issues.forEach((issue) => {
-      if (documentLines[issue.commitIssue.lineNumber - 1] === issue.commitIssue.lineText) {
+      if (documentLines[issue.commitIssue.lineNumber - 1].trim() === issue.commitIssue.lineText.trim()) {
         // nothing changed
         newDiagnostics.push(new IssueDiagnostic(issue))
       } else {
