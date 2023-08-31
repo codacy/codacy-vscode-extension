@@ -35,15 +35,15 @@
       "codacy-main": [
         {
           "id": "codacy:login",
-          "name": "Codacy Login",
+          "name": "Sign in to Codacy",
           "icon": "resources/icons/codacy-logo.svg",
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
         {
           "id": "codacy:statuses",
-          "name": "Codacy Statuses",
+          "name": "Status",
           "icon": "$(library)",
-          "when": "(Codacy:RepositoryManagerStateContext != NeedsAuthentication && Codacy:RepositoryManagerStateContext != Loaded) || Codacy:PullRequestStateContext != Loaded"
+          "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)"
         },
         {
           "id": "codacy:prSummary",

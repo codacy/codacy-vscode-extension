@@ -22,6 +22,6 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
 }
 
 export const signIn = async () => {
-  const uri = vscode.Uri.parse(`${Config.baseUri}/login?accessUri=/auth/vscode`)
+  const uri = vscode.Uri.parse(`${Config.baseUri}/auth/vscode`)
   await vscode.env.openExternal(uri)
 }

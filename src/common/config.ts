@@ -37,7 +37,7 @@ export class Config {
   }
 
   public static get baseUri(): string {
-    return this._instance?._wsConfig?.get('baseUri') || 'https://api.codacy.com'
+    return this._instance?._wsConfig?.get('baseUri') || 'https://app.codacy.com'
   }
 
   public static get apiToken(): string | undefined {
