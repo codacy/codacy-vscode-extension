@@ -21,11 +21,10 @@ Before diving in, there are some guidelines and steps you should follow. This `C
 
 ### Prerequisites
 
-- The latest version of [Visual Studio Code](https://code.visualstudio.com/download).
-- [Node.js](https://nodejs.org/en/download/) (we recommend using [nvm](https://github.com/nvm-sh/nvm)).
-- Install global dependencies to work on Visual Studio Code extensions:
+-  The latest version of [Visual Studio Code](https://code.visualstudio.com/download).
+-  [Node.js](https://nodejs.org/en/download/) (we recommend using [nvm](https://github.com/nvm-sh/nvm)).
+-  Install global dependencies to work on Visual Studio Code extensions:  `npm install --global @vscode/vsce`.
 
-    npm install --global @vscode/vsce
 
 ### Running the extension locally
 
