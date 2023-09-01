@@ -107,6 +107,11 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     })
   )
+
+  // check for open repository
+  if (gitProvider.repositories.length > 0) {
+    repositoryManager.open(gitProvider.repositories[0])
+  }
 }
 
 // This method is called when your extension is deactivated

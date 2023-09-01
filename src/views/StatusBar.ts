@@ -18,6 +18,14 @@ export class StatusBar {
     this._repositoryManager.onDidUpdatePullRequest(() => {
       this.update()
     })
+
+    this._repositoryManager.onDidLoadRepository(() => {
+      this.update()
+    })
+
+    this._repositoryManager.onDidChangeState(() => {
+      this.update()
+    })
   }
 
   private update() {
