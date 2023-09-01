@@ -4,7 +4,7 @@ The Codacy extension for Visual Studio Code helps you review and manage issues f
 
 [Codacy](https://www.codacy.com/) is an automated code review tool that helps your team write high-quality code by analyzing over 40 programming languages, such as PHP, JavaScript, Python, Java, and Ruby. Codacy lets you define and enforce your own quality rules, code patterns, and quality settings to prevent issues in your codebase.
 
-![Extension Screenshot](.readme/screenshot-01.png)
+![Extension Screenshot](https://github.com/codacy/codacy-vscode-extension/raw/HEAD/.readme/screenshot-01.png)
 
 ## Prerequisites
 1.  You have a [Codacy account](https://www.codacy.com/signup-codacy).
