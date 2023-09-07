@@ -133,15 +133,31 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
       (diagnostic) => diagnostic.source?.startsWith('Codacy') && diagnostic.range.contains(range)
     ) as IssueDiagnostic[]
 
-    return diagnostics
-      .filter((d) => !!d.issue.commitIssue.suggestion)
-      .map((d) => {
+    return diagnostics.flatMap((diagnostic) => {
+      const actions: vscode.CodeAction[] = []
+
+      // add fix for the issue if suggestion is present
+      if (diagnostic.issue.commitIssue.suggestion) {
         const action = new vscode.CodeAction('Apply Codacy suggested fix', vscode.CodeActionKind.QuickFix)
         action.edit = new vscode.WorkspaceEdit()
-        action.edit.replace(document.uri, d.range, d.issue.commitIssue.suggestion!.trim())
-        action.diagnostics = [d]
+        action.edit.replace(document.uri, diagnostic.range, diagnostic.issue.commitIssue.suggestion!.trim())
+        action.diagnostics = [diagnostic]
         action.isPreferred = true
-        return action
-      })
+        actions.push(action)
+      }
+
+      // add see issue details actions
+      const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix) // or Empty?
+      seeIssueDetailsAction.diagnostics = [diagnostic]
+      //seeIssueDetailsAction.isPreferred = true
+      seeIssueDetailsAction.command = {
+        command: 'codacy.issue.seeDetails',
+        title: 'See issue details',
+        arguments: [diagnostic.issue],
+      }
+      actions.push(seeIssueDetailsAction)
+
+      return actions
+    })
   }
 }

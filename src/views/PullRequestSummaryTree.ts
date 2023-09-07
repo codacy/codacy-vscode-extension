@@ -34,7 +34,7 @@ export class PullRequestSummaryTree
 
     // create a command to open the pull request summary
     this._context.subscriptions.push(
-      vscode.commands.registerCommand('pr.openSummary', () => {
+      vscode.commands.registerCommand('codacy.pr.openSummary', () => {
         this._view.reveal(this._view.selection[0])
       })
     )

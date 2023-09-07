@@ -10,7 +10,7 @@ export class StatusBar {
     private _repositoryManager: RepositoryManager
   ) {
     this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0)
-    this._statusBarItem.command = 'pr.openSummary'
+    this._statusBarItem.command = 'codacy.pr.openSummary'
     this._statusBarItem.tooltip = 'Go to Codacy Pull Request summary'
     this._statusBarItem.text = '$(issue-draft) Codacy'
     this._statusBarItem.show()

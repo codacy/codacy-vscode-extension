@@ -21,8 +21,10 @@ import {
   VersionService,
 } from './client'
 import { Config } from '../common/config'
+import { Tools } from '../codacy/Tools'
 
 export const initializeApi = () => {
+  // set up OpenAPI client
   OpenAPI.BASE = `${Config.baseUri}/api/v3`
   OpenAPI.HEADERS = async () => {
     const token = Config.apiToken
@@ -33,6 +35,9 @@ export const initializeApi = () => {
         }
       : undefined
   }
+
+  // initialize static classes
+  Tools.init()
 }
 
 export class Api {
