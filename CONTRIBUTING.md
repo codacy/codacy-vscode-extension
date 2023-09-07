@@ -30,7 +30,7 @@ If you encounter a bug, please create an issue! However, before you do so, pleas
 
 Pull requests are always welcome! Before submitting a pull request:
  
-- Ensure your code passes all tests by running `yarn test`.
+- Ensure your code passes all tests by running `npm test`.
 - If you're adding new functionality, please include tests for it.
 - If your changes require updates to the documentation, please include those changes within your pull request.
 
