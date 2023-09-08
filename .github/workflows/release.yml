@@ -44,7 +44,8 @@ jobs:
           echo "Bump to $RELEASE_VERSION"
       - name: Version Package
         run: |
-          npm version $RELEASE_VERSION
+          git status
+          npm version $RELEASE_VERSION --no-git-tag-version
           git tag -a $RELEASE_VERSION -m "$RELEASE_VERSION"
       - name: Package Extension
         run: vsce package $RELEASE_VERSION --no-git-tag-version --no-update-package-json -o "./releases/codacy-$RELEASE_VERSION.vsix" ${{ github.event.inputs.additionalFlags }}
