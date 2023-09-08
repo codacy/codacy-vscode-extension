@@ -20,6 +20,10 @@ coverage/
 # Ignore generated packages
 *.vsix
 
+# Ignore deploy job changelog
+codacy-vscode-extension-CHANGELOG.txt
+
+
 # Ignore vscode local settings
 .vscode/*
 !.vscode/tasks.json

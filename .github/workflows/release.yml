@@ -70,3 +70,14 @@ jobs:
           bodyFile: ${{ github.workspace }}-CHANGELOG.txt
           tag: ${{ env.GIT_TAG }}
           prerelease: false
+      - name: Send Slack notification
+        id: slack
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "version": "${{ env.RELEASE_VERSION }}",
+              "releaseType": "${{ github.event.inputs.releaseType }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}          

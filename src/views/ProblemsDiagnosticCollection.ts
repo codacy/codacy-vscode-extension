@@ -147,9 +147,8 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
       }
 
       // add see issue details actions
-      const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix) // or Empty?
+      const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
       seeIssueDetailsAction.diagnostics = [diagnostic]
-      //seeIssueDetailsAction.isPreferred = true
       seeIssueDetailsAction.command = {
         command: 'codacy.issue.seeDetails',
         title: 'See issue details',
