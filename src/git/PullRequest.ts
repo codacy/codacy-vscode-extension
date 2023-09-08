@@ -167,7 +167,7 @@ export class PullRequest {
           )
           .then((value) => {
             if (value === 'Show results') {
-              vscode.commands.executeCommand('pr.openSummary')
+              vscode.commands.executeCommand('codacy.pr.openSummary')
             }
           })
       } else {
@@ -176,7 +176,7 @@ export class PullRequest {
     } else {
       vscode.window.showWarningMessage('Your pull request is not up to standards', 'Show problems').then((value) => {
         if (value === 'Show problems') {
-          vscode.commands.executeCommand('pr.openSummary')
+          vscode.commands.executeCommand('codacy.pr.openSummary')
         }
       })
     }

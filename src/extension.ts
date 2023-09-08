@@ -9,6 +9,7 @@ import { StatusBar } from './views/StatusBar'
 import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 import { Config } from './common/config'
 import { AuthUriHandler, signIn } from './auth'
+import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
 
 /**
  * Helper function to register all extension commands
@@ -18,9 +19,10 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
   const commands: Record<string, CommandType> = {
     'codacy.signIn': signIn,
     'codacy.signOut': () => Config.storeApiToken(undefined),
-    'pr.load': () => repositoryManager.loadPullRequest(),
-    'pr.refresh': () => repositoryManager.pullRequest?.refresh(),
+    'codacy.pr.load': () => repositoryManager.loadPullRequest(),
+    'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
+    'codacy.issue.seeDetails': seeIssueDetailsCommand,
   }
 
   Object.keys(commands).forEach((cmd) => {
@@ -97,6 +99,10 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(AuthUriHandler.register())
 
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
+
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider('codacyIssue', new IssueDetailsProvider())
+  )
 
   // listen for configuration changes
   context.subscriptions.push(
