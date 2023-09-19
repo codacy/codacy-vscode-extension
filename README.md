@@ -36,4 +36,4 @@ If you're having trouble using the Codacy extension for VS Code, see below to tr
 
 ### <span class="skip-vale">Could not</span> find repository
 
-If you see this error, confirm that the repository has been [added to Codacy Cloud](../organizations/managing-repositories.md#adding-a-repository) and that you have at least [Repository Read permissions](../organizations/roles-and-permissions-for-organizations.md).
+If you see this error, confirm that the repository has been [added to Codacy Cloud](https://docs.codacy.com/organizations/managing-repositories/#adding-a-repository) and that you have at least [Repository Read permissions](https://docs.codacy.com/organizations/roles-and-permissions-for-organizations/).
