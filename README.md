@@ -29,3 +29,11 @@ For detailed information on how to use this extension, please refer to the [offi
 We welcome all contributions, from small bug fixes to large features.
 
 For information on how to contribute to this project, please refer to the [contributing guidelines](https://github.com/codacy/codacy-vscode-extension/blob/main/CONTRIBUTING.md).
+
+## Troubleshooting
+
+If you're having trouble using the Codacy extension for VS Code, see below to troubleshoot errors.
+
+### <span class="skip-vale">Could not</span> find repository
+
+If you see this error, confirm that the repository has been [added to Codacy Cloud](../organizations/managing-repositories.md#adding-a-repository) and that you have at least [Repository Read permissions](../organizations/roles-and-permissions-for-organizations.md).
