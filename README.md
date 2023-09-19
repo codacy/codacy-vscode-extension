@@ -1,6 +1,6 @@
-# Codacy Visual Studio Code Extension
+# Codacy Visual Studio Code extension
 
-The Codacy extension for Visual Studio Code helps you review and manage issues found by Codacy by notifying you whether a pull request is up to standards, highlighting problematic code patterns, and displaying code quality metrics directly within Visual Studio Code.
+The Codacy extension for Visual Studio Code helps you review and manage the issues found by Codacy directly within Visual Studio Code. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
 
 ![Codacy VS Code Extension Screenshot](https://github.com/codacy/codacy-vscode-extension/raw/HEAD/.readme/screenshot-01.png)
 
