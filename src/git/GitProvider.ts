@@ -66,9 +66,9 @@ export class GitProvider implements IGitProvider {
     const extension = vscode.extensions.getExtension<GitExtension>('vscode.git')
     if (extension) {
       await extension.activate()
-      this._instance = new GitProvider(extension)
+      GitProvider._instance = new GitProvider(extension)
 
-      return this._instance
+      return GitProvider._instance
     }
     return undefined
   }
@@ -78,6 +78,6 @@ export class GitProvider implements IGitProvider {
   }
 
   static get instance() {
-    return this._instance
+    return GitProvider._instance
   }
 }
