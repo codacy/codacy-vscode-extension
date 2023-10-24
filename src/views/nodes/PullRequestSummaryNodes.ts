@@ -1,5 +1,7 @@
 import * as vscode from 'vscode'
 import { PullRequest, PullRequestFile } from '../../git/PullRequest'
+import { SEVERITY_LEVEL_MAP, REASON_MAP } from '../../common/glossary'
+import { KNOWN_REASONS, Reason } from '../../common/types'
 
 export class PullRequestSummaryNode extends vscode.TreeItem {
   constructor(label: string, icon?: string, collapsibleState?: vscode.TreeItemCollapsibleState) {
@@ -32,46 +34,23 @@ export class PullRequestInformationNode extends PullRequestSummaryNode {
   }
 
   public async getChildren(): Promise<PullRequestSummaryNode[]> {
-    const result = []
-    // quality reasons
-    // TODO: Quality doesn't have proper reasons yet, so we need to check and compare against the gates settings
-    if (this._pr.gates?.qualityGate.issueThreshold && (this._pr.analysis?.newIssues || 0) > 0) {
-      // TODO: This is a temporary solution and is buggy, bc we don't know the exact number of issues per category / severity
-      const gate = this._pr.gates?.qualityGate.issueThreshold
-      result.push(new PullRequestSummaryNode(`${gate.minimumSeverity || 'Info'} Issues > ${gate.threshold}`, 'bug'))
-    }
-
-    if (this._pr.gates?.qualityGate.securityIssueThreshold && (this._pr.analysis?.newIssues || 0) > 0) {
-      // TODO: This is a temporary solution and is buggy, bc we don't know the exact number of issues per category / severity
-      const gate = this._pr.gates?.qualityGate.securityIssueThreshold
-      result.push(new PullRequestSummaryNode(`Security issues > ${gate}`, 'shield'))
-    }
-
-    if (this._pr.gates?.qualityGate.complexityThreshold && (this._pr.analysis?.deltaComplexity || 0) > 0) {
-      const gate = this._pr.gates?.qualityGate.complexityThreshold
-      result.push(new PullRequestSummaryNode(`Complexity > ${gate}`, 'type-hierarchy'))
-    }
-
-    if (this._pr.gates?.qualityGate.duplicationThreshold && (this._pr.analysis?.deltaClonesCount || 0) > 0) {
-      const gate = this._pr.gates?.qualityGate.duplicationThreshold
-      result.push(new PullRequestSummaryNode(`Duplication > ${gate}`, 'versions'))
-    }
-
-    // coverage reasons
-    result.push(
-      ...(this._pr.analysis?.coverage?.resultReasons
-        ?.filter((r) => r.isUpToStandards === false)
-        .map((r) => new PullRequestSummaryNode(`Coverage ${r.gate} < ${r.expected}`, 'beaker')) || [])
-    )
-
-    return result
+    return [...(this._pr.analysis?.quality?.resultReasons || []), ...(this._pr.analysis?.coverage?.resultReasons || [])]
+      .filter((r) => r.isUpToStandards === false && KNOWN_REASONS.includes(r.gate as Reason))
+      .map((r) => {
+        const reason = REASON_MAP[r.gate as Reason]
+        return new PullRequestSummaryNode(
+          `${r.expectedThreshold.minimumSeverity ? `${SEVERITY_LEVEL_MAP[r.expectedThreshold.minimumSeverity]} ` : ''}${
+            reason.label
+          } ${reason.sign} ${r.expectedThreshold.threshold}`,
+          reason.icon
+        )
+      })
   }
 }
 
 export class PullRequestIssuesNode extends PullRequestSummaryNode {
   constructor(private readonly _pr: PullRequest) {
-    const { analysis } = _pr
-    super(`${analysis.newIssues || 0} new issues (${analysis.fixedIssues || 0} fixed)`, 'bug')
+    super(`${_pr.analysis.quality?.newIssues || 0} new issues (${_pr.analysis.quality?.fixedIssues || 0} fixed)`, 'bug')
 
     this.collapsibleState =
       this.childrenFiles.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
@@ -90,14 +69,13 @@ export class PullRequestIssuesNode extends PullRequestSummaryNode {
 
 export class PullRequestDuplicationNode extends PullRequestSummaryNode {
   constructor(private readonly _pr: PullRequest) {
-    const { analysis } = _pr
+    const deltaClones = _pr.analysis.quality?.deltaClonesCount
+
     super(
-      analysis.deltaClonesCount !== undefined
-        ? analysis.deltaClonesCount > 0
-          ? `${analysis.deltaClonesCount} new clones`
-          : analysis.deltaClonesCount < 0
-          ? `${analysis.deltaClonesCount * -1} fixed clones`
-          : 'No new clones'
+      deltaClones !== undefined
+        ? deltaClones !== 0
+          ? `${deltaClones} duplication ${deltaClones > 0 ? 'increase' : 'decrease'}`
+          : 'No duplication variation'
         : 'No duplication information',
       'versions'
     )
@@ -107,7 +85,7 @@ export class PullRequestDuplicationNode extends PullRequestSummaryNode {
   }
 
   get childrenFiles(): PullRequestFile[] {
-    return this._pr.files.filter((file) => !!file.quality?.deltaClonesCount && file.quality?.deltaClonesCount > 0)
+    return this._pr.files.filter((file) => !!file.quality?.deltaClonesCount /*&& file.quality?.deltaClonesCount > 0*/)
   }
 
   public async getChildren(): Promise<PullRequestFileNode[]> {
@@ -119,10 +97,12 @@ export class PullRequestDuplicationNode extends PullRequestSummaryNode {
 
 export class PullRequestComplexityNode extends PullRequestSummaryNode {
   constructor(private readonly _pr: PullRequest) {
-    const { analysis } = _pr
+    const deltaComplexity = _pr.analysis.quality?.deltaComplexity
     super(
-      analysis.deltaComplexity !== undefined
-        ? `${analysis.deltaComplexity} complexity increase`
+      deltaComplexity !== undefined
+        ? deltaComplexity !== 0
+          ? `${deltaComplexity} complexity ${deltaComplexity > 0 ? 'increase' : 'decrease'}`
+          : 'No complexity variation'
         : 'No complexity information',
       'type-hierarchy'
     )

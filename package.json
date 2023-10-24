@@ -76,7 +76,7 @@
       },
       {
         "view": "codacy:statuses",
-        "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
+        "contents": "No open pull request FOUND.\n[Try again](command:codacy.pr.load)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       }
     ],
@@ -168,7 +168,7 @@
     "pretest": "npm run compile-tests && npm run lint",
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 npm run test",
-    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/31.11.0/apiv3.yaml -o ./api-v3/api-swagger.yaml",
+    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/32.1.0/apiv3.yaml -o ./api-v3/api-swagger.yaml",
     "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios && node ./postGenerate.ts",
     "update-api": "npm run fetch-api && npm run generate-api",
     "postinstall": "npm run update-api",
