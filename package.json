@@ -50,6 +50,12 @@
           "name": "Pull request",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
           "icon": "$(git-pull-request)"
+        },
+        {
+          "id": "codacy:pullRequests",
+          "name": "Open pull requests",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded",
+          "icon": "$(git-pull-request)"
         }
       ]
     },
@@ -76,7 +82,7 @@
       },
       {
         "view": "codacy:statuses",
-        "contents": "No open pull request FOUND.\n[Try again](command:codacy.pr.load)",
+        "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       }
     ],
@@ -92,7 +98,7 @@
         "title": "Sign out from Codacy",
         "category": "Codacy commands",
         "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication"
-      },      
+      },
       {
         "command": "codacy.pr.load",
         "title": "Look for Pull Request",
@@ -203,6 +209,7 @@
   },
   "dependencies": {
     "axios": "^1.4.0",
+    "date-fns": "^2.30.0",
     "form-data": "^4.0.0",
     "lodash": "^4.17.21"
   }

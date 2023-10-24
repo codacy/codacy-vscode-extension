@@ -10,6 +10,7 @@ import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/Probl
 import { Config } from './common/config'
 import { AuthUriHandler, signIn } from './auth'
 import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
+import { PullRequestsTree } from './views/PullRequestsTree'
 
 /**
  * Helper function to register all extension commands
@@ -96,6 +97,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // add views
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
   context.subscriptions.push(new StatusBar(context, repositoryManager))
+  context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
   context.subscriptions.push(AuthUriHandler.register())
 
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))

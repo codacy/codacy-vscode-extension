@@ -7,6 +7,7 @@ import {
 } from '../api/client'
 import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
 import { Api } from '../api'
+import { getQualityStatus } from '../common/commitStatusHelper'
 
 const MAX_IN_MEMORY_ITEMS = 300
 
@@ -20,9 +21,22 @@ export interface PullRequestFile extends FileDeltaAnalysis {
   uri?: vscode.Uri
 }
 
-export class PullRequest {
-  private _prWithAnalysis: PullRequestWithAnalysis
+export class PullRequestInfo {
+  constructor(
+    protected _prWithAnalysis: PullRequestWithAnalysis,
+    private expectCoverage?: boolean
+  ) {}
 
+  get analysis() {
+    return this._prWithAnalysis
+  }
+
+  get status() {
+    return getQualityStatus(this._prWithAnalysis, !!this.expectCoverage)
+  }
+}
+
+export class PullRequest extends PullRequestInfo {
   private _headCommit: string | undefined
   private _baseCommit: string | undefined
 
@@ -39,6 +53,8 @@ export class PullRequest {
     prWithAnalysis: PullRequestWithAnalysis,
     private readonly _repositoryManager: RepositoryManager
   ) {
+    super(prWithAnalysis)
+
     this._prWithAnalysis = prWithAnalysis
     this._issues = []
     this._files = []
@@ -154,9 +170,9 @@ export class PullRequest {
   private showAnalysisNotification() {
     if (this.analysis.isUpToStandards) {
       if (
-        (this.analysis.newIssues || 0) > 0 ||
-        (this.analysis.deltaClonesCount || 0) > 0 ||
-        (this.analysis.deltaComplexity || 0) > 0 ||
+        (this.analysis.quality?.newIssues || 0) > 0 ||
+        (this.analysis.quality?.deltaClonesCount || 0) > 0 ||
+        (this.analysis.quality?.deltaComplexity || 0) > 0 ||
         (this.analysis.coverage?.deltaCoverage !== undefined && this.analysis.coverage?.deltaCoverage < -0.05) ||
         (this.analysis.coverage?.diffCoverage?.value !== undefined && this.analysis.coverage?.diffCoverage?.value < 50)
       ) {
@@ -210,10 +226,6 @@ export class PullRequest {
     }
 
     vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, fetch)
-  }
-
-  get analysis() {
-    return this._prWithAnalysis
   }
 
   get meta() {

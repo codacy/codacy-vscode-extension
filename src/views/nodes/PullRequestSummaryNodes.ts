@@ -38,10 +38,11 @@ export class PullRequestInformationNode extends PullRequestSummaryNode {
       .filter((r) => r.isUpToStandards === false && KNOWN_REASONS.includes(r.gate as Reason))
       .map((r) => {
         const reason = REASON_MAP[r.gate as Reason]
+        const minimumSeverityPrefix = r.expectedThreshold.minimumSeverity
+          ? `${SEVERITY_LEVEL_MAP[r.expectedThreshold.minimumSeverity]} `
+          : ''
         return new PullRequestSummaryNode(
-          `${r.expectedThreshold.minimumSeverity ? `${SEVERITY_LEVEL_MAP[r.expectedThreshold.minimumSeverity]} ` : ''}${
-            reason.label
-          } ${reason.sign} ${r.expectedThreshold.threshold}`,
+          `${minimumSeverityPrefix}${reason.label} ${reason.sign} ${r.expectedThreshold.threshold}`,
           reason.icon
         )
       })

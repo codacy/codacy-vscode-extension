@@ -5,7 +5,7 @@ import { parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
 import { CoreApiError, Repository } from '../api/client'
 import { handleError } from '../common/utils'
-import { PullRequest } from './PullRequest'
+import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 
 export enum RepositoryManagerState {
@@ -30,10 +30,12 @@ const MAX_LOAD_ATTEMPTS = 5
 export class RepositoryManager implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: Repository | undefined
+  private _expectCoverage: boolean | undefined
   private _state: RepositoryManagerState = RepositoryManagerState.Initializing
 
   private _branch: string | undefined
   private _pullRequest: PullRequest | undefined
+  private _pullRequests: PullRequestInfo[] = []
   private _prState: PullRequestState = PullRequestState.NoPullRequest
 
   private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
@@ -72,8 +74,12 @@ export class RepositoryManager implements vscode.Disposable {
 
           const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
           const { data } = await Api.Repository.getRepository(repo.provider, repo.organization, repo.repository)
+          const {
+            data: { hasCoverageOverview },
+          } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
 
           this._repository = data
+          this._expectCoverage = hasCoverageOverview
           this._onDidLoadRepository.fire(data)
 
           this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
@@ -160,6 +166,9 @@ export class RepositoryManager implements vscode.Disposable {
         // look for the pull request in the repository
         const { data: prs } = await Api.Analysis.listRepositoryPullRequests(repo.provider, repo.owner, repo.name, 100)
 
+        // store all pull requests
+        this._pullRequests = prs.map((pr) => new PullRequestInfo(pr, this._expectCoverage))
+
         const pr = prs.find((pr) => pr.pullRequest.originBranch === this._branch)
 
         if (!pr) {
@@ -168,7 +177,9 @@ export class RepositoryManager implements vscode.Disposable {
 
           // try again in 2 minutes
           if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
-            this._loadTimeout = setTimeout(() => this.loadPullRequest(), LOAD_RETRY_TIME)
+            this._loadTimeout = setTimeout(() => {
+              this.loadPullRequest()
+            }, LOAD_RETRY_TIME)
             this._loadAttempts++
           }
 
@@ -218,6 +229,10 @@ export class RepositoryManager implements vscode.Disposable {
 
   get pullRequest() {
     return this._pullRequest
+  }
+
+  get pullRequests() {
+    return this._pullRequests
   }
 
   get state() {
