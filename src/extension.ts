@@ -22,6 +22,7 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.signOut': () => Config.storeApiToken(undefined),
     'codacy.pr.load': () => repositoryManager.loadPullRequest(),
     'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
+    'codacy.pullRequests.refresh': () => repositoryManager.refreshPullRequests(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
   }

@@ -47,6 +47,9 @@ export class RepositoryManager implements vscode.Disposable {
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest | undefined>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest | undefined> = this._onDidUpdatePullRequest.event
 
+  private _onDidUpdatePullRequests = new vscode.EventEmitter<PullRequestInfo[] | undefined>()
+  readonly onDidUpdatePullRequests: vscode.Event<PullRequestInfo[] | undefined> = this._onDidUpdatePullRequests.event
+
   private _loadAttempts = 0
   private _loadTimeout: NodeJS.Timeout | undefined
   private _refreshTimeout: NodeJS.Timeout | undefined
@@ -86,6 +89,9 @@ export class RepositoryManager implements vscode.Disposable {
 
           this.state = RepositoryManagerState.Loaded
 
+          // trigger the pull requests load
+          this.loadPullRequests()
+
           // trigger the pull request load
           this.loadPullRequest()
         }
@@ -122,6 +128,9 @@ export class RepositoryManager implements vscode.Disposable {
       this._onDidUpdatePullRequest.fire(undefined)
       this.prState = PullRequestState.NoPullRequest
 
+      // trigger the pull requests load
+      this.refreshPullRequests()
+
       // trigger the pull request load
       this.loadPullRequest()
     }
@@ -140,6 +149,46 @@ export class RepositoryManager implements vscode.Disposable {
         this._pullRequest?.refresh()
       }, 10000 /* 10 sec */)
     }
+  }
+
+  private async getOrFetchPullRequests(forceRefresh: boolean = false) {
+    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return []
+    const repo = this._repository
+
+    if (this._pullRequests.length === 0 || forceRefresh) {
+      try {
+        Logger.appendLine(`Fetching pull requests for ${repo.provider}/${repo.owner}/${repo.name}`)
+
+        // look for the pull request in the repository
+        const { data: prs } = await Api.Analysis.listRepositoryPullRequests(repo.provider, repo.owner, repo.name, 100)
+
+        // store all pull requests
+        this._pullRequests = prs.map((pr) => new PullRequestInfo(pr, this._expectCoverage))
+        this._onDidUpdatePullRequests.fire(this._pullRequests)
+      } catch (e) {
+        handleError(e as Error)
+      }
+    }
+
+    return this._pullRequests
+  }
+
+  public async loadPullRequests() {
+    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
+
+    // we need to make this to run getOrFetchPullRequests in the context of 'this'
+    const load = async () => await this.getOrFetchPullRequests()
+
+    vscode.window.withProgress({ location: { viewId: 'codacy:pullRequests' } }, load)
+  }
+
+  public async refreshPullRequests() {
+    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
+
+    // we need to make this to run getOrFetchPullRequests in the context of 'this'
+    const load = async () => await this.getOrFetchPullRequests(true)
+
+    vscode.window.withProgress({ location: { viewId: 'codacy:pullRequests' } }, load)
   }
 
   public async loadPullRequest() {
@@ -163,13 +212,8 @@ export class RepositoryManager implements vscode.Disposable {
 
     const load = async () => {
       try {
-        // look for the pull request in the repository
-        const { data: prs } = await Api.Analysis.listRepositoryPullRequests(repo.provider, repo.owner, repo.name, 100)
-
-        // store all pull requests
-        this._pullRequests = prs.map((pr) => new PullRequestInfo(pr, this._expectCoverage))
-
-        const pr = prs.find((pr) => pr.pullRequest.originBranch === this._branch)
+        const prs = await this.getOrFetchPullRequests()
+        const pr = prs.find((pr) => pr.analysis.pullRequest.originBranch === this._branch)
 
         if (!pr) {
           Logger.appendLine(`No PR found in Codacy for: ${this._branch}`)
@@ -186,12 +230,12 @@ export class RepositoryManager implements vscode.Disposable {
           return
         }
 
-        if (pr.pullRequest.number === this._pullRequest?.meta.number) {
+        if (pr.analysis.pullRequest.number === this._pullRequest?.meta.number) {
           // PR is the same, refresh it
           this._pullRequest.refresh()
         } else {
           // PR is different, create a new one
-          this._pullRequest = new PullRequest(pr, this)
+          this._pullRequest = new PullRequest(pr.analysis, this)
 
           // trigger the pull request load
           this._onDidUpdatePullRequest.fire(this._pullRequest)

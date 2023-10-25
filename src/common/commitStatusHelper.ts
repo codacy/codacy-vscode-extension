@@ -15,6 +15,10 @@ export interface StatusProps {
   value: 'loading' | 'passed' | 'failed' | 'noInformation'
   message: string
   details?: string
+
+  // VSCODE Custom Props
+  icon?: string
+  colorId?: string
 }
 
 /** COVERAGE */
@@ -22,10 +26,10 @@ export interface StatusProps {
 const REPORTS_WAIT_TIME = 3 // hours
 
 const CoverageStatus: Record<string, StatusProps> = {
-  waiting: { value: 'loading', message: 'Pending...' },
-  passed: { value: 'passed', message: 'Up to coverage standards.' },
-  failed: { value: 'failed', message: 'Not up to coverage standards.' },
-  noCoverage: { value: 'noInformation', message: 'No information.' },
+  waiting: { value: 'loading', message: 'Pending...', icon: 'loading~spin' },
+  passed: { value: 'passed', message: 'Up to coverage standards.', icon: 'pass', colorId: 'testing.iconPassed' },
+  failed: { value: 'failed', message: 'Not up to coverage standards.', icon: 'error', colorId: 'testing.iconFailed' },
+  noCoverage: { value: 'noInformation', message: 'No information.', icon: 'circle-slash' },
 }
 
 const getCoverageStatus = (
@@ -92,10 +96,10 @@ export const getCoveragePRStatus = (data: PullRequestWithAnalysis, reports?: Cov
 /** QUALITY */
 
 const QualityStatus: Record<string, StatusProps> = {
-  waiting: { value: 'loading', message: 'Analysing...' },
-  passed: { value: 'passed', message: 'Up to quality standards.' },
-  failed: { value: 'failed', message: 'Not up to quality standards.' },
-  noInfo: { value: 'noInformation', message: 'No information.' },
+  waiting: { value: 'loading', message: 'Analysing...', icon: 'loading~spin' },
+  passed: { value: 'passed', message: 'Up to quality standards.', icon: 'pass', colorId: 'testing.iconPassed' },
+  failed: { value: 'failed', message: 'Not up to quality standards.', icon: 'error', colorId: 'testing.iconFailed' },
+  noInfo: { value: 'noInformation', message: 'No information.', icon: 'circle-slash' },
 }
 
 const getQualityStatusValue = (isWaitingForAnalysis: boolean, isAnalyzable: boolean, quality?: QualityAnalysis) => {
@@ -155,6 +159,8 @@ const getQualityCommonStatus = (
 
 export const getQualityStatus = (data: CommitWithAnalysis | PullRequestWithAnalysis, expectCoverage: boolean) =>
   'pullRequest' in data ? getQualityPRStatus(data, expectCoverage) : getQualityCommitStatus(data, expectCoverage)
+
+export type QualityStatusResponse = ReturnType<typeof getQualityStatus>
 
 export const getQualityCommitStatus = (data: CommitWithAnalysis, expectCoverage: boolean) =>
   getQualityCommonStatus(

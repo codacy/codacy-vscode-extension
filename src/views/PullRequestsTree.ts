@@ -1,35 +1,14 @@
 import * as vscode from 'vscode'
 import { RepositoryManager } from '../git/RepositoryManager'
-import { PullRequestInfo } from '../git/PullRequest'
+import { PullRequestNode } from './nodes/PullRequestNode'
+import { PullRequestSummaryNode } from './nodes'
 
-export class PullRequestNode extends vscode.TreeItem {
-  constructor(pr: PullRequestInfo) {
-    super(pr.analysis.pullRequest.title, vscode.TreeItemCollapsibleState.None)
-
-    this.iconPath = new vscode.ThemeIcon(
-      pr.analysis.isUpToStandards ? 'pass' : 'error',
-      new vscode.ThemeColor(pr.analysis.isUpToStandards ? 'testing.iconPassed' : 'testing.iconFailed')
-    )
-    this.contextValue = 'pullRequest'
-    this.description = `#${pr.analysis.pullRequest.number.toString()}`
-
-    this.tooltip = pr.status.message
-  }
-
-  get parent(): PullRequestNode | undefined {
-    return undefined
-  }
-
-  async getChildren(): Promise<PullRequestNode[]> {
-    return []
-  }
-}
-
-export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDataProvider<PullRequestNode> {
-  private _onDidChangeTreeData = new vscode.EventEmitter<PullRequestNode | void>()
+type PullRequestTreeNodeType = PullRequestNode | PullRequestSummaryNode
+export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDataProvider<PullRequestTreeNodeType> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<PullRequestTreeNodeType | void>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
   private _disposables: vscode.Disposable[] = []
-  private _view: vscode.TreeView<PullRequestNode>
+  private _view: vscode.TreeView<PullRequestTreeNodeType>
 
   constructor(
     private _context: vscode.ExtensionContext,
@@ -40,7 +19,7 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
     // create the tree view
     this._view = vscode.window.createTreeView('codacy:pullRequests', {
       treeDataProvider: this,
-      showCollapseAll: false,
+      showCollapseAll: true,
     })
 
     this._context.subscriptions.push(this._view)
@@ -53,23 +32,16 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
     )
 
     // subscribe to changes in the pull request
-    this._repositoryManager.onDidLoadRepository(() => {
-      // this._repositoryManager.onDidUpdatePullRequest((pr) => {
+    this._repositoryManager.onDidUpdatePullRequests(() => {
       this._onDidChangeTreeData.fire()
-
-      // if (pr) {
-      //   this._view.title = `Pull Request #${pr.meta.number}`
-      // } else {
-      //   this._view.title = 'Pull Request'
-      // }
     })
   }
 
-  getTreeItem(element: PullRequestNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+  getTreeItem(element: PullRequestTreeNodeType): vscode.TreeItem | Thenable<vscode.TreeItem> {
     return element
   }
 
-  async getChildren(element?: PullRequestNode | undefined) {
+  async getChildren(element?: PullRequestTreeNodeType | undefined) {
     if (!element) {
       // root
       return this._repositoryManager.pullRequests.map((pr) => {
@@ -80,7 +52,7 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
     }
   }
 
-  getParent(element: PullRequestNode): vscode.ProviderResult<PullRequestNode> {
+  getParent(element: PullRequestTreeNodeType): vscode.ProviderResult<PullRequestTreeNodeType> {
     return element.parent
   }
 

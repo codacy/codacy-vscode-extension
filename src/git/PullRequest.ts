@@ -7,7 +7,8 @@ import {
 } from '../api/client'
 import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
 import { Api } from '../api'
-import { getQualityStatus } from '../common/commitStatusHelper'
+import { QualityStatusResponse, getQualityStatus } from '../common/commitStatusHelper'
+import { Reason } from '../common/types'
 
 const MAX_IN_MEMORY_ITEMS = 300
 
@@ -22,17 +23,34 @@ export interface PullRequestFile extends FileDeltaAnalysis {
 }
 
 export class PullRequestInfo {
+  _status: QualityStatusResponse
+
   constructor(
     protected _prWithAnalysis: PullRequestWithAnalysis,
-    private expectCoverage?: boolean
-  ) {}
+    public expectCoverage?: boolean
+  ) {
+    this._status = getQualityStatus(_prWithAnalysis, !!expectCoverage)
+  }
 
   get analysis() {
     return this._prWithAnalysis
   }
 
   get status() {
-    return getQualityStatus(this._prWithAnalysis, !!this.expectCoverage)
+    return this._status
+  }
+
+  get reasons() {
+    return [...(this.analysis.quality?.resultReasons || []), ...(this.analysis.coverage?.resultReasons || [])]
+  }
+
+  public areGatesUpToStandards(gates: Reason[]): boolean | undefined {
+    const reasons = this.reasons.filter((r) => gates.includes(r.gate as Reason))
+    if (reasons.length === 0) return undefined
+    else if (reasons.some((r) => r.isUpToStandards === false)) return false
+    else if (reasons.every((r) => r.isUpToStandards === true)) return true
+
+    return undefined
   }
 }
 

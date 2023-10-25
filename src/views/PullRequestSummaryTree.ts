@@ -7,7 +7,7 @@ import {
   PullRequestInformationNode,
   PullRequestIssuesNode,
   PullRequestSummaryNode,
-} from './nodes/PullRequestSummaryNodes'
+} from './nodes'
 
 export class PullRequestSummaryTree
   extends vscode.Disposable

@@ -114,10 +114,23 @@
         "when": "Codacy:PullRequestStateContext == Loaded"
       },
       {
+        "command": "codacy.pullRequests.refresh",
+        "title": "Refresh Pull Requests",
+        "category": "Codacy commands",
+        "icon": "$(refresh)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+      },
+      {
         "command": "codacy.pr.openSummary",
         "title": "Open Pull Request Summary",
         "category": "Codacy commands",
         "when": "Codacy:PullRequestStateContext == Loaded"
+      },
+      {
+        "command": "codacy.pullRequests.open",
+        "title": "Open Pull Requests",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
       },
       {
         "command": "codacy.issue.seeDetails",
@@ -145,6 +158,11 @@
         {
           "command": "codacy.pr.refresh",
           "when": "view == codacy:prSummary",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.pullRequests.refresh",
+          "when": "view == codacy:pullRequests",
           "group": "navigation"
         }
       ]
