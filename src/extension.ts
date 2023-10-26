@@ -11,6 +11,7 @@ import { Config } from './common/config'
 import { AuthUriHandler, signIn } from './auth'
 import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
 import { PullRequestsTree } from './views/PullRequestsTree'
+import { PullRequestNode } from './views/nodes/PullRequestNode'
 
 /**
  * Helper function to register all extension commands
@@ -22,6 +23,9 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.signOut': () => Config.storeApiToken(undefined),
     'codacy.pr.load': () => repositoryManager.loadPullRequest(),
     'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
+    'codacy.pr.checkout': (node: PullRequestNode) => {
+      repositoryManager.checkout(node.pullRequest)
+    },
     'codacy.pullRequests.refresh': () => repositoryManager.refreshPullRequests(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,

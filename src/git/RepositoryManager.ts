@@ -53,6 +53,7 @@ export class RepositoryManager implements vscode.Disposable {
   private _loadAttempts = 0
   private _loadTimeout: NodeJS.Timeout | undefined
   private _refreshTimeout: NodeJS.Timeout | undefined
+  private _prsRefreshTimeout: NodeJS.Timeout | undefined
 
   private _disposables: vscode.Disposable[] = []
 
@@ -139,6 +140,7 @@ export class RepositoryManager implements vscode.Disposable {
     else if (
       this._pullRequest &&
       this._prState === PullRequestState.Loaded &&
+      this._pullRequest.meta.headCommitSHA &&
       this._current?.state.HEAD?.commit !== this._pullRequest.meta.headCommitSHA &&
       this._current?.state.HEAD?.ahead === 0
     ) {
@@ -152,6 +154,7 @@ export class RepositoryManager implements vscode.Disposable {
   }
 
   private async getOrFetchPullRequests(forceRefresh: boolean = false) {
+    this._prsRefreshTimeout && clearTimeout(this._prsRefreshTimeout)
     if (this._state !== RepositoryManagerState.Loaded || !this._repository) return []
     const repo = this._repository
 
@@ -165,6 +168,13 @@ export class RepositoryManager implements vscode.Disposable {
         // store all pull requests
         this._pullRequests = prs.map((pr) => new PullRequestInfo(pr, this._expectCoverage))
         this._onDidUpdatePullRequests.fire(this._pullRequests)
+
+        // if any of the pull requests is loading, run a refresh again in N minutes
+        if (this._pullRequests.some((pr) => pr.status.value === 'loading')) {
+          this._prsRefreshTimeout = setTimeout(() => {
+            this.refreshPullRequests()
+          }, LOAD_RETRY_TIME)
+        }
       } catch (e) {
         handleError(e as Error)
       }
@@ -254,6 +264,17 @@ export class RepositoryManager implements vscode.Disposable {
     }
 
     vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, load)
+  }
+
+  public checkout(pullRequest: PullRequestInfo) {
+    if (
+      this._current &&
+      pullRequest.analysis.pullRequest.originBranch &&
+      this._current.state.HEAD?.name !== pullRequest.analysis.pullRequest.originBranch
+    ) {
+      Logger.appendLine(`Checking out ${pullRequest.analysis.pullRequest.originBranch}`)
+      this._current.checkout(pullRequest.analysis.pullRequest.originBranch)
+    }
   }
 
   public close(repository: GitRepository) {

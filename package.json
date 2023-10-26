@@ -127,6 +127,12 @@
         "when": "Codacy:PullRequestStateContext == Loaded"
       },
       {
+        "command": "codacy.pr.checkout",
+        "title": "Checkout Pull Request",
+        "category": "Codacy commands",
+        "icon": "$(arrow-right)"
+      },
+      {
         "command": "codacy.pullRequests.open",
         "title": "Open Pull Requests",
         "category": "Codacy commands",
@@ -147,7 +153,11 @@
         {
           "command": "codacy.pr.refresh",
           "when": "Codacy:PullRequestStateContext == Loaded"
-        }
+        },
+				{
+					"command": "codacy.pr.checkout",
+					"when": "false"
+				}
       ],
       "view/title": [
         {
@@ -165,7 +175,19 @@
           "when": "view == codacy:pullRequests",
           "group": "navigation"
         }
-      ]
+      ],
+			"view/item/context": [
+				{
+					"command": "codacy.pr.checkout",
+					"when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+					"group": "pullRequest@1"
+				},
+				{
+					"command": "codacy.pr.checkout",
+					"when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+					"group": "inline"
+				}      
+      ]      
     },
     "configuration": {
       "type": "object",

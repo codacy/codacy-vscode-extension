@@ -243,7 +243,7 @@ export class PullRequest extends PullRequestInfo {
       }
     }
 
-    vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, fetch)
+    vscode.window.withProgress({ location: { viewId: 'codacy:prSummary' } }, fetch)
   }
 
   get meta() {

@@ -6,14 +6,17 @@ import { PullRequestDuplicationInfoNode } from './PullRequestDuplicationNode'
 import { PullRequestCoverageInfoNode } from './PullRequestCoverageNode'
 import { PullRequestComplexityInfoNode } from './PullRequestComplexityNode'
 import { PullRequestAuthorNode } from './PullRequestAuthorNode'
+import { PullRequestBranchNode } from './PullRequestBranchNode'
 
 export class PullRequestNode extends vscode.TreeItem {
   constructor(private readonly _pr: PullRequestInfo) {
     super(_pr.analysis.pullRequest.title, vscode.TreeItemCollapsibleState.Collapsed)
 
     this.iconPath = new vscode.ThemeIcon(
-      _pr.analysis.isUpToStandards ? 'pass' : 'error',
-      new vscode.ThemeColor(_pr.analysis.isUpToStandards ? 'testing.iconPassed' : 'testing.iconFailed')
+      _pr.status.icon || 'circle-slash',
+      ['passed', 'failed'].includes(_pr.status.value)
+        ? new vscode.ThemeColor(_pr.status.value === 'passed' ? 'testing.iconPassed' : 'testing.iconFailed')
+        : undefined
     )
     this.contextValue = 'pullRequest'
     this.description = `#${_pr.analysis.pullRequest.number.toString()}`
@@ -30,10 +33,15 @@ export class PullRequestNode extends vscode.TreeItem {
 
     return [
       authorNode,
+      new PullRequestBranchNode(this._pr),
       new PullRequestIssuesInfoNode(this._pr),
       ...(this._pr.expectCoverage ? [new PullRequestCoverageInfoNode(this._pr)] : []),
       new PullRequestDuplicationInfoNode(this._pr),
       new PullRequestComplexityInfoNode(this._pr),
     ]
+  }
+
+  get pullRequest(): PullRequestInfo {
+    return this._pr
   }
 }

@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { PullRequestInfo } from '../../git/PullRequest'
 import { PullRequestSummaryNode } from './'
 import axios from 'axios'
+import { formatDistance } from 'date-fns'
 
 export const getUserAvatar = async (url: string, width: number = 16, height: number = 16) => {
   try {
@@ -31,6 +32,11 @@ export class PullRequestAuthorNode extends vscode.TreeItem {
   constructor(_pr: PullRequestInfo, _avatarUri?: vscode.Uri) {
     const labelPosfix = _pr.analysis.pullRequest.owner.username ? ` (${_pr.analysis.pullRequest.owner.username})` : ''
     super(`By ${_pr.analysis.pullRequest.owner.name}${labelPosfix}`, vscode.TreeItemCollapsibleState.None)
+
+    const updatedTimeAgo = formatDistance(new Date(_pr.analysis.pullRequest.updated), new Date(), { addSuffix: true })
+    this.description = updatedTimeAgo
+    this.tooltip = `Opened by ${_pr.analysis.pullRequest.owner.name}; last updated ${updatedTimeAgo}`
+
     this.iconPath = _avatarUri ?? new vscode.ThemeIcon('github')
   }
 
