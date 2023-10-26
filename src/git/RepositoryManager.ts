@@ -229,7 +229,7 @@ export class RepositoryManager implements vscode.Disposable {
           Logger.appendLine(`No PR found in Codacy for: ${this._branch}`)
           this.prState = PullRequestState.NoPullRequest
 
-          // try again in 2 minutes
+          // try again in N minutes
           if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
             this._loadTimeout = setTimeout(() => {
               this.loadPullRequest()
