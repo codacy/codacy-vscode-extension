@@ -154,10 +154,10 @@
           "command": "codacy.pr.refresh",
           "when": "Codacy:PullRequestStateContext == Loaded"
         },
-				{
-					"command": "codacy.pr.checkout",
-					"when": "false"
-				}
+        {
+          "command": "codacy.pr.checkout",
+          "when": "false"
+        }
       ],
       "view/title": [
         {
@@ -176,17 +176,17 @@
           "group": "navigation"
         }
       ],
-			"view/item/context": [
-				{
-					"command": "codacy.pr.checkout",
-					"when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
-					"group": "pullRequest@1"
-				},
-				{
-					"command": "codacy.pr.checkout",
-					"when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
-					"group": "inline"
-				}      
+      "view/item/context": [
+        {
+          "command": "codacy.pr.checkout",
+          "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "pullRequest@1"
+        },
+        {
+          "command": "codacy.pr.checkout",
+          "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "inline"
+        }      
       ]      
     },
     "configuration": {
