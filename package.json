@@ -128,7 +128,7 @@
       },
       {
         "command": "codacy.pr.checkout",
-        "title": "Check Out Pull Request",
+        "title": "Checkout Pull Request",
         "category": "Codacy commands",
         "icon": "$(arrow-right)"
       },
