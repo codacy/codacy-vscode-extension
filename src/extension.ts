@@ -10,6 +10,8 @@ import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/Probl
 import { Config } from './common/config'
 import { AuthUriHandler, signIn } from './auth'
 import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
+import { PullRequestsTree } from './views/PullRequestsTree'
+import { PullRequestNode } from './views/nodes/PullRequestNode'
 
 /**
  * Helper function to register all extension commands
@@ -21,6 +23,10 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.signOut': () => Config.storeApiToken(undefined),
     'codacy.pr.load': () => repositoryManager.loadPullRequest(),
     'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
+    'codacy.pr.checkout': (node: PullRequestNode) => {
+      repositoryManager.checkout(node.pullRequest)
+    },
+    'codacy.pullRequests.refresh': () => repositoryManager.refreshPullRequests(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
   }
@@ -96,6 +102,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // add views
   context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
   context.subscriptions.push(new StatusBar(context, repositoryManager))
+  context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
   context.subscriptions.push(AuthUriHandler.register())
 
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))

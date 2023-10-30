@@ -50,6 +50,12 @@
           "name": "Pull request",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
           "icon": "$(git-pull-request)"
+        },
+        {
+          "id": "codacy:pullRequests",
+          "name": "Open pull requests",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded",
+          "icon": "$(git-pull-request)"
         }
       ]
     },
@@ -92,7 +98,7 @@
         "title": "Sign out from Codacy",
         "category": "Codacy commands",
         "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication"
-      },      
+      },
       {
         "command": "codacy.pr.load",
         "title": "Look for Pull Request",
@@ -108,10 +114,29 @@
         "when": "Codacy:PullRequestStateContext == Loaded"
       },
       {
+        "command": "codacy.pullRequests.refresh",
+        "title": "Refresh Pull Requests",
+        "category": "Codacy commands",
+        "icon": "$(refresh)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+      },
+      {
         "command": "codacy.pr.openSummary",
         "title": "Open Pull Request Summary",
         "category": "Codacy commands",
         "when": "Codacy:PullRequestStateContext == Loaded"
+      },
+      {
+        "command": "codacy.pr.checkout",
+        "title": "Checkout Pull Request",
+        "category": "Codacy commands",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "codacy.pullRequests.open",
+        "title": "Open Pull Requests",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded"
       },
       {
         "command": "codacy.issue.seeDetails",
@@ -128,6 +153,10 @@
         {
           "command": "codacy.pr.refresh",
           "when": "Codacy:PullRequestStateContext == Loaded"
+        },
+        {
+          "command": "codacy.pr.checkout",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -140,8 +169,25 @@
           "command": "codacy.pr.refresh",
           "when": "view == codacy:prSummary",
           "group": "navigation"
+        },
+        {
+          "command": "codacy.pullRequests.refresh",
+          "when": "view == codacy:pullRequests",
+          "group": "navigation"
         }
-      ]
+      ],
+      "view/item/context": [
+        {
+          "command": "codacy.pr.checkout",
+          "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "pullRequest@1"
+        },
+        {
+          "command": "codacy.pr.checkout",
+          "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "inline"
+        }      
+      ]      
     },
     "configuration": {
       "type": "object",
@@ -168,7 +214,7 @@
     "pretest": "npm run compile-tests && npm run lint",
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 npm run test",
-    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/31.11.0/apiv3.yaml -o ./api-v3/api-swagger.yaml",
+    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/32.1.0/apiv3.yaml -o ./api-v3/api-swagger.yaml",
     "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios && node ./postGenerate.ts",
     "update-api": "npm run fetch-api && npm run generate-api",
     "postinstall": "npm run update-api",
@@ -203,6 +249,7 @@
   },
   "dependencies": {
     "axios": "^1.4.0",
+    "date-fns": "^2.30.0",
     "form-data": "^4.0.0",
     "lodash": "^4.17.21"
   }
