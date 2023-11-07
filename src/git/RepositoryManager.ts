@@ -3,10 +3,11 @@ import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
 import { parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
-import { CoreApiError, Repository } from '../api/client'
+import { Branch, CoreApiError, Repository } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
+import { IssuesManager } from './IssuesManager'
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -21,8 +22,15 @@ export enum PullRequestState {
   Loaded = 'Loaded',
 }
 
+export enum BranchState {
+  OnAnalysedBranch = 'OnAnalysedBranch',
+  OnUnknownBranch = 'OnUnknownBranch',
+  OnPullRequestBranch = 'OnPullRequestBranch',
+}
+
 const RM_STATE_CONTEXT_KEY = 'Codacy:RepositoryManagerStateContext'
 const PR_STATE_CONTEXT_KEY = 'Codacy:PullRequestStateContext'
+const BR_STATE_CONTEXT_KEY = 'Codacy:BranchStateContext'
 
 const LOAD_RETRY_TIME = 2 * 60 * 1000
 const MAX_LOAD_ATTEMPTS = 5
@@ -30,6 +38,7 @@ const MAX_LOAD_ATTEMPTS = 5
 export class RepositoryManager implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: Repository | undefined
+  private _enabledBranches: Branch[] = []
   private _expectCoverage: boolean | undefined
   private _state: RepositoryManagerState = RepositoryManagerState.Initializing
 
@@ -37,6 +46,8 @@ export class RepositoryManager implements vscode.Disposable {
   private _pullRequest: PullRequest | undefined
   private _pullRequests: PullRequestInfo[] = []
   private _prState: PullRequestState = PullRequestState.NoPullRequest
+  private _branchState: BranchState = BranchState.OnUnknownBranch
+  private _issuesManager = new IssuesManager(this)
 
   private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
   readonly onDidChangeState: vscode.Event<RepositoryManagerState> = this._onDidChangeState.event
@@ -60,6 +71,7 @@ export class RepositoryManager implements vscode.Disposable {
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
     vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, this._prState)
+    vscode.commands.executeCommand('setContext', BR_STATE_CONTEXT_KEY, this._branchState)
   }
 
   public async open(gitRepository: GitRepository) {
@@ -77,13 +89,26 @@ export class RepositoryManager implements vscode.Disposable {
           }
 
           const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
+
+          // load repository information
           const { data } = await Api.Repository.getRepository(repo.provider, repo.organization, repo.repository)
+
+          // does the repository have coverage data?
           const {
             data: { hasCoverageOverview },
           } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
 
+          // get all branches
+          const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
+            repo.provider,
+            repo.organization,
+            repo.repository,
+            true
+          )
+
           this._repository = data
           this._expectCoverage = hasCoverageOverview
+          this._enabledBranches = enabledBranches
           this._onDidLoadRepository.fire(data)
 
           this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
@@ -128,6 +153,10 @@ export class RepositoryManager implements vscode.Disposable {
       this._pullRequest = undefined
       this._onDidUpdatePullRequest.fire(undefined)
       this.prState = PullRequestState.NoPullRequest
+
+      // clean up the issues and branch state
+      this._issuesManager.clear()
+      this.branchState = BranchState.OnUnknownBranch
 
       // trigger the pull requests load
       this.refreshPullRequests()
@@ -205,18 +234,26 @@ export class RepositoryManager implements vscode.Disposable {
     this._loadTimeout && clearTimeout(this._loadTimeout)
     if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
 
-    const repo = this._repository
     this._branch = this._current?.state.HEAD?.name
 
     if (!this._branch) {
       Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state.HEAD)}`)
       this.prState = PullRequestState.NoPullRequest
+      this.branchState = BranchState.OnUnknownBranch
       return
     }
 
-    if (this._branch === repo.defaultBranch?.name) {
-      Logger.appendLine(`Current branch is the default branch: ${this._branch}`)
+    // check if the branch is among the analysed branches
+    if (this._enabledBranches.some((b) => b.name === this._branch)) {
+      Logger.appendLine(
+        `Current branch is an analysed branch: ${this._branch}. Skipped looking for a pull request. Loading branch issues...`
+      )
       this.prState = PullRequestState.NoPullRequest
+
+      // load branch instead
+      this.branchState = BranchState.OnAnalysedBranch
+      this._issuesManager.refresh()
+
       return
     }
 
@@ -228,6 +265,7 @@ export class RepositoryManager implements vscode.Disposable {
         if (!pr) {
           Logger.appendLine(`No PR found in Codacy for: ${this._branch}`)
           this.prState = PullRequestState.NoPullRequest
+          this.branchState = BranchState.OnUnknownBranch
 
           // try again in N minutes
           if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
@@ -257,7 +295,10 @@ export class RepositoryManager implements vscode.Disposable {
             })
           )
         }
+
         this.prState = PullRequestState.Loaded
+        this.branchState = BranchState.OnPullRequestBranch
+        this._issuesManager.clear()
       } catch (e) {
         handleError(e as Error)
       }
@@ -292,12 +333,20 @@ export class RepositoryManager implements vscode.Disposable {
     return this._repository
   }
 
+  get branchIssues() {
+    return this._issuesManager
+  }
+
   get pullRequest() {
     return this._pullRequest
   }
 
   get pullRequests() {
     return this._pullRequests
+  }
+
+  get enabledBranches() {
+    return this._enabledBranches
   }
 
   get state() {
@@ -326,6 +375,14 @@ export class RepositoryManager implements vscode.Disposable {
     this._prState = state
     if (stateChange) {
       vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, state)
+    }
+  }
+
+  set branchState(state: BranchState) {
+    const stateChange = state !== this._branchState
+    this._branchState = state
+    if (stateChange) {
+      vscode.commands.executeCommand('setContext', BR_STATE_CONTEXT_KEY, state)
     }
   }
 

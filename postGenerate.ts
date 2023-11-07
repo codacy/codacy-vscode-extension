@@ -38,3 +38,21 @@ const trAfter = `export type ToolReference = {
 const toolReference = fs.readFileSync('src/api/client/models/ToolReference.ts', 'utf8')
 const toolReferenceUpdated = toolReference.replace(trBefore, trAfter)
 fs.writeFileSync('src/api/client/models/ToolReference.ts', toolReferenceUpdated)
+
+// update api/client/core/request.ts to fix FormData instanceof problem
+
+const crBefore = `export const isFormData = (value: any): value is FormData => {
+  return value instanceof FormData;
+};`
+
+const crAfter = `export const isFormData = (value: any): value is FormData => {
+  try {
+    return value instanceof FormData
+  } catch (e) {
+    return false
+  }
+};`
+
+const coreRequest = fs.readFileSync('src/api/client/core/request.ts', 'utf8')
+const coreRequestUpdated = coreRequest.replace(crBefore, crAfter)
+fs.writeFileSync('src/api/client/core/request.ts', coreRequestUpdated)

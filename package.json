@@ -56,6 +56,12 @@
           "name": "Open pull requests",
           "when": "Codacy:RepositoryManagerStateContext == Loaded",
           "icon": "$(git-pull-request)"
+        },
+        {
+          "id": "codacy:branchIssues",
+          "name": "Issues Browser",
+          "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
+          "icon": "$(bug)"
         }
       ]
     },
@@ -137,6 +143,12 @@
         "title": "Open Pull Requests",
         "category": "Codacy commands",
         "when": "Codacy:RepositoryManagerStateContext == Loaded"
+      },
+      {
+        "command": "codacy.branchIssues.open",
+        "title": "Open Issues",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "command": "codacy.issue.seeDetails",
