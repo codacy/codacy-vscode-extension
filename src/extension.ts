@@ -28,6 +28,7 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
       repositoryManager.checkout(node.pullRequest)
     },
     'codacy.pullRequests.refresh': () => repositoryManager.refreshPullRequests(),
+    'codacy.branchIssues.refresh': () => repositoryManager.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
   }

@@ -27,6 +27,8 @@ const patternDetails = fs.readFileSync('src/api/client/models/PatternDetails.ts'
 const patternDetailsUpdated = patternDetails.replace(pdBefore, pdAfter)
 fs.writeFileSync('src/api/client/models/PatternDetails.ts', patternDetailsUpdated)
 
+// ---
+
 const trBefore = `export type ToolReference = {
 };`
 
@@ -38,6 +40,24 @@ const trAfter = `export type ToolReference = {
 const toolReference = fs.readFileSync('src/api/client/models/ToolReference.ts', 'utf8')
 const toolReferenceUpdated = toolReference.replace(trBefore, trAfter)
 fs.writeFileSync('src/api/client/models/ToolReference.ts', toolReferenceUpdated)
+
+// ----
+
+const rwaBefore = `export type RepositoryWithAnalysis = {
+};`
+
+const rwaAfter = `export type RepositoryWithAnalysis = {
+  lastAnalysedCommit?: Commit
+  grade?: number
+  gradeLetter?: string
+  issuesPercentage?: number
+  complexFilesPercentage?: number
+  duplicationPercentage?: number
+  repository: Repository
+  branch?: Branch
+  selectedBranch?: Branch
+  coverage?: Coverage
+}`
 
 // update api/client/core/request.ts to fix FormData instanceof problem
 

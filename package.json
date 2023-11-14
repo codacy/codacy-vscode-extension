@@ -40,28 +40,32 @@
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
         {
-          "id": "codacy:statuses",
-          "name": "Status",
-          "icon": "$(library)",
-          "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)"
-        },
-        {
           "id": "codacy:prSummary",
           "name": "Pull request",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
-          "icon": "$(git-pull-request)"
+          "icon": "$(git-pull-request)",
+          "initialSize": 3
         },
         {
           "id": "codacy:pullRequests",
           "name": "Open pull requests",
           "when": "Codacy:RepositoryManagerStateContext == Loaded",
-          "icon": "$(git-pull-request)"
+          "icon": "$(git-pull-request)",
+          "initialSize": 3
         },
         {
           "id": "codacy:branchIssues",
           "name": "Issues Browser",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
-          "icon": "$(bug)"
+          "icon": "$(bug)",
+          "initialSize": 3
+        },
+        {
+          "id": "codacy:statuses",
+          "name": "Status",
+          "icon": "$(library)",
+          "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
+          "initialSize": 1
         }
       ]
     },
@@ -127,6 +131,13 @@
         "when": "Codacy:RepositoryManagerStateContext == Loaded"
       },
       {
+        "command": "codacy.branchIssues.refresh",
+        "title": "Refresh Branch Issues",
+        "category": "Codacy commands",
+        "icon": "$(refresh)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+      },
+      {
         "command": "codacy.pr.openSummary",
         "title": "Open Pull Request Summary",
         "category": "Codacy commands",
@@ -185,6 +196,11 @@
         {
           "command": "codacy.pullRequests.refresh",
           "when": "view == codacy:pullRequests",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.branchIssues.refresh",
+          "when": "view == codacy:branchIssues",
           "group": "navigation"
         }
       ],
