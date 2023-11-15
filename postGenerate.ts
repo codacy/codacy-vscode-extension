@@ -59,6 +59,10 @@ const rwaAfter = `export type RepositoryWithAnalysis = {
   coverage?: Coverage
 }`
 
+const repositoryWithAnalysis = fs.readFileSync('src/api/client/models/RepositoryWithAnalysis.ts', 'utf8')
+const repositoryWithAnalysisUpdated = repositoryWithAnalysis.replace(rwaBefore, rwaAfter)
+fs.writeFileSync('src/api/client/models/RepositoryWithAnalysis.ts', repositoryWithAnalysisUpdated)
+
 // update api/client/core/request.ts to fix FormData instanceof problem
 
 const crBefore = `export const isFormData = (value: any): value is FormData => {
