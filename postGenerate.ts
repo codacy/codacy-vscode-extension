@@ -46,7 +46,12 @@ fs.writeFileSync('src/api/client/models/ToolReference.ts', toolReferenceUpdated)
 const rwaBefore = `export type RepositoryWithAnalysis = {
 };`
 
-const rwaAfter = `export type RepositoryWithAnalysis = {
+const rwaAfter = `import { Branch } from "./Branch"
+import { Commit } from "./Commit"
+import { Coverage } from "./Coverage"
+import { Repository } from "./Repository"
+
+export type RepositoryWithAnalysis = {
   lastAnalysedCommit?: Commit
   grade?: number
   gradeLetter?: string
