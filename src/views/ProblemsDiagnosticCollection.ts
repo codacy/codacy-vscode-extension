@@ -51,13 +51,11 @@ export class IssueDiagnostic extends vscode.Diagnostic {
 
 export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
-  //private _pr: PullRequest | undefined
 
   private _currentIssues: PullRequestIssue[] | BranchIssue[] = []
 
   constructor(private readonly _repositoryManager: RepositoryManager) {
     _repositoryManager.onDidUpdatePullRequest((pr) => {
-      //this._pr = pr
       const newIssues = pr?.issues.filter((issue) => issue.deltaType === 'Added') || []
       if (newIssues.length > 0) {
         this.load(newIssues)
