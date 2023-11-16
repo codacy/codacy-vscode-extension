@@ -3,7 +3,7 @@ import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
 import { parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
-import { Branch, CoreApiError, RepositoryWithAnalysis } from '../api/client'
+import { Branch, OpenAPIError, RepositoryWithAnalysis } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
@@ -124,7 +124,7 @@ export class RepositoryManager implements vscode.Disposable {
           await this.handleBranchChange()
         }
       } catch (e) {
-        if (e instanceof CoreApiError && !Config.apiToken) {
+        if (e instanceof OpenAPIError && !Config.apiToken) {
           console.error(e)
           this.state = RepositoryManagerState.NeedsAuthentication
         } else {

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import Logger from './logger'
-import { ApiError, CoreApiError } from '../api/client'
+import { ApiError, OpenAPIError } from '../api/client'
 
 export const handleError = (e: Error): void => {
   const showErrorMessage = async (message: string) => {
@@ -10,8 +10,8 @@ export const handleError = (e: Error): void => {
     }
   }
 
-  if (e instanceof CoreApiError) {
-    const err = e as CoreApiError
+  if (e instanceof OpenAPIError) {
+    const err = e as OpenAPIError
 
     if (err.body && err.body.message && err.body.actions) {
       const apiError = err.body as ApiError
