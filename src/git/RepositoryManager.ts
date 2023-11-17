@@ -159,7 +159,7 @@ export class RepositoryManager implements vscode.Disposable {
     // in which kind of branch are we? (PR, analysed, unknown)
     else if (this._enabledBranches.some((b) => b.name === this._branch)) {
       Logger.appendLine(
-        `Current branch is an analysed branch: ${this._branch}. Skipped looking for a pull request. Loading branch issues...`
+        `Current branch is an analyzed branch: ${this._branch}. Skipped looking for a pull request. Loading branch issues...`
       )
       this.prState = PullRequestState.NoPullRequest
 

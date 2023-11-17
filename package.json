@@ -55,7 +55,7 @@
         },
         {
           "id": "codacy:branchIssues",
-          "name": "Issues Browser",
+          "name": "Issue Browser",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
