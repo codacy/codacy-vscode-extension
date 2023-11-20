@@ -236,7 +236,9 @@ export class PullRequest extends PullRequestInfo {
         (this._headCommit !== this._repositoryManager.head?.commit && this._repositoryManager.head?.ahead === 0)
       ) {
         this._refreshTimeout && clearTimeout(this._refreshTimeout)
-        this._refreshTimeout = setTimeout(() => this.refresh(), PR_REFRESH_TIME)
+        this._refreshTimeout = setTimeout(() => {
+          this.refresh()
+        }, PR_REFRESH_TIME)
       } else if (wasAnalysing) {
         // PR has new results, show a notification depending on them
         this.showAnalysisNotification()

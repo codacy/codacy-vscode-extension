@@ -32,7 +32,7 @@ export class PullRequestInformationNode extends PullRequestSummaryNode {
       .map((r) => {
         const reason = REASON_MAP[r.gate as Reason]
         const minimumSeverityPrefix = r.expectedThreshold.minimumSeverity
-          ? `${SEVERITY_LEVEL_MAP[r.expectedThreshold.minimumSeverity]} `
+          ? `${SEVERITY_LEVEL_MAP[r.expectedThreshold.minimumSeverity].label} `
           : ''
         return new PullRequestSummaryNode(
           `${minimumSeverityPrefix}${reason.label} ${reason.sign} ${r.expectedThreshold.threshold}`,

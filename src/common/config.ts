@@ -22,6 +22,7 @@ export class Config {
 
     if (Config._instance._apiToken) Logger.appendLine('Codacy API token found')
 
+    this._onDidConfigChange.fire(Config._instance)
     return Config._instance
   }
 

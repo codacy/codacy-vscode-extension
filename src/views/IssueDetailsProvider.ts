@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { Api } from '../api'
-import { PullRequestIssue } from '../git/PullRequest'
 import { Tools } from '../codacy/Tools'
+import { CommitIssue } from '../api/client'
 
 export class IssueDetailsProvider {
   async provideTextDocumentContent(uri: vscode.Uri) {
@@ -27,8 +27,8 @@ Source: [${tool?.name}](${tool?.documentationUrl})
   }
 }
 
-export const seeIssueDetailsCommand = async (issue?: PullRequestIssue) => {
-  const uri = vscode.Uri.parse(`codacyIssue://${issue?.commitIssue.toolInfo.uuid}/${issue?.commitIssue.patternInfo.id}`)
+export const seeIssueDetailsCommand = async (issue?: CommitIssue) => {
+  const uri = vscode.Uri.parse(`codacyIssue://${issue?.toolInfo.uuid}/${issue?.patternInfo.id}`)
 
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
 }
