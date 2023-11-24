@@ -1,6 +1,6 @@
 # Codacy Visual Studio Code extension
 
-The Codacy extension for Visual Studio Code helps you review and manage the issues found by Codacy without leaving the editor. It informs you about the code quality changes introduced by the pull request you're working on, as well as the status of other open pull requests and analyzed branches.
+The Codacy extension for Visual Studio Code helps you review and manage the issues found by Codacy without leaving the editor. It informs you about the code quality changes introduced by the pull request you're working on, as well as the status of other open pull requests and of branches analyzed by Codacy that are not associated with any pull request.
 
 ![Codacy VS Code Extension Screenshot](https://github.com/codacy/codacy-vscode-extension/raw/HEAD/.readme/screenshot-01.png)
 
