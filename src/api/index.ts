@@ -32,6 +32,7 @@ export const initializeApi = () => {
     return token
       ? {
           'api-token': token,
+          'X-Codacy-Origin': 'vscode',
         }
       : undefined
   }

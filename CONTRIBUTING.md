@@ -6,9 +6,9 @@ Before diving in, there are some guidelines and steps you should follow. This `C
 
 ## Prerequisites
 
--  The latest version of [Visual Studio Code](https://code.visualstudio.com/download).
--  [Node.js](https://nodejs.org/en/download/) v14 or later. You can use [nvm](https://github.com/nvm-sh/nvm)) to manage multiple Node.js installations.
--  Install global dependencies to work on Visual Studio Code extensions:  `npm install --global @vscode/vsce`.
+-   The latest version of [Visual Studio Code](https://code.visualstudio.com/download).
+-   [Node.js](https://nodejs.org/en/download/) v14 or later. You can use [nvm](https://github.com/nvm-sh/nvm)) to manage multiple Node.js installations.
+-   Install global dependencies to work on Visual Studio Code extensions:  `npm install --global @vscode/vsce`.
 
 ## Running the extension locally
 
@@ -29,9 +29,9 @@ If you encounter a bug, please create an issue! However, before you do so, pleas
 
 Pull requests are always welcome! Before submitting a pull request:
  
-- Ensure your code passes all tests by running `npm test`.
-- If you're adding new functionality, please include tests for it.
-- If your changes require updates to the documentation, please include those changes within your pull request.
+-   Ensure your code passes all tests by running `npm test`.
+-   If you're adding new functionality, please include tests for it.
+-   If your changes require updates to the documentation, please include those changes within your pull request.
 
 ## Publishing the extension
 
