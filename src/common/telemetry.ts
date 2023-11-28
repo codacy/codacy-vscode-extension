@@ -2,17 +2,20 @@ import * as vscode from 'vscode'
 import { Analytics } from '@segment/analytics-node'
 import { EventProperties } from '@segment/analytics-core'
 import { User } from '../api/client'
+import { SEGMENT_WRITE_KEY } from '../env-secrets'
 
 class TelemetryClient {
-  private analytics: Analytics
+  private analytics: Analytics | undefined
   private userId: string | undefined
 
   constructor() {
-    this.analytics = new Analytics({ writeKey: 'VDmIZDvkCOk6NdGYD22iHGrYtKi3YNWh' })
+    if (SEGMENT_WRITE_KEY) {
+      this.analytics = new Analytics({ writeKey: SEGMENT_WRITE_KEY })
+    }
   }
 
   public identify(user: User) {
-    if (!vscode.env.isTelemetryEnabled) return
+    if (!vscode.env.isTelemetryEnabled || !this.analytics) return
 
     this.userId = user.id.toString()
 
@@ -25,7 +28,7 @@ class TelemetryClient {
   }
 
   public track(event: string, properties: EventProperties) {
-    if (!vscode.env.isTelemetryEnabled) return
+    if (!vscode.env.isTelemetryEnabled || !this.analytics) return
 
     if (this.userId) {
       this.analytics.track({

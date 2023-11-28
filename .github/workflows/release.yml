@@ -29,6 +29,10 @@ jobs:
         run: npm install
       - name: Install VSCE
         run: npm install -g @vscode/vsce
+      - name: Set up secrets
+        run: |
+          rm -f src/env-secrets.ts
+          echo "export const SEGMENT_WRITE_KEY = '${{ secrets.SEGMENT_WRITE_KEY }}'" >> src/env-secrets.ts
       - name: Create Changelog
         run: |
           git log $(git describe --tags --abbrev=0)..HEAD --oneline &> ${{ github.workspace }}-CHANGELOG.txt
