@@ -13,6 +13,8 @@ import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetai
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
+import { Account } from './codacy/Account'
+import Telemetry from './common/telemetry'
 
 /**
  * Helper function to register all extension commands
@@ -21,7 +23,10 @@ import { BranchIssuesTree } from './views/BranchIssuesTree'
 const registerCommands = async (context: vscode.ExtensionContext, repositoryManager: RepositoryManager) => {
   const commands: Record<string, CommandType> = {
     'codacy.signIn': signIn,
-    'codacy.signOut': () => Config.storeApiToken(undefined),
+    'codacy.signOut': () => {
+      Config.storeApiToken(undefined)
+      Account.clear()
+    },
     'codacy.pr.load': () => repositoryManager.loadPullRequest(),
     'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
     'codacy.pr.checkout': (node: PullRequestNode) => {
@@ -119,6 +124,11 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     Config.onDidConfigChange(() => {
       initializeApi()
+
+      Account.current().then((user) => {
+        if (user) Telemetry.identify(user)
+      })
+
       if (gitProvider?.repositories.length) {
         repositoryManager.open(gitProvider.repositories[0])
       }

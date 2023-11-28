@@ -24,4 +24,8 @@ export class Account {
 
     return [user.mainEmail, ...(user?.otherEmails || [])]
   }
+
+  static clear() {
+    Account._current = undefined
+  }
 }

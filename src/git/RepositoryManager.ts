@@ -3,11 +3,12 @@ import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
 import { parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
-import { Branch, OpenAPIError, RepositoryWithAnalysis } from '../api/client'
+import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
+import Telemetry from '../common/telemetry'
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -39,6 +40,7 @@ const MAX_LOAD_ATTEMPTS = 5
 export class RepositoryManager implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: RepositoryWithAnalysis | undefined
+  private _organization: OrganizationWithMeta | undefined
   private _enabledBranches: Branch[] = []
   private _expectCoverage: boolean | undefined
   private _state: RepositoryManagerState = RepositoryManagerState.Initializing
@@ -97,6 +99,9 @@ export class RepositoryManager implements vscode.Disposable {
             repo.organization,
             repo.repository
           )
+
+          const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
+          this._organization = organization
 
           // does the repository have coverage data?
           const {
@@ -407,6 +412,10 @@ export class RepositoryManager implements vscode.Disposable {
     if (stateChange) {
       vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, state)
       this._onDidChangeState.fire(state)
+      Telemetry.track('Repository State Change', {
+        state,
+        organization: this._organization?.organization.identifier,
+      })
     }
   }
 
@@ -415,6 +424,10 @@ export class RepositoryManager implements vscode.Disposable {
     this._prState = state
     if (stateChange) {
       vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, state)
+      Telemetry.track('Pull Request State Change', {
+        state,
+        organization: this._organization?.organization.identifier,
+      })
     }
   }
 
@@ -423,6 +436,10 @@ export class RepositoryManager implements vscode.Disposable {
     this._branchState = state
     if (stateChange) {
       vscode.commands.executeCommand('setContext', BR_STATE_CONTEXT_KEY, state)
+      Telemetry.track('Branch State Change', {
+        state,
+        organization: this._organization?.organization.identifier,
+      })
     }
   }
 

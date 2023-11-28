@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import Telemetry from './telemetry'
 
 class Log {
   private _outputChannel: vscode.LogOutputChannel
@@ -44,6 +45,7 @@ class Log {
 
   public error(message: string, component?: string) {
     this._outputChannel.error(this.logString(message, component))
+    Telemetry.track(`Unexpected Error`, { message, component })
   }
 
   public dispose() {
