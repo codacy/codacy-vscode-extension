@@ -414,7 +414,7 @@ export class RepositoryManager implements vscode.Disposable {
       this._onDidChangeState.fire(state)
       Telemetry.track('Repository State Change', {
         state,
-        organization: this._organization?.organization.identifier,
+        organization_id: this._organization?.organization.identifier,
       })
     }
   }
@@ -426,7 +426,7 @@ export class RepositoryManager implements vscode.Disposable {
       vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, state)
       Telemetry.track('Pull Request State Change', {
         state,
-        organization: this._organization?.organization.identifier,
+        organization_id: this._organization?.organization.identifier,
       })
     }
   }
@@ -438,7 +438,7 @@ export class RepositoryManager implements vscode.Disposable {
       vscode.commands.executeCommand('setContext', BR_STATE_CONTEXT_KEY, state)
       Telemetry.track('Branch State Change', {
         state,
-        organization: this._organization?.organization.identifier,
+        organization_id: this._organization?.organization.identifier,
       })
     }
   }
