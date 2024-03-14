@@ -15,6 +15,7 @@ import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
+import { decorateWithCoverage } from './views/coverage'
 
 /**
  * Helper function to register all extension commands
@@ -139,6 +140,21 @@ export async function activate(context: vscode.ExtensionContext) {
   if (gitProvider.repositories.length > 0) {
     repositoryManager.open(gitProvider.repositories[0])
   }
+
+  // coverage decoration
+	function triggerCoverageDecoration(editor: vscode.TextEditor | undefined) {
+		activeEditor = editor;
+		if (editor) {
+			decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest);
+		}
+	}
+
+	let activeEditor = vscode.window.activeTextEditor;
+	vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions);
+
+	if (activeEditor) {
+		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest);
+	}
 }
 
 // This method is called when your extension is deactivated

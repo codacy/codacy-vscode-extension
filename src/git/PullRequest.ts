@@ -2,6 +2,8 @@ import * as vscode from 'vscode'
 import {
   CommitDeltaIssue,
   FileDeltaAnalysis,
+  FileDiffCoverage,
+  DiffLineHit,
   PullRequestWithAnalysis,
   QualitySettingsWithGatePolicy,
 } from '../api/client'
@@ -61,6 +63,7 @@ export class PullRequest extends PullRequestInfo {
   private _issues: PullRequestIssue[]
   private _files: PullRequestFile[]
   private _gates: QualitySettingsWithGatePolicy | undefined
+  private _coverages: Map<string,DiffLineHit[]>
 
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
@@ -76,6 +79,7 @@ export class PullRequest extends PullRequestInfo {
     this._prWithAnalysis = prWithAnalysis
     this._issues = []
     this._files = []
+    this._coverages = new Map<string,DiffLineHit[]>
 
     this.refresh(true)
   }
@@ -116,6 +120,23 @@ export class PullRequest extends PullRequestInfo {
   private async fetchIssues() {
     const repo = this.ensureRepository()
 
+    // Coverage
+    const 
+    coverageResponse
+     = await Api.Coverage.getRepositoryPullRequestFilesCoverage(
+      repo.provider,
+      repo.owner,
+      repo.name,
+      this._prWithAnalysis.pullRequest.number
+    )
+
+    const coverageData = coverageResponse.data;
+    for (let i=0; i<coverageData.length; i++) {
+      this._coverages.set(coverageData[i].fileName, coverageData[i].diffLineHits) ;
+    }
+
+    // Issues
+
     // TODO: this data should be part of the previous API call, or a new one
     // load PR origin and target commit SHAs
     const {
@@ -141,6 +162,8 @@ export class PullRequest extends PullRequestInfo {
         repo.name,
         this._headCommit,
         this._baseCommit,
+        undefined,
+        undefined,
         nextCursor
       )
 
@@ -262,6 +285,10 @@ export class PullRequest extends PullRequestInfo {
 
   get issues() {
     return this._issues
+  }
+
+  get coverages() {
+    return this._coverages;
   }
 
   get files() {
