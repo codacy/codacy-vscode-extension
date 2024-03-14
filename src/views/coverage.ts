@@ -40,17 +40,17 @@ export async function decorateWithCoverage(editor: vscode.TextEditor, fileuri : 
 		return
 	}
 
-	let wsFolder = vscode.workspace.getWorkspaceFolder(fileuri) as vscode.WorkspaceFolder
+	const wsFolder = vscode.workspace.getWorkspaceFolder(fileuri) as vscode.WorkspaceFolder
 
-	let relativeFilePath = trimStart(fileuri.fsPath.substring(wsFolder.uri.fsPath.length), '/')
+	const relativeFilePath = trimStart(fileuri.fsPath.substring(wsFolder.uri.fsPath.length), '/')
 
 	const coveredLines: vscode.DecorationOptions[] = []
 	const nonCoveredLines: vscode.DecorationOptions[] = []
 
-	let coverageHits = pr.coverages.get(relativeFilePath);
+	const coverageHits = pr.coverages.get(relativeFilePath);
 	coverageHits?.forEach((value) => {
 
-		let r = editor.document.lineAt(parseInt(value.lineNumber)-1).range;
+		const r = editor.document.lineAt(parseInt(value.lineNumber)-1).range;
 		if (value.hits > 0){
 			const decoration = { range: r, hoverMessage: 'test coverage' };
 			coveredLines.push(decoration);

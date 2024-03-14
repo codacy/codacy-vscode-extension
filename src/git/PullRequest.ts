@@ -2,7 +2,6 @@ import * as vscode from 'vscode'
 import {
   CommitDeltaIssue,
   FileDeltaAnalysis,
-  FileDiffCoverage,
   DiffLineHit,
   PullRequestWithAnalysis,
   QualitySettingsWithGatePolicy,
