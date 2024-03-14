@@ -4,7 +4,7 @@ import { Reason } from './types'
 interface TreeViewMeta {
   label: string
   icon?: string
-  order: number
+  order?: number
 }
 
 export const SEVERITY_LEVEL_MAP: { [key in SeverityLevel]: TreeViewMeta } = {
@@ -34,6 +34,8 @@ export type CodePatternCategory =
   | 'Performance'
   | 'Complexity'
   | 'Documentation'
+  | 'BestPractice'
+  | 'Comprehensibility'
 
 export const CATEGORY_LEVEL_MAP: { [key in CodePatternCategory]: TreeViewMeta } = {
   ErrorProne: {
@@ -44,7 +46,7 @@ export const CATEGORY_LEVEL_MAP: { [key in CodePatternCategory]: TreeViewMeta } 
   CodeStyle: {
     label: 'Code Style',
     icon: 'code',
-    order: 7,
+    order: 9,
   },
   UnusedCode: {
     label: 'Unused Code',
@@ -73,6 +75,16 @@ export const CATEGORY_LEVEL_MAP: { [key in CodePatternCategory]: TreeViewMeta } 
   },
   Documentation: {
     label: 'Documentation',
+    icon: 'code',
+    order: 10,
+  },
+  BestPractice: {
+    label: 'Best Practice',
+    icon: 'code',
+    order: 7,
+  },
+  Comprehensibility: {
+    label: 'Comprehensibility',
     icon: 'code',
     order: 8,
   },

@@ -84,10 +84,11 @@ export class BranchIssuesTreeGroupByCategoryNode extends BranchIssuesTreeNode {
     return Object.entries(groups)
       .sort(
         ([a], [b]) =>
-          CATEGORY_LEVEL_MAP[a as CodePatternCategory].order - CATEGORY_LEVEL_MAP[b as CodePatternCategory].order
+          (CATEGORY_LEVEL_MAP[a as CodePatternCategory]?.order || 1000) -
+          (CATEGORY_LEVEL_MAP[b as CodePatternCategory]?.order || 1000)
       )
       .map(([category, items]) => {
-        const meta = CATEGORY_LEVEL_MAP[category as CodePatternCategory]
+        const meta = CATEGORY_LEVEL_MAP[category as CodePatternCategory] || { label: category, icon: 'tag' }
         return new BranchIssuesTreeCategoryNode(meta.label, meta.icon, items, this._baseUri)
       })
   }
@@ -105,7 +106,11 @@ export class BranchIssuesTreeGroupBySeverityNode extends BranchIssuesTreeNode {
     const groups = groupBy(this._allIssues, ({ commitIssue: i }) => i.patternInfo.severityLevel)
 
     return Object.entries(groups)
-      .sort(([a], [b]) => SEVERITY_LEVEL_MAP[a as SeverityLevel].order - SEVERITY_LEVEL_MAP[b as SeverityLevel].order)
+      .sort(
+        ([a], [b]) =>
+          (SEVERITY_LEVEL_MAP[a as SeverityLevel]?.order || 1000) -
+          (SEVERITY_LEVEL_MAP[b as SeverityLevel]?.order || 1000)
+      )
       .map(([severity, items]) => {
         const meta = SEVERITY_LEVEL_MAP[severity as SeverityLevel]
         return new BranchIssuesTreeCategoryNode(meta.label, meta.icon, items, this._baseUri)
