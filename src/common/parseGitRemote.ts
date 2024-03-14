@@ -10,7 +10,7 @@ const validProviders: Record<string, 'gh' | 'gl' | 'bb'> = {
  * @returns
  */
 export const parseGitRemote = (remoteUrl: string) => {
-  const pattern = /^.*(github|gitlab|bitbucket)\.(?:com|org)[:|/](.+?)\/(.+?).git$/
+  const pattern = /^.*(github|gitlab|bitbucket)\.(?:com|org)[:|/](.+?)\/(.+?)(\.git)?$/
   const match = remoteUrl.match(pattern)
 
   if (!match) {
