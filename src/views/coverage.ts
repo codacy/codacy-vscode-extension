@@ -1,6 +1,4 @@
-import axios from 'axios';
 import * as vscode from 'vscode';
-import { fileURLToPath } from 'url';
 import { PullRequest } from '../git/PullRequest'
 import { trimStart } from 'lodash';
 
@@ -45,13 +43,12 @@ export async function decorateWithCoverage(editor: vscode.TextEditor, fileuri : 
 	let wsFolder = vscode.workspace.getWorkspaceFolder(fileuri) as vscode.WorkspaceFolder
 
 	let relativeFilePath = trimStart(fileuri.fsPath.substring(wsFolder.uri.fsPath.length), '/')
-	relativeFilePath = relativeFilePath
 
 	const coveredLines: vscode.DecorationOptions[] = []
 	const nonCoveredLines: vscode.DecorationOptions[] = []
 
 	let coverageHits = pr.coverages.get(relativeFilePath);
-	coverageHits?.forEach((value,key) => {
+	coverageHits?.forEach((value) => {
 
 		let r = editor.document.lineAt(parseInt(value.lineNumber)-1).range;
 		if (value.hits > 0){
