@@ -61,7 +61,7 @@ export class PullRequestSummaryTree
         return [
           new PullRequestInformationNode(this._repositoryManager.pullRequest),
           new PullRequestIssuesNode(this._repositoryManager.pullRequest),
-          new PullRequestCoverageNode(this._repositoryManager.pullRequest),
+          new PullRequestCoverageNode(this._repositoryManager.pullRequest, this),
           new PullRequestDuplicationNode(this._repositoryManager.pullRequest),
           new PullRequestComplexityNode(this._repositoryManager.pullRequest),
         ]
@@ -77,5 +77,9 @@ export class PullRequestSummaryTree
 
   dispose() {
     this._disposables.forEach((disposable) => disposable.dispose())
+  }
+
+  refresh() {
+    this._onDidChangeTreeData.fire();
   }
 }

@@ -40,6 +40,12 @@ export async function decorateWithCoverage(editor: vscode.TextEditor, fileuri : 
 		return
 	}
 
+	if (!pr.coverageDisplay) {
+		editor.setDecorations(coverageDecorationType, []);
+		editor.setDecorations(noCoverageDecorationType, []);
+		return;
+	}
+
 	const wsFolder = vscode.workspace.getWorkspaceFolder(fileuri) as vscode.WorkspaceFolder
 
 	const relativeFilePath = trimStart(fileuri.fsPath.substring(wsFolder.uri.fsPath.length), '/')

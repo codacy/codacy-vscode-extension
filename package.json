@@ -150,6 +150,12 @@
         "icon": "$(arrow-right)"
       },
       {
+        "command": "codacy.pr.toggleCoverageOff",
+        "title": "Toggle inline coverage",
+        "category": "Codacy commands",
+        "icon": "resources/icons/coverage-inline-on.png"
+      },
+      {
         "command": "codacy.pullRequests.open",
         "title": "Open Pull Requests",
         "category": "Codacy commands",
@@ -213,6 +219,11 @@
         {
           "command": "codacy.pr.checkout",
           "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "inline"
+        },
+        {
+          "command": "codacy.pr.toggleCoverageOff",
+          "when": "view == codacy:prSummary && viewItem =~ /toggleCoverage/ ",
           "group": "inline"
         }
       ]

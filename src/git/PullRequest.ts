@@ -63,6 +63,7 @@ export class PullRequest extends PullRequestInfo {
   private _files: PullRequestFile[]
   private _gates: QualitySettingsWithGatePolicy | undefined
   private _coverages: Map<string,DiffLineHit[]>
+  private _coverageDisplay: boolean
 
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
@@ -79,6 +80,7 @@ export class PullRequest extends PullRequestInfo {
     this._issues = []
     this._files = []
     this._coverages = new Map<string,DiffLineHit[]>
+    this._coverageDisplay = true
 
     this.refresh(true)
   }
@@ -247,6 +249,7 @@ export class PullRequest extends PullRequestInfo {
       await this.fetchQualityGates()
       await this.fetchIssues()
       await this.fetchFiles()
+      vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');
 
       // all done, trigger the pull request update
       this._onDidUpdatePullRequest.fire(this)
@@ -288,6 +291,14 @@ export class PullRequest extends PullRequestInfo {
 
   get coverages() {
     return this._coverages;
+  }
+
+  get coverageDisplay() {
+    return this._coverageDisplay;
+  }
+
+  set coverageDisplay(coverageDisplay: boolean) {
+    this._coverageDisplay = coverageDisplay
   }
 
   get files() {

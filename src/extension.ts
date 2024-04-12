@@ -155,7 +155,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (activeEditor) {
 		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest);
 	}
+
+
+  vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', (item) => {
+    if (vscode.window.activeTextEditor) {
+      decorateWithCoverage(vscode.window.activeTextEditor, vscode.window.activeTextEditor?.document.uri, repositoryManager?.pullRequest)
+    }
+  });
+
+// coverage show/hide buttons
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()});
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()});
+  
 }
+
 
 // This method is called when your extension is deactivated
 export function deactivate() {
