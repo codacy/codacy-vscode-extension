@@ -157,7 +157,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 
-  vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', (item) => {
+  vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
     if (vscode.window.activeTextEditor) {
       decorateWithCoverage(vscode.window.activeTextEditor, vscode.window.activeTextEditor?.document.uri, repositoryManager?.pullRequest)
     }
