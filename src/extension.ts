@@ -16,6 +16,10 @@ import { BranchIssuesTree } from './views/BranchIssuesTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
+import { LocalToolsTree } from './views/LocalToolsTree'
+import { LocalTool, runLocal } from './local'
+
+
 
 /**
  * Helper function to register all extension commands
@@ -113,6 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
   context.subscriptions.push(new BranchIssuesTree(context, repositoryManager))
 
+
   context.subscriptions.push(AuthUriHandler.register())
 
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
@@ -167,7 +172,46 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()});
   vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()});
   
+
+
+//
+// local mode
+//
+  const localToolsListJson = require('./../localTools.json')
+  var localToolsList = Array<LocalTool>();
+  for (let i=0; i<localToolsListJson.tools.length; i++) {
+    localToolsList.push(localToolsListJson.tools[i])
+  }
+
+  const localToolsTree = new LocalToolsTree(context, repositoryManager, localToolsList);
+  context.subscriptions.push(localToolsTree)
+
+  const localDiags = vscode.languages.createDiagnosticCollection('codacy.local');
+  const setLocalRunMode = (mode : string) => {
+    vscode.commands.executeCommand('setContext', 'codacy.local:runMode', mode);
+    localToolsTree.runMode = mode;
+    localToolsTree.refresh();
+    };
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {runLocal(localDiags, localToolsList,vscode.window.activeTextEditor?.document.uri.fsPath)}));
+
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {setLocalRunMode("hesitate")}));
+
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnSave', () => {}));
+  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnHesitate', () => {}));
+  setLocalRunMode("manual");
+
+  vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
+    if (document.uri.scheme === "file" && localToolsTree.runMode == "save") {
+      vscode.commands.executeCommand('codacy.local.runMode.executeManual');
+    }
+});
+
 }
+
+
 
 
 // This method is called when your extension is deactivated

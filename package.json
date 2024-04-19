@@ -66,6 +66,12 @@
           "icon": "$(library)",
           "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
           "initialSize": 1
+        },
+        {
+          "id": "codacy:localTools",
+          "name": "Local Tools",
+          "icon": "$(flame)",
+          "initialSize": 3
         }
       ]
     },
@@ -171,6 +177,35 @@
         "command": "codacy.issue.seeDetails",
         "title": "See issue details",
         "category": "Codacy commands"
+      },
+      {
+        "command": "codacy.local.runMode.currentManual",
+        "title": "manual"
+      },
+      {
+        "command": "codacy.local.runMode.executeManual",
+        "title": "execute",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "codacy.local.runMode.currentOnSave",
+        "title": "on save"
+      },
+      {
+        "command": "codacy.local.runMode.currentOnHesitate",
+        "title": "on hesitation"
+      },
+      {
+        "command": "codacy.local.runMode.setManual",
+        "title": "manual"
+      },
+      {
+        "command": "codacy.local.runMode.setOnSave",
+        "title": "on save"
+      },
+      {
+        "command": "codacy.local.runMode.setOnHesitate",
+        "title": "on hesitation"
       }
     ],
     "menus": {
@@ -208,6 +243,41 @@
           "command": "codacy.branchIssues.refresh",
           "when": "view == codacy:branchIssues",
           "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentManual",
+          "when": "view == codacy:localTools && codacy.local:runMode == manual",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.executeManual",
+          "when": "view == codacy:localTools && codacy.local:runMode == manual",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentOnSave",
+          "when": "view == codacy:localTools && codacy.local:runMode == save",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentOnHesitate",
+          "when": "view == codacy:localTools && codacy.local:runMode == hesitate",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.setManual",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@1"
+        },
+        {
+          "command": "codacy.local.runMode.setOnSave",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@2"
+        },
+        {
+          "command": "codacy.local.runMode.setOnHesitate",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@3"
         }
       ],
       "view/item/context": [
@@ -290,6 +360,7 @@
   "dependencies": {
     "@segment/analytics-node": "^1.1.3",
     "axios": "^1.4.0",
+    "command-exists": "^1.2.9",
     "date-fns": "^2.30.0",
     "form-data": "^4.0.0",
     "lodash": "^4.17.21"

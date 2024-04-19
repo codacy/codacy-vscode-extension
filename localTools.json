@@ -1,0 +1,18 @@
+{
+  "tools": [
+    {
+      "title": "Trivy",
+      "cliCommand": "trivy",
+      "cliExecute": "trivy fs [[PATH]] --quiet --format sarif -o ./.codacy/runs/trivy.sarif",
+      "cliVersion": "trivy -v",
+      "cli-InstallMacos": "brew install trivy"
+    },
+    {
+      "title": "Semgrep",
+      "cliCommand": "semgrep",
+      "cliExecute": "semgrep scan [[PATH]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
+      "cliVersion": "semgrep --version",
+      "cliInstallMacos": "brew install semgrep"
+    }
+  ]
+}
