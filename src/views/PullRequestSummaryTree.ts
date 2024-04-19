@@ -61,7 +61,7 @@ export class PullRequestSummaryTree
         return [
           new PullRequestInformationNode(this._repositoryManager.pullRequest),
           new PullRequestIssuesNode(this._repositoryManager.pullRequest),
-          new PullRequestCoverageNode(this._repositoryManager.pullRequest, this),
+          new PullRequestCoverageNode(this._repositoryManager.pullRequest),
           new PullRequestDuplicationNode(this._repositoryManager.pullRequest),
           new PullRequestComplexityNode(this._repositoryManager.pullRequest),
         ]
@@ -80,6 +80,6 @@ export class PullRequestSummaryTree
   }
 
   refresh() {
-    this._onDidChangeTreeData.fire();
+    this._onDidChangeTreeData.fire()
   }
 }

@@ -142,32 +142,34 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   // coverage decoration
-	function triggerCoverageDecoration(editor: vscode.TextEditor | undefined) {
-		activeEditor = editor;
-		if (editor) {
-			decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest);
-		}
-	}
+  const triggerCoverageDecoration = (editor: vscode.TextEditor | undefined) => {
+    if (editor) {
+      decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
+    }
+  }
 
-	let activeEditor = vscode.window.activeTextEditor;
-	vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions);
+  vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions)
 
-	if (activeEditor) {
-		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest);
-	}
-
+  const activeEditor = vscode.window.activeTextEditor
+  if (activeEditor) {
+    decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
+  }
 
   vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
     if (vscode.window.activeTextEditor) {
-      decorateWithCoverage(vscode.window.activeTextEditor, vscode.window.activeTextEditor?.document.uri, repositoryManager?.pullRequest)
+      decorateWithCoverage(
+        vscode.window.activeTextEditor,
+        vscode.window.activeTextEditor?.document.uri,
+        repositoryManager?.pullRequest
+      )
     }
-  });
+  })
 
-// coverage show/hide buttons
-  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item) => {item.onClick()});
-  
+  // coverage show/hide buttons
+  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item) => {
+    item.onClick()
+  })
 }
-
 
 // This method is called when your extension is deactivated
 export function deactivate() {

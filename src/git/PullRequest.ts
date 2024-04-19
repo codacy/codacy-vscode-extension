@@ -62,8 +62,8 @@ export class PullRequest extends PullRequestInfo {
   private _issues: PullRequestIssue[]
   private _files: PullRequestFile[]
   private _gates: QualitySettingsWithGatePolicy | undefined
-  private _coverages: Map<string,DiffLineHit[]>
-  private _coverageDisplay: boolean
+  private _diffCoverageLineHits: Map<string, DiffLineHit[]>
+  public displayCoverage: boolean
 
   private _onDidUpdatePullRequest = new vscode.EventEmitter<PullRequest>()
   readonly onDidUpdatePullRequest: vscode.Event<PullRequest> = this._onDidUpdatePullRequest.event
@@ -74,13 +74,14 @@ export class PullRequest extends PullRequestInfo {
     prWithAnalysis: PullRequestWithAnalysis,
     private readonly _repositoryManager: RepositoryManager
   ) {
-    super(prWithAnalysis)
+    super(prWithAnalysis, _repositoryManager.expectCoverage)
 
     this._prWithAnalysis = prWithAnalysis
     this._issues = []
     this._files = []
-    this._coverages = new Map<string,DiffLineHit[]>
-    this._coverageDisplay = true
+    this._diffCoverageLineHits = new Map<string, DiffLineHit[]>()
+
+    this.displayCoverage = !!_repositoryManager.expectCoverage
 
     this.refresh(true)
   }
@@ -118,39 +119,33 @@ export class PullRequest extends PullRequestInfo {
     this._gates = gates
   }
 
+  private async fetchCoverage() {
+    const repo = this.ensureRepository()
+
+    const coverageResponse = await Api.Coverage.getRepositoryPullRequestFilesCoverage(
+      repo.provider,
+      repo.owner,
+      repo.name,
+      this._prWithAnalysis.pullRequest.number
+    )
+
+    const coverageData = coverageResponse.data
+    for (let i = 0; i < coverageData.length; i++) {
+      this._diffCoverageLineHits.set(coverageData[i].fileName, coverageData[i].diffLineHits)
+    }
+  }
+
   private async fetchIssues() {
     const repo = this.ensureRepository()
 
     // Coverage
-    const 
-    coverageResponse
-     = await Api.Coverage.getRepositoryPullRequestFilesCoverage(
-      repo.provider,
-      repo.owner,
-      repo.name,
-      this._prWithAnalysis.pullRequest.number
-    )
-
-    const coverageData = coverageResponse.data;
-    for (let i=0; i<coverageData.length; i++) {
-      this._coverages.set(coverageData[i].fileName, coverageData[i].diffLineHits) ;
+    if (this.expectCoverage) {
+      await this.fetchCoverage()
     }
 
     // Issues
-
-    // TODO: this data should be part of the previous API call, or a new one
-    // load PR origin and target commit SHAs
-    const {
-      data: { headCommit, commonAncestorCommit },
-    } = await Api.Coverage.getPullRequestCoverageReports(
-      repo.provider,
-      repo.owner,
-      repo.name,
-      this._prWithAnalysis.pullRequest.number
-    )
-
-    this._headCommit = headCommit.commitSha
-    this._baseCommit = commonAncestorCommit.commitSha
+    this._headCommit = this._prWithAnalysis.pullRequest.headCommitSha
+    this._baseCommit = this._prWithAnalysis.pullRequest.commonAncestorCommitSha
 
     // load PR delta issues
     this._issues = []
@@ -194,7 +189,6 @@ export class PullRequest extends PullRequestInfo {
         repo.owner,
         repo.name,
         this._prWithAnalysis.pullRequest.number,
-        undefined,
         nextCursor
       )
 
@@ -249,7 +243,7 @@ export class PullRequest extends PullRequestInfo {
       await this.fetchQualityGates()
       await this.fetchIssues()
       await this.fetchFiles()
-      vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');
+      vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration')
 
       // all done, trigger the pull request update
       this._onDidUpdatePullRequest.fire(this)
@@ -289,16 +283,8 @@ export class PullRequest extends PullRequestInfo {
     return this._issues
   }
 
-  get coverages() {
-    return this._coverages;
-  }
-
-  get coverageDisplay() {
-    return this._coverageDisplay;
-  }
-
-  set coverageDisplay(coverageDisplay: boolean) {
-    this._coverageDisplay = coverageDisplay
+  get coverage() {
+    return this._diffCoverageLineHits
   }
 
   get files() {

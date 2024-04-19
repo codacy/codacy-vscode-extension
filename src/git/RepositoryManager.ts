@@ -117,6 +117,7 @@ export class RepositoryManager implements vscode.Disposable {
           )
 
           this._repository = data
+
           this._expectCoverage = hasCoverageOverview
           this._enabledBranches = enabledBranches
 
@@ -404,6 +405,10 @@ export class RepositoryManager implements vscode.Disposable {
 
   get rootUri() {
     return this._current?.rootUri
+  }
+
+  get expectCoverage() {
+    return this._expectCoverage
   }
 
   set state(state: RepositoryManagerState) {

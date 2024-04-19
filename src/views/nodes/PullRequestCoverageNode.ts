@@ -1,7 +1,6 @@
 import * as vscode from 'vscode'
 import { PullRequest, PullRequestFile, PullRequestInfo } from '../../git/PullRequest'
 import { PullRequestFileNode, PullRequestSummaryNode } from './'
-import { PullRequestSummaryTree } from '../PullRequestSummaryTree'
 
 export class PullRequestCoverageInfoNode extends PullRequestSummaryNode {
   constructor(_pr: PullRequestInfo) {
@@ -27,11 +26,10 @@ export class PullRequestCoverageInfoNode extends PullRequestSummaryNode {
 }
 
 export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
-  constructor(private readonly _pr: PullRequest, private readonly _prTreeView: PullRequestSummaryTree) {
+  constructor(private readonly _pr: PullRequest) {
     super(_pr)
-    this._prTreeView = _prTreeView
 
-    this.contextValue = "toggleCoverageOn"
+    this.contextValue = 'toggleCoverageOn'
 
     this.collapsibleState =
       this.childrenFiles.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
@@ -55,11 +53,9 @@ export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
       .map((file) => new PullRequestFileNode(file, 'coverage'))
   }
 
-
   public onClick() {
-    console.log("clicked coverage toggle: " + this.contextValue)
-    this.contextValue = (this.contextValue === "toggleCoverageOn") ? "toggleCoverageOff" : "toggleCoverageOn"
-    this._pr.coverageDisplay = (this.contextValue === "toggleCoverageOn")
-    vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');
+    this.contextValue = this.contextValue === 'toggleCoverageOn' ? 'toggleCoverageOff' : 'toggleCoverageOn'
+    this._pr.displayCoverage = this.contextValue === 'toggleCoverageOn'
+    vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration')
   }
 }
