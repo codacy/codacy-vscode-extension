@@ -164,8 +164,7 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 
 // coverage show/hide buttons
-  vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()});
-  vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()});
+  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item) => {item.onClick()});
   
 }
 

@@ -150,7 +150,7 @@
         "icon": "$(arrow-right)"
       },
       {
-        "command": "codacy.pr.toggleCoverageOff",
+        "command": "codacy.pr.toggleCoverage",
         "title": "Toggle inline coverage",
         "category": "Codacy commands",
         "icon": "resources/icons/coverage-inline-on.png"
@@ -222,7 +222,7 @@
           "group": "inline"
         },
         {
-          "command": "codacy.pr.toggleCoverageOff",
+          "command": "codacy.pr.toggleCoverage",
           "when": "view == codacy:prSummary && viewItem =~ /toggleCoverage/ ",
           "group": "inline"
         }
@@ -261,7 +261,6 @@
   },
   "devDependencies": {
     "@codacy/openapi-typescript-codegen": "^0.0.2",
-    "@openapitools/openapi-generator-cli": "^2.7.0",
     "@types/glob": "^8.1.0",
     "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
