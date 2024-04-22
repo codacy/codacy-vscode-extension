@@ -40,10 +40,10 @@ export async function decorateWithCoverage(
   coverageHits?.forEach((value) => {
     const r = editor.document.lineAt(parseInt(value.lineNumber) - 1).range
     if (value.hits > 0) {
-      const decoration = { range: r, hoverMessage: `${value.hits} hits` }
+      const decoration = { range: r, hoverMessage: `Codacy: diff with ${value.hits} hits of test coverage` }
       coveredLines.push(decoration)
     } else {
-      const decoration = { range: r, hoverMessage: 'Not covered' }
+      const decoration = { range: r, hoverMessage: 'Codacy: diff with no test coverage' }
       nonCoveredLines.push(decoration)
     }
   })
