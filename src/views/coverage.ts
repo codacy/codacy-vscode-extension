@@ -3,32 +3,16 @@ import { PullRequest } from '../git/PullRequest'
 import { trimStart } from 'lodash'
 
 const coverageDecorationType = vscode.window.createTextEditorDecorationType({
-  overviewRulerColor: 'green',
-  overviewRulerLane: vscode.OverviewRulerLane.Left,
-
-  light: {
-    // this color will be used in light color themes
-    backgroundColor: 'lightgreen',
-  },
-  dark: {
-    // this color will be used in dark color themes
-    backgroundColor: 'darkgreen',
-  },
-})
+	overviewRulerColor: 'green',
+	overviewRulerLane: vscode.OverviewRulerLane.Left,
+	backgroundColor: new vscode.ThemeColor('diffEditor.insertedLineBackground')
+});
 
 const noCoverageDecorationType = vscode.window.createTextEditorDecorationType({
-  overviewRulerColor: 'red',
-  overviewRulerLane: vscode.OverviewRulerLane.Left,
-
-  light: {
-    // this color will be used in light color themes
-    backgroundColor: '#ffcccc',
-  },
-  dark: {
-    // this color will be used in dark color themes
-    backgroundColor: '#440000',
-  },
-})
+	overviewRulerColor: 'red',
+	overviewRulerLane: vscode.OverviewRulerLane.Left,
+	backgroundColor: new vscode.ThemeColor('diffEditor.removedLineBackground')
+});
 
 export async function decorateWithCoverage(
   editor: vscode.TextEditor,
