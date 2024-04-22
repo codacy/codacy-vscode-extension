@@ -54,6 +54,8 @@ export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
   }
 
   public onClick() {
+    this.contextValue = this.contextValue === 'toggleCoverageOn' ? 'toggleCoverageOff' : 'toggleCoverageOn'
+    this._pr.displayCoverage = this.contextValue === 'toggleCoverageOn'
     vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');
   }
 }
