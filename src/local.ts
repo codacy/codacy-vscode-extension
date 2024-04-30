@@ -148,7 +148,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 						let parser = parseMap.get(file) as Function;
 						parser(jsonContents, diagnosticMap, cwd);
 					} else {
-						let fileEnding = file.split(".").pop();
+						const fileEnding = file.split(".").pop();
 						if (fileEnding == "sarif") {
 							for (i=0; i<jsonContents.runs.length; i++) {
 								for (j=0; j<jsonContents.runs[i].results.length; j++) {
