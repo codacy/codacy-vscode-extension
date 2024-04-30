@@ -28,7 +28,7 @@ export class LocalToolsTree
     this.tools = new Array<LocalToolsToolNode>();
     if (toolsList)
     for (let i=0; i<toolsList.length; i++){
-      let tool = toolsList[i];
+      const tool = toolsList[i];
       this.tools.push(new LocalToolsToolNode(tool, this));
     }
 

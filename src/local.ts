@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { LocalToolsTree } from './views/LocalToolsTree';
+import fs from "fs"
+import commandExists from "command-exists"
 
 export interface IlocalTool
 {
@@ -22,7 +24,7 @@ export class LocalTool implements IlocalTool
 	public installStatus: boolean
 
 	public updateInstallStatus () {
-			var commandExistsSync = require('command-exists').sync;
+			var commandExistsSync = commandExists.sync;
 			this.installStatus = commandExistsSync(this.cliCommand)
 	}
 
@@ -94,35 +96,6 @@ export function handleLocalModeKeypress(
 
 export async function inspectLocal(diagnosticCollection : vscode.DiagnosticCollection) {
 
-	const parseMap: Map<string, Function> = new Map();
-		// markdownlint doesn't output SARIF nicely.
-		parseMap.set("markdownlint", (jsonContents : [], diagnosticMap: Map<string, vscode.Diagnostic[]>, workingDir : string) => {
-
-			for (let i=0; i< jsonContents.length; i++) { 
-				const issue = jsonContents[i] as {[k: string]: any}; // FIXME: Lazy...
-				const canonicalFile = workingDir + "/" + issue.fileName;
-				let diagnostics = diagnosticMap.get(canonicalFile);
-				if (!diagnostics) { diagnostics = []; }
-				const line = issue.lineNumber - 1;
-				let column = 0;
-				let length = 1;
-				if (issue.errorRange) {
-					column = issue.errorRange[0];
-					length = issue.errorRange[1];
-				}
-
-				const range = new vscode.Range(line, column, line, column + length);
-				const diagnostic = new vscode.Diagnostic(range, issue.ruleDescription + ": " + issue.errorDetail, parseIssueLevel("info"));
-				diagnostic.code = issue.ruleNames[0];
-				// not available in vscode.Diagnostic - codacyDE has an extension with these in.
-				//diagnostic.language = "Markdown";
-				//diagnostic.category = "CodeStyle";
-				diagnostics.push(diagnostic);
-				diagnosticMap.set(canonicalFile, diagnostics);
-			};
-	});
-
-
 	if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
 		const diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
@@ -133,7 +106,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 
 			const cwd = vscode.workspace.workspaceFolders[i].uri.path
 			const sarifFolder = cwd + '/.codacy/runs/';
-			const fs = require('fs');
+			//const fs = require('fs');
 			
 			const files = fs.readdirSync(sarifFolder);
 			
@@ -144,30 +117,26 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 					diagnosticCollection.set(vscode.Uri.parse(file), []);
 
 					const jsonContents = JSON.parse(resultFileContents);
-					if (parseMap.has(file)) {
-						const parser = parseMap.get(file) as Function;
-						parser(jsonContents, diagnosticMap, cwd);
-					} else {
-						const fileEnding = file.split(".").pop();
-						if (fileEnding === "sarif") {
-							for (i=0; i<jsonContents.runs.length; i++) {
-								for (j=0; j<jsonContents.runs[i].results.length; j++) {
-									const issue = jsonContents.runs[i].results[j];
 
-									const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
-									//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
-									let diagnostics = diagnosticMap.get(canonicalFile);
-									if (!diagnostics) { diagnostics = []; }
-									const line = issue.locations[0].physicalLocation.region.startLine - 1;
-									const column = issue.locations[0].physicalLocation.region.startColumn;
-									const endLine = issue.locations[0].physicalLocation.region.endLine - 1;
-									const endColumn = issue.locations[0].physicalLocation.region.endColumn;
-									const range = new vscode.Range(line, column, endLine, endColumn);
-									const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level));
-									diagnostic.code = issue.ruleId;
-									diagnostics.push(diagnostic);
-									diagnosticMap.set(canonicalFile, diagnostics);
-								}
+					const fileEnding = file.split(".").pop();
+					if (fileEnding === "sarif") {
+						for (i=0; i<jsonContents.runs.length; i++) {
+							for (j=0; j<jsonContents.runs[i].results.length; j++) {
+								const issue = jsonContents.runs[i].results[j];
+
+								const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
+								//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
+								let diagnostics = diagnosticMap.get(canonicalFile);
+								if (!diagnostics) { diagnostics = []; }
+								const line = issue.locations[0].physicalLocation.region.startLine - 1;
+								const column = issue.locations[0].physicalLocation.region.startColumn;
+								const endLine = issue.locations[0].physicalLocation.region.endLine - 1;
+								const endColumn = issue.locations[0].physicalLocation.region.endColumn;
+								const range = new vscode.Range(line, column, endLine, endColumn);
+								const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level));
+								diagnostic.code = issue.ruleId;
+								diagnostics.push(diagnostic);
+								diagnosticMap.set(canonicalFile, diagnostics);
 							}
 						}
 					}
@@ -272,7 +241,7 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 	let installScript = '';
 	for (let i=0; i<toolsList.length; i++) {
-    let commandExistsSync = require('command-exists').sync;
+    const commandExistsSync = require('command-exists').sync;
     if (!commandExistsSync(toolsList[i].cliCommand)) {
       installScript += installRef(toolsList[i]) + ';\n';
     }

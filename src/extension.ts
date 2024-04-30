@@ -18,7 +18,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { LocalToolsTree } from './views/LocalToolsTree'
 import { handleLocalModeKeypress, LocalTool, runLocal, installLocal } from './local'
-
+const localToolsListJson = require('./../localTools.json')
 
 
 /**
@@ -182,7 +182,7 @@ export async function activate(context: vscode.ExtensionContext) {
 // so we'll limit this window to linux/macos.
   if (['darwin','Linux'].includes(process.platform)) {
 
-    const localToolsListJson = require('./../localTools.json')
+    //const localToolsListJson = require('./../localTools.json')
     const localToolsList = Array<LocalTool>();
     for (let i=0; i<localToolsListJson.tools.length; i++) {
       const tool = new LocalTool(localToolsListJson.tools[i])
