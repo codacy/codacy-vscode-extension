@@ -99,7 +99,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 		parseMap.set("markdownlint", (jsonContents : [], diagnosticMap: Map<string, vscode.Diagnostic[]>, workingDir : string) => {
 
 			for (let i=0; i< jsonContents.length; i++) { 
-				let issue = jsonContents[i] as {[k: string]: any}; // FIXME: Lazy...
+				const issue = jsonContents[i] as {[k: string]: any}; // FIXME: Lazy...
 				let canonicalFile = workingDir + "/" + issue.fileName;
 				let diagnostics = diagnosticMap.get(canonicalFile);
 				if (!diagnostics) { diagnostics = []; }
