@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { LocalToolsTree } from './views/LocalToolsTree';
 import fs from "fs"
 import commandExists from "command-exists"
+import cp from 'child_process'
 
 export interface IlocalTool
 {
@@ -24,8 +25,7 @@ export class LocalTool implements IlocalTool
 	public installStatus: boolean
 
 	public updateInstallStatus () {
-			var commandExistsSync = commandExists.sync;
-			this.installStatus = commandExistsSync(this.cliCommand)
+			this.installStatus = commandExists.sync(this.cliCommand)
 	}
 
 	// I fucking hate this by the way.
@@ -171,14 +171,12 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 		if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
-			const cp = require('child_process');
-
 			for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
 				const workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
 
 
 				// reset the runs directory
-				const fs = require('fs');
+				//const fs = require('fs');
 				const dir = workspaceFolder + '/.codacy/runs';
 
 				if (fs.existsSync(dir)) {
@@ -196,16 +194,11 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 						const execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
 						// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
 						// for the last one to finish before inspecting results.
+						// fixme: figure out how to do error handling here (sync doesn't take a callback)
 						cp.execSync(
 							execCommand,
-							{cwd: workspaceFolder },
-							(err: any, stdout: string, stderr: string) => {
-								if (err && err.code !== 102) {
-									vscode.window.showErrorMessage(`Codacy local tools failed due to ${err.message}`);
-									console.log('error: ' + err);
-									return;
-								}
-							});
+							{cwd: workspaceFolder }
+							);
 					}
 
 					progressBar(50)
@@ -241,8 +234,7 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 	let installScript = '';
 	for (let i=0; i<toolsList.length; i++) {
-    const commandExistsSync = require('command-exists').sync;
-    if (!commandExistsSync(toolsList[i].cliCommand)) {
+    if (!commandExists.sync(toolsList[i].cliCommand)) {
       installScript += installRef(toolsList[i]) + ';\n';
     }
 	}
@@ -267,7 +259,6 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then(()=>{
 
 		progressBar(0, 'codacy installing')
-		const cp = require('child_process')
 		cp.execSync(installScript)
 		toolsList.forEach((tool) => {tool.updateInstallStatus()})
 		toolsTree.refresh()
