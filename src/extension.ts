@@ -183,9 +183,9 @@ export async function activate(context: vscode.ExtensionContext) {
   if (['darwin','Linux'].includes(process.platform)) {
 
     const localToolsListJson = require('./../localTools.json')
-    var localToolsList = Array<LocalTool>();
+    let localToolsList = Array<LocalTool>();
     for (let i=0; i<localToolsListJson.tools.length; i++) {
-      var tool = new LocalTool(localToolsListJson.tools[i])
+      let tool = new LocalTool(localToolsListJson.tools[i])
       localToolsList.push(tool)
     }
   
@@ -216,13 +216,13 @@ export async function activate(context: vscode.ExtensionContext) {
     setLocalRunMode("manual");
   
     vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-      if (document.uri.scheme === "file" && localToolsTree.runMode == "save") {
+      if (document.uri.scheme === "file" && localToolsTree.runMode === "save") {
         vscode.commands.executeCommand('codacy.local.runMode.executeManual');
       }
     });
 
 	vscode.workspace.onDidChangeTextDocument(event => {
-		if (activeEditor && event.document === activeEditor.document && localToolsTree.runMode == 'hesitate') {
+		if (activeEditor && event.document === activeEditor.document && localToolsTree.runMode === 'hesitate') {
 			handleLocalModeKeypress(localDiags, localToolsList);
 		}
 	}, null, context.subscriptions);

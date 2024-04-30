@@ -5,8 +5,6 @@ import { LocalTool } from '../../local';
 
 export class LocalToolsToolInfoNode extends LocalToolsNode {
   constructor(tool : LocalTool) {
-    const messages = Array<string>();
-
     super(
       tool,
       vscode.TreeItemCollapsibleState.None

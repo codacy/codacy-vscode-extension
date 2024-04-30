@@ -1,7 +1,4 @@
 import * as vscode from 'vscode'
-import { PullRequest } from '../../git/PullRequest'
-import { SEVERITY_LEVEL_MAP, REASON_MAP } from '../../common/glossary'
-import { KNOWN_REASONS, Reason } from '../../common/types'
 import { LocalTool } from '../../local'
 
 

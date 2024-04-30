@@ -94,13 +94,13 @@ export function handleLocalModeKeypress(
 
 export async function inspectLocal(diagnosticCollection : vscode.DiagnosticCollection) {
 
-	let parseMap: Map<string, Function> = new Map();
+	const parseMap: Map<string, Function> = new Map();
 		// markdownlint doesn't output SARIF nicely.
 		parseMap.set("markdownlint", (jsonContents : [], diagnosticMap: Map<string, vscode.Diagnostic[]>, workingDir : string) => {
 
 			for (let i=0; i< jsonContents.length; i++) { 
 				const issue = jsonContents[i] as {[k: string]: any}; // FIXME: Lazy...
-				let canonicalFile = workingDir + "/" + issue.fileName;
+				const canonicalFile = workingDir + "/" + issue.fileName;
 				let diagnostics = diagnosticMap.get(canonicalFile);
 				if (!diagnostics) { diagnostics = []; }
 				const line = issue.lineNumber - 1;
@@ -125,7 +125,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 
 	if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
-		let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
+		const diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
 		// FIXME: only clear this for the file that's currently being worked on
 		//diagnosticCollection.clear();
 
@@ -135,33 +135,33 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 			const sarifFolder = cwd + '/.codacy/runs/';
 			const fs = require('fs');
 			
-			let files = fs.readdirSync(sarifFolder);
+			const files = fs.readdirSync(sarifFolder);
 			
 			for (let j=0; j <files.length; j++) {
-				let file = files[j] as string;
-				let resultFileContents = fs.readFileSync(sarifFolder + file, { encoding: 'utf8' });
+				const file = files[j] as string;
+				const resultFileContents = fs.readFileSync(sarifFolder + file, { encoding: 'utf8' });
 				try {
 					diagnosticCollection.set(vscode.Uri.parse(file), []);
 
-					let jsonContents = JSON.parse(resultFileContents);
+					const jsonContents = JSON.parse(resultFileContents);
 					if (parseMap.has(file)) {
-						let parser = parseMap.get(file) as Function;
+						const parser = parseMap.get(file) as Function;
 						parser(jsonContents, diagnosticMap, cwd);
 					} else {
 						const fileEnding = file.split(".").pop();
-						if (fileEnding == "sarif") {
+						if (fileEnding === "sarif") {
 							for (i=0; i<jsonContents.runs.length; i++) {
 								for (j=0; j<jsonContents.runs[i].results.length; j++) {
-									let issue = jsonContents.runs[i].results[j];
+									const issue = jsonContents.runs[i].results[j];
 
-									let canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
+									const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
 									//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
 									let diagnostics = diagnosticMap.get(canonicalFile);
 									if (!diagnostics) { diagnostics = []; }
-									let line = issue.locations[0].physicalLocation.region.startLine - 1;
-									let column = issue.locations[0].physicalLocation.region.startColumn;
-									let endLine = issue.locations[0].physicalLocation.region.endLine - 1;
-									let endColumn = issue.locations[0].physicalLocation.region.endColumn;
+									const line = issue.locations[0].physicalLocation.region.startLine - 1;
+									const column = issue.locations[0].physicalLocation.region.startColumn;
+									const endLine = issue.locations[0].physicalLocation.region.endLine - 1;
+									const endColumn = issue.locations[0].physicalLocation.region.endColumn;
 									const range = new vscode.Range(line, column, endLine, endColumn);
 									const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level));
 									diagnostic.code = issue.ruleId;
@@ -205,12 +205,12 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 			const cp = require('child_process');
 
 			for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
-				let workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
+				const workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
 
 
 				// reset the runs directory
-				var fs = require('fs');
-				let dir = workspaceFolder + '/.codacy/runs';
+				const fs = require('fs');
+				const dir = workspaceFolder + '/.codacy/runs';
 
 				if (fs.existsSync(dir)) {
 					fs.rmSync(dir, {"force":true, "recursive": true} )
@@ -251,7 +251,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 }
 
 function installRef (tool : IlocalTool) {
-	var ref = '';
+	let ref = '';
 	switch (process.platform) {
 		case 'darwin':
 			ref = tool.cliInstallMacos;
@@ -268,16 +268,16 @@ function installRef (tool : IlocalTool) {
 export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalToolsTree) {
 	// fixme -- if all local tools are installed, say that and exit.
 
-	var installScript = '';
-	for (var i=0; i<toolsList.length; i++) {
-    var commandExistsSync = require('command-exists').sync;
+	let installScript = '';
+	for (let i=0; i<toolsList.length; i++) {
+    let commandExistsSync = require('command-exists').sync;
     if (!commandExistsSync(toolsList[i].cliCommand)) {
       installScript += installRef(toolsList[i]) + ';\n';
     }
 	}
 
-	if (installScript == '') {
-		var options: vscode.MessageOptions = { detail: 'All local tools Codacy knows about are already installed.', modal: true };
+	if (installScript === '') {
+		const options: vscode.MessageOptions = { detail: 'All local tools Codacy knows about are already installed.', modal: true };
 		vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["OK"])
 		return
 	}
