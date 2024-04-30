@@ -210,7 +210,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 				// reset the runs directory
 				var fs = require('fs');
-				var dir = workspaceFolder + '/.codacy/runs';
+				let dir = workspaceFolder + '/.codacy/runs';
 
 				if (fs.existsSync(dir)) {
 					fs.rmSync(dir, {"force":true, "recursive": true} )
