@@ -183,9 +183,9 @@ export async function activate(context: vscode.ExtensionContext) {
   if (['darwin','Linux'].includes(process.platform)) {
 
     const localToolsListJson = require('./../localTools.json')
-    let localToolsList = Array<LocalTool>();
+    const localToolsList = Array<LocalTool>();
     for (let i=0; i<localToolsListJson.tools.length; i++) {
-      let tool = new LocalTool(localToolsListJson.tools[i])
+      const tool = new LocalTool(localToolsListJson.tools[i])
       localToolsList.push(tool)
     }
   

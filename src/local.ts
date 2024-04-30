@@ -267,6 +267,8 @@ function installRef (tool : IlocalTool) {
 
 export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalToolsTree) {
 	// fixme -- if all local tools are installed, say that and exit.
+	let options: vscode.MessageOptions
+
 
 	let installScript = '';
 	for (let i=0; i<toolsList.length; i++) {
@@ -284,7 +286,7 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 
 
-	var options: vscode.MessageOptions = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
+	options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
 	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"]).then((item)=>{
 			console.log(item);
 	});
@@ -292,8 +294,8 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 
 
-	var options: vscode.MessageOptions = { detail: 'Codacy will execute the following commands. If you need to sudo, please copy this script and execute manually:\n\n' + installScript, modal: true };
-	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then((item)=>{
+	options = { detail: 'Codacy will execute the following commands. If you need to sudo, please copy this script and execute manually:\n\n' + installScript, modal: true };
+	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then(()=>{
 
 		progressBar(0, 'codacy installing')
 		const cp = require('child_process')
