@@ -144,6 +144,12 @@
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
+        "command": "codacy.local.refresh",
+        "title": "Refresh Local Tools",
+        "category": "Codacy commands",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "codacy.pr.openSummary",
         "title": "Open Pull Request Summary",
         "category": "Codacy commands",
@@ -206,6 +212,10 @@
       {
         "command": "codacy.local.runMode.setOnHesitate",
         "title": "on hesitation"
+      },
+      {
+        "command": "codacy.local.installMissingTools",
+        "title": "install missing tools"
       }
     ],
     "menus": {
@@ -278,6 +288,11 @@
           "command": "codacy.local.runMode.setOnHesitate",
           "when": "view == codacy:localTools",
           "group": "localRunMode@3"
+        },
+        {
+          "command": "codacy.local.installMissingTools",
+          "when": "view == codacy:localTools",
+          "group": "status@1"
         }
       ],
       "view/item/context": [

@@ -1,14 +1,44 @@
 import * as vscode from 'vscode';
-import { PullRequestIssuesNode } from './views/nodes';
-import { exec } from 'child_process';
+import { LocalToolsTree } from './views/LocalToolsTree';
 
-export interface LocalTool
+export interface IlocalTool
 {
 	title: string,
 	cliCommand: string,
 	cliExecute: string,
 	cliVersion: string,
-	cliInstallMacos: string
+	cliInstallMacos: string,
+	cliInstallApt: string
+}
+
+export class LocalTool implements IlocalTool
+{
+	title = ''
+	cliCommand = ''
+	cliExecute = ''
+	cliVersion = ''
+	cliInstallMacos = ''
+	cliInstallApt = ''
+	public installStatus: boolean
+
+	public updateInstallStatus () {
+			var commandExistsSync = require('command-exists').sync;
+			this.installStatus = commandExistsSync(this.cliCommand)
+	}
+
+	// I fucking hate this by the way.
+	constructor (toolInfo : IlocalTool) {
+
+		this.title = toolInfo.title
+		this.cliCommand = toolInfo.cliCommand
+		this.cliExecute = toolInfo.cliExecute
+		this.cliVersion = toolInfo.cliVersion
+		this.cliInstallMacos = toolInfo.cliInstallMacos
+		this.cliInstallApt = toolInfo.cliInstallApt
+		this.installStatus = false
+
+		this.updateInstallStatus()
+	}
 }
 
 export function parseIssueLevel(level: string | undefined) {
@@ -31,20 +61,41 @@ export function parseIssueLevel(level: string | undefined) {
 	return vscodeLevel;
 }
 
-function progressBar(inc: number) {
+function progressBar(inc: number, title?: string | undefined) {
+	if (title == undefined)
+		{
+			title = 'codacy scanning'
+		}
 	vscode.window.withProgress({
 		location: vscode.ProgressLocation.Window,
-		cancellable: false,
-		title: 'codacy scanning'
+		cancellable: true,
+		title: title
 	}, async (progress) => {
 		progress.report({  increment: inc });
 	});
 }
 
+let codacyKeypressTimeout: NodeJS.Timeout | null = null;
+
+export function handleLocalModeKeypress( 
+	diagnosticCollection : vscode.DiagnosticCollection, 
+	toolsList : Array<IlocalTool>) {
+	// Clear existing timeout
+	if (codacyKeypressTimeout) {
+			clearTimeout(codacyKeypressTimeout);
+	}
+
+	// Set new timeout
+	codacyKeypressTimeout = setTimeout(() => {
+			runLocal(diagnosticCollection, toolsList, vscode.window.activeTextEditor?.document.uri.fsPath)
+	}, 3000);
+}
+
+
 export async function inspectLocal(diagnosticCollection : vscode.DiagnosticCollection) {
 
-
 	let parseMap: Map<string, Function> = new Map();
+		// markdownlint doesn't output SARIF nicely.
 		parseMap.set("markdownlint", (jsonContents : [], diagnosticMap: Map<string, vscode.Diagnostic[]>, workingDir : string) => {
 
 			for (let i=0; i< jsonContents.length; i++) { 
@@ -76,7 +127,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 
 		let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
 		// FIXME: only clear this for the file that's currently being worked on
-		diagnosticCollection.clear();
+		//diagnosticCollection.clear();
 
 		for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
 
@@ -90,6 +141,8 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 				let file = files[j] as string;
 				let resultFileContents = fs.readFileSync(sarifFolder + file, { encoding: 'utf8' });
 				try {
+					diagnosticCollection.set(vscode.Uri.parse(file), []);
+
 					let jsonContents = JSON.parse(resultFileContents);
 					if (parseMap.has(file)) {
 						let parser = parseMap.get(file) as Function;
@@ -120,6 +173,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 					}
 				} catch (error) {
 					console.log(error);
+					progressBar(100)
 				}
 			};
 
@@ -130,20 +184,21 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 			progressBar(100)
 		}
 	} else {
+
+		progressBar(100)
 		vscode.window.showErrorMessage('There are no workspaces to analyze!');
 		return;
 	}
 }
 
-export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<LocalTool>, currentFile: string | undefined) {
-	// fixme: replace with spinny/progress bar/something
-//    vscode.window.showInformationMessage('Codacy local tools execution triggered');
+export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<IlocalTool>, currentFile: string | undefined) {
 
-	progressBar(0)
 
 	if (!currentFile) {
 		return
 	}
+
+	progressBar(10)
 
 		if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
@@ -170,7 +225,6 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 						// we can easily overflow stdout so let's pipe to a temp file.
 						const execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
-						console.log(execCommand);
 						// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
 						// for the last one to finish before inspecting results.
 						cp.execSync(
@@ -194,4 +248,60 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 			vscode.window.showErrorMessage('There are no workspaces to analyze!')
 			return
 		}
+}
+
+function installRef (tool : IlocalTool) {
+	var ref = '';
+	switch (process.platform) {
+		case 'darwin':
+			ref = tool.cliInstallMacos;
+			break;
+		case 'linux':
+			ref = tool.cliInstallApt;
+			break;
+		default:
+			break;
+	}
+	return ref;
+}
+
+export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalToolsTree) {
+	// fixme -- if all local tools are installed, say that and exit.
+
+	var installScript = '';
+	for (var i=0; i<toolsList.length; i++) {
+    var commandExistsSync = require('command-exists').sync;
+    if (!commandExistsSync(toolsList[i].cliCommand)) {
+      installScript += installRef(toolsList[i]) + ';\n';
+    }
+	}
+
+	if (installScript == '') {
+		var options: vscode.MessageOptions = { detail: 'All local tools Codacy knows about are already installed.', modal: true };
+		vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["OK"])
+		return
+	}
+
+
+
+	var options: vscode.MessageOptions = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
+	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"]).then((item)=>{
+			console.log(item);
+	});
+
+
+
+
+	var options: vscode.MessageOptions = { detail: 'Codacy will execute the following commands. If you need to sudo, please copy this script and execute manually:\n\n' + installScript, modal: true };
+	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then((item)=>{
+
+		progressBar(0, 'codacy installing')
+		const cp = require('child_process')
+		cp.execSync(installScript)
+		toolsList.forEach((tool) => {tool.updateInstallStatus()})
+		toolsTree.refresh()
+		progressBar(100, 'codacy installing')
+	})
+	
+	
 }

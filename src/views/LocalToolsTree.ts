@@ -29,7 +29,7 @@ export class LocalToolsTree
     if (toolsList)
     for (var i=0; i<toolsList.length; i++){
       var tool = toolsList[i];
-      this.tools.push(new LocalToolsToolNode(tool.title, tool.cliCommand, this));
+      this.tools.push(new LocalToolsToolNode(tool, this));
     }
 
     // create the tree view
@@ -66,6 +66,10 @@ export class LocalToolsTree
   }
 
   refresh() {
+    this.tools.forEach((tool) => {
+      tool.calculateIcon()
+    })
+    // FIXME: this doesn't seem to do anything
     this._onDidChangeTreeData.fire();
   }
 }

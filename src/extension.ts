@@ -17,7 +17,7 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { LocalToolsTree } from './views/LocalToolsTree'
-import { LocalTool, runLocal } from './local'
+import { handleLocalModeKeypress, LocalTool, runLocal, installLocal } from './local'
 
 
 
@@ -177,38 +177,57 @@ export async function activate(context: vscode.ExtensionContext) {
 //
 // local mode
 //
-  const localToolsListJson = require('./../localTools.json')
-  var localToolsList = Array<LocalTool>();
-  for (let i=0; i<localToolsListJson.tools.length; i++) {
-    localToolsList.push(localToolsListJson.tools[i])
-  }
 
-  const localToolsTree = new LocalToolsTree(context, repositoryManager, localToolsList);
-  context.subscriptions.push(localToolsTree)
+// most oss tools are not available to execute on the windows CLI.
+// so we'll limit this window to linux/macos.
+  if (['darwin','Linux'].includes(process.platform)) {
 
-  const localDiags = vscode.languages.createDiagnosticCollection('codacy.local');
-  const setLocalRunMode = (mode : string) => {
-    vscode.commands.executeCommand('setContext', 'codacy.local:runMode', mode);
-    localToolsTree.runMode = mode;
-    localToolsTree.refresh();
-    };
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {runLocal(localDiags, localToolsList,vscode.window.activeTextEditor?.document.uri.fsPath)}));
-
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {setLocalRunMode("hesitate")}));
-
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnSave', () => {}));
-  context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnHesitate', () => {}));
-  setLocalRunMode("manual");
-
-  vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-    if (document.uri.scheme === "file" && localToolsTree.runMode == "save") {
-      vscode.commands.executeCommand('codacy.local.runMode.executeManual');
+    const localToolsListJson = require('./../localTools.json')
+    var localToolsList = Array<LocalTool>();
+    for (let i=0; i<localToolsListJson.tools.length; i++) {
+      var tool = new LocalTool(localToolsListJson.tools[i])
+      localToolsList.push(tool)
     }
-});
+  
+    const localToolsTree = new LocalToolsTree(context, repositoryManager, localToolsList);
+    context.subscriptions.push(localToolsTree)
+  
+    const localDiags = vscode.languages.createDiagnosticCollection('codacy.local');
+    const setLocalRunMode = (mode : string) => {
+      vscode.commands.executeCommand('setContext', 'codacy.local:runMode', mode);
+      localToolsTree.runMode = mode;
+      localToolsTree.refresh();
+      };
 
+    vscode.commands.registerCommand('codacy.local.refresh', () => {
+      localToolsTree.refresh();
+    });
+
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.installMissingTools', () => {installLocal(localToolsList, localToolsTree)}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {runLocal(localDiags, localToolsList,vscode.window.activeTextEditor?.document.uri.fsPath)}));
+  
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {setLocalRunMode("hesitate")}));
+  
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnSave', () => {}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnHesitate', () => {}));
+    setLocalRunMode("manual");
+  
+    vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
+      if (document.uri.scheme === "file" && localToolsTree.runMode == "save") {
+        vscode.commands.executeCommand('codacy.local.runMode.executeManual');
+      }
+    });
+
+	vscode.workspace.onDidChangeTextDocument(event => {
+		if (activeEditor && event.document === activeEditor.document && localToolsTree.runMode == 'hesitate') {
+			handleLocalModeKeypress(localDiags, localToolsList);
+		}
+	}, null, context.subscriptions);
+  
+  }
 }
 
 

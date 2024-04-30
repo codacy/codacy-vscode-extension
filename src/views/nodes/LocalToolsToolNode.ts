@@ -1,32 +1,25 @@
 import * as vscode from 'vscode'
 import { LocalToolsNode } from './LocalToolsNode'
 import { LocalToolsTree } from '../LocalToolsTree'
+import { LocalTool } from '../../local';
 
 export class LocalToolsToolInfoNode extends LocalToolsNode {
-  constructor(label : string, cmdline : string, icon : string) {
+  constructor(tool : LocalTool) {
     const messages = Array<string>();
 
-
     super(
-      label,
-      icon,
-      vscode.TreeItemCollapsibleState.None,
-      undefined
+      tool,
+      vscode.TreeItemCollapsibleState.None
     )
   }
 }
 
+
+
 export class LocalToolsToolNode extends LocalToolsToolInfoNode {
-  constructor(label : string, cmdline : string, private readonly _toolsView: LocalToolsTree) {
-    var icon = 'close'
-    var commandExistsSync = require('command-exists').sync;
+  constructor(tool : LocalTool, private readonly _toolsView: LocalToolsTree) {
 
-    if (commandExistsSync(cmdline)) {
-      icon = 'check'
-      // fixme, check installed version vs codacy version
-    }
-
-    super(label, cmdline, icon)
+    super(tool)
     this._toolsView = _toolsView
 
     // use this to highlight runnable-ness? install status...? etc
