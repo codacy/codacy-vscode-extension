@@ -103,7 +103,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 				let canonicalFile = workingDir + "/" + issue.fileName;
 				let diagnostics = diagnosticMap.get(canonicalFile);
 				if (!diagnostics) { diagnostics = []; }
-				let line = issue.lineNumber - 1;
+				const line = issue.lineNumber - 1;
 				let column = 0;
 				let length = 1;
 				if (issue.errorRange) {
