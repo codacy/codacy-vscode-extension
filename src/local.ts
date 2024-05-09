@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { LocalToolsTree } from './views/LocalToolsTree';
-import fs from "fs"
-import commandExists from "command-exists"
-import cp from 'child_process'
+import * as fs from 'node:fs'
+import * as cp from 'child_process'
+const commandExistsSync = require('command-exists').sync
 
 export interface IlocalTool
 {
@@ -25,7 +25,7 @@ export class LocalTool implements IlocalTool
 	public installStatus: boolean
 
 	public updateInstallStatus () {
-			this.installStatus = commandExists.sync(this.cliCommand)
+			this.installStatus = commandExistsSync(this.cliCommand)
 	}
 
 	// I fucking hate this by the way.
@@ -44,7 +44,6 @@ export class LocalTool implements IlocalTool
 }
 
 export function parseIssueLevel(level: string | undefined) {
-	console.log(level);
 
 	let vscodeLevel = vscode.DiagnosticSeverity.Error;
 	if (!level) { return vscodeLevel }
@@ -234,7 +233,7 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 	let installScript = '';
 	for (let i=0; i<toolsList.length; i++) {
-    if (!commandExists.sync(toolsList[i].cliCommand)) {
+    if (!commandExistsSync(toolsList[i].cliCommand)) {
       installScript += installRef(toolsList[i]) + ';\n';
     }
 	}
@@ -249,7 +248,6 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 	options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
 	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"]).then((item)=>{
-			console.log(item);
 	});
 
 
