@@ -63,7 +63,7 @@ export function parseIssueLevel(level: string | undefined) {
 }
 
 function progressBar(inc: number, title?: string | undefined) {
-	if (title == undefined)
+	if (title === undefined)
 		{
 			title = 'codacy scanning'
 		}
@@ -247,8 +247,7 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 
 
 	options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
-	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"]).then((item)=>{
-	});
+	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"])
 
 
 
