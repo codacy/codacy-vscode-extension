@@ -150,15 +150,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	function triggerCoverageDecoration(editor: vscode.TextEditor | undefined) {
 		activeEditor = editor;
 		if (editor) {
-			decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest);
+			decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
 		}
 	}
 
 	let activeEditor = vscode.window.activeTextEditor;
-	vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions);
+	vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions)
 
 	if (activeEditor) {
-		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest);
+		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
 	}
 
 
@@ -169,10 +169,9 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 
 // coverage show/hide buttons
-  vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()});
-  vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()});
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()})
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()})
   
-
 
 //
 // local mode
@@ -182,7 +181,6 @@ export async function activate(context: vscode.ExtensionContext) {
 // so we'll limit this window to linux/macos.
   if (['darwin','Linux'].includes(process.platform)) {
 
-    //const localToolsListJson = require('./../localTools.json')
     const localToolsList = Array<LocalTool>();
     for (let i=0; i<localToolsListJson.tools.length; i++) {
       const tool = new LocalTool(localToolsListJson.tools[i])
