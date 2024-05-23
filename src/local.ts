@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { LocalToolsTree } from './views/LocalToolsTree';
 import * as fs from 'node:fs'
 import * as cp from 'child_process'
+//import Logger from './common/logger'
 const commandExistsSync = require('command-exists').sync
 
 export interface IlocalTool
@@ -167,6 +168,8 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 	progressBar(10)
 
+	const crypto = require('crypto');
+
 		if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
 			for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
@@ -189,7 +192,13 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 						// fixme: filter tools based on workspace config from codacy...?
 
 						// we can easily overflow stdout so let's pipe to a temp file.
-						const execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
+						const pathHash = crypto.createHash('md5').update(currentFile).digest('hex');
+
+						// Logger.appendLine(currentFile)
+						// Logger.appendLine(pathHash)
+
+						const execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile).replace("[[PATH_HASH]]", pathHash);
+
 						// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
 						// for the last one to finish before inspecting results.
 						// fixme: figure out how to do error handling here (sync doesn't take a callback)

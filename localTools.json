@@ -3,7 +3,7 @@
     {
       "title": "Codacy-ESLint",
       "cliCommand": "codacy-cli-v2",
-      "cliExecute": "codacy-cli-v2 analyze eslint --output ./.codacy/runs/eslint.sarif",
+      "cliExecute": "codacy-cli-v2 analyze -t eslint \"[[PATH]]\" --output \"./.codacy/runs/[[PATH_HASH]].eslint.sarif\"",
       "cliVersion": "1.0.0",
       "cliInstallMacos": "brew install codacy/codacy-cli-v2/codacy-cli-v2"
     }
