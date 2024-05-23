@@ -78,8 +78,8 @@ function progressBar(inc: number, title?: string | undefined) {
 
 let codacyKeypressTimeout: NodeJS.Timeout | null = null;
 
-export function handleLocalModeKeypress( 
-	diagnosticCollection : vscode.DiagnosticCollection, 
+export function handleLocalModeKeypress(
+	diagnosticCollection : vscode.DiagnosticCollection,
 	toolsList : Array<IlocalTool>) {
 	// Clear existing timeout
 	if (codacyKeypressTimeout) {
@@ -106,9 +106,9 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 			const cwd = vscode.workspace.workspaceFolders[i].uri.path
 			const sarifFolder = cwd + '/.codacy/runs/';
 			//const fs = require('fs');
-			
+
 			const files = fs.readdirSync(sarifFolder);
-			
+
 			for (let j=0; j <files.length; j++) {
 				const file = files[j] as string;
 				const resultFileContents = fs.readFileSync(sarifFolder + file, { encoding: 'utf8' });
@@ -123,14 +123,13 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 							for (j=0; j<jsonContents.runs[i].results.length; j++) {
 								const issue = jsonContents.runs[i].results[j];
 
-								const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
-								//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
+								const canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri.replace(/^\//, 'file:///');
 								let diagnostics = diagnosticMap.get(canonicalFile);
 								if (!diagnostics) { diagnostics = []; }
 								const line = issue.locations[0].physicalLocation.region.startLine - 1;
-								const column = issue.locations[0].physicalLocation.region.startColumn;
+								const column = issue.locations[0].physicalLocation.region.startColumn -1;
 								const endLine = issue.locations[0].physicalLocation.region.endLine - 1;
-								const endColumn = issue.locations[0].physicalLocation.region.endColumn;
+								const endColumn = issue.locations[0].physicalLocation.region.endColumn -1;
 								const range = new vscode.Range(line, column, endLine, endColumn);
 								const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level));
 								diagnostic.code = issue.ruleId;
@@ -184,7 +183,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 				fs.mkdirSync(dir, { recursive: true });
 				fs.chmodSync(dir, '766');
-				
+
 				for (let j=0; j<toolsList.length; j++)
 					{
 						// fixme: filter tools based on workspace config from codacy...?
@@ -261,6 +260,6 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 		toolsTree.refresh()
 		progressBar(100, 'codacy installing')
 	})
-	
-	
+
+
 }
