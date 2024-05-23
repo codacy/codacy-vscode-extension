@@ -123,7 +123,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 							for (j=0; j<jsonContents.runs[i].results.length; j++) {
 								const issue = jsonContents.runs[i].results[j];
 
-								const canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri.replace(/^\//, 'file:///');
+								const canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
 								let diagnostics = diagnosticMap.get(canonicalFile);
 								if (!diagnostics) { diagnostics = []; }
 								const line = issue.locations[0].physicalLocation.region.startLine - 1;
