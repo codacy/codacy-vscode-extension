@@ -66,8 +66,6 @@ export class LocalToolsTree
   }
 
   refresh() {
-    console.log("coding standard: " + this._repositoryManager.codingStandardId)
-
     this.tools.forEach((tool) => {
       tool.calculateIcon()
     })

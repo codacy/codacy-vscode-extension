@@ -57,7 +57,6 @@ export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
 
 
   public onClick() {
-    console.log("clicked coverage toggle: " + this.contextValue)
     this.contextValue = (this.contextValue === "toggleCoverageOn") ? "toggleCoverageOff" : "toggleCoverageOn"
     this._pr.coverageDisplay = (this.contextValue === "toggleCoverageOn")
     vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');

@@ -202,7 +202,9 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.installMissingTools', () => {installLocal(localToolsList, localToolsTree)}));
-    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {runLocal(localDiags, localToolsList,vscode.window.activeTextEditor?.document.uri.fsPath)}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri.fsPath)
+    }));
   
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
@@ -221,7 +223,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	vscode.workspace.onDidChangeTextDocument(event => {
 		if (activeEditor && event.document === activeEditor.document && localToolsTree.runMode === 'hesitate') {
-			handleLocalModeKeypress(localDiags, localToolsList);
+			handleLocalModeKeypress(localDiags, localToolsList, repositoryManager);
 		}
 	}, null, context.subscriptions);
   

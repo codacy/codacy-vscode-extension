@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { LocalToolsTree } from './views/LocalToolsTree';
 import * as fs from 'node:fs'
 import * as cp from 'child_process'
+import { RepositoryManager } from './git/RepositoryManager';
 const commandExistsSync = require('command-exists').sync
 
 export interface IlocalTool
@@ -80,7 +81,8 @@ let codacyKeypressTimeout: NodeJS.Timeout | null = null;
 
 export function handleLocalModeKeypress( 
 	diagnosticCollection : vscode.DiagnosticCollection, 
-	toolsList : Array<IlocalTool>) {
+	toolsList : Array<IlocalTool>,
+	repoManager : RepositoryManager) {
 	// Clear existing timeout
 	if (codacyKeypressTimeout) {
 			clearTimeout(codacyKeypressTimeout);
@@ -88,7 +90,7 @@ export function handleLocalModeKeypress(
 
 	// Set new timeout
 	codacyKeypressTimeout = setTimeout(() => {
-			runLocal(diagnosticCollection, toolsList, vscode.window.activeTextEditor?.document.uri.fsPath)
+			runLocal(diagnosticCollection, toolsList, repoManager, vscode.window.activeTextEditor?.document.uri.fsPath)
 	}, 3000);
 }
 
@@ -120,6 +122,9 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 					const fileEnding = file.split(".").pop();
 					if (fileEnding === "sarif") {
 						for (i=0; i<jsonContents.runs.length; i++) {
+
+							const toolName = jsonContents.runs[i].tool.driver.name;
+							console.log(toolName)
 							for (j=0; j<jsonContents.runs[i].results.length; j++) {
 								const issue = jsonContents.runs[i].results[j];
 
@@ -127,15 +132,24 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 								//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
 								let diagnostics = diagnosticMap.get(canonicalFile);
 								if (!diagnostics) { diagnostics = []; }
-								const line = issue.locations[0].physicalLocation.region.startLine - 1;
-								const column = issue.locations[0].physicalLocation.region.startColumn;
-								const endLine = issue.locations[0].physicalLocation.region.endLine - 1;
-								const endColumn = issue.locations[0].physicalLocation.region.endColumn;
-								const range = new vscode.Range(line, column, endLine, endColumn);
-								const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level));
-								diagnostic.code = issue.ruleId;
-								diagnostics.push(diagnostic);
-								diagnosticMap.set(canonicalFile, diagnostics);
+								const line = issue.locations[0].physicalLocation.region.startLine - 1
+								const column = issue.locations[0].physicalLocation.region.startColumn ?? 0
+								const endLine = issue.locations[0].physicalLocation.region.endLine - 1
+								const endColumn = issue.locations[0].physicalLocation.region.endColumn ?? 1
+
+
+								const range = new vscode.Range(line, column, endLine, endColumn)
+								const diagnostic = new vscode.Diagnostic(range, issue.message.text, parseIssueLevel(issue.level))
+								diagnostic.code = issue.ruleId
+
+								// fixme -- horrible hack to make Checkov local results look the same as cloud ones.
+								if (toolName === "Checkov") {
+									diagnostic.severity = vscode.DiagnosticSeverity.Warning
+									diagnostic.range = new vscode.Range(line, column, line+1, endColumn)
+								}	
+
+								diagnostics.push(diagnostic)
+								diagnosticMap.set(canonicalFile, diagnostics)
 							}
 						}
 					}
@@ -159,8 +173,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 	}
 }
 
-export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<IlocalTool>, currentFile: string | undefined) {
-
+export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<IlocalTool>, repoManager : RepositoryManager, currentFile: string | undefined) {
 
 	if (!currentFile) {
 		return
@@ -173,9 +186,8 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 			for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
 				const workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
 
-
 				// reset the runs directory
-				//const fs = require('fs');
+				// fixme: only delete outputs of tools we're about to run, instead.
 				const dir = workspaceFolder + '/.codacy/runs';
 
 				if (fs.existsSync(dir)) {
@@ -187,10 +199,16 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 				
 				for (let j=0; j<toolsList.length; j++)
 					{
-						// fixme: filter tools based on workspace config from codacy...?
+						// fixme: don't use title, record the codacyToolName in the json
+						if (!repoManager.repoTools.has(toolsList[j].title)) {
+							continue
+						}
 
-						// we can easily overflow stdout so let's pipe to a temp file.
-						const execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
+						var execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
+
+						const toolParms = repoManager.parametersForTool(toolsList[j].title) ?? ''
+						execCommand = execCommand.replace("[[PARMS]]", toolParms);
+
 						// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
 						// for the last one to finish before inspecting results.
 						// fixme: figure out how to do error handling here (sync doesn't take a callback)

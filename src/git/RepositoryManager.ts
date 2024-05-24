@@ -3,7 +3,7 @@ import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
 import { gitRepoInfo, parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
-import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
+import { Branch, OpenAPIError, OrganizationWithMeta, Pattern, RepositoryWithAnalysis } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
@@ -53,9 +53,6 @@ export class RepositoryManager implements vscode.Disposable {
   private _branchState: BranchState = BranchState.OnUnknownBranch
   private _issuesManager = new IssuesManager(this)
 
-  private _codingStandardId: number | undefined
-  private _repoTools: any
-
   private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
   readonly onDidChangeState: vscode.Event<RepositoryManagerState> = this._onDidChangeState.event
 
@@ -75,7 +72,16 @@ export class RepositoryManager implements vscode.Disposable {
 
   private _disposables: vscode.Disposable[] = []
 
-  private toolRules = new Map<string,Array<string>>()
+
+  private _codingStandardId: number | undefined
+  private _repoTools = new Map<string, string>()
+
+  // fixme: all this stuff should move out to an attached LocalToolManager
+  private _toolRules = new Map<string,Array<Pattern>>()
+  private _toolParameters = new Map<string, string>()
+
+  private _toolConfigs = new Map<string,string>()
+
 
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
@@ -191,45 +197,107 @@ export class RepositoryManager implements vscode.Disposable {
 
   protected async loadToolPatterns(repo: gitRepoInfo) {
 
-    if (this._codingStandardId !== undefined) {
-      const repoToolsData = await Api.Analysis.getTools(
-        repo.provider,
-        repo.organization,
-        repo.repository
-      )
+    if (this._codingStandardId === undefined) {
+      return
+    }
+    const repoToolsData = await Api.Analysis.getTools(
+      repo.provider,
+      repo.organization,
+      repo.repository
+    )
 
-      const codacyToolsData = await Api.Tools.listTools()
+    const codacyToolsData = await Api.Tools.listTools()
 
-      const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
+    const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
 
-      const codacyToolsNameMap = new Map<string,string>()
-      for (let i=0; i<codacyToolsData.data.length; i++) {
-        let cTool = codacyToolsData.data[i]
-        if (supportedTools.includes(cTool.name)) {
-          codacyToolsNameMap.set(cTool.name, cTool.uuid)
-        }
+    const codacyToolsNameMap = new Map<string,string>()
+    for (let i=0; i<codacyToolsData.data.length; i++) {
+      let cTool = codacyToolsData.data[i]
+      if (supportedTools.includes(cTool.name)) {
+        codacyToolsNameMap.set(cTool.name, cTool.uuid)
       }
+    }
 
-      for (let i=0;  i<repoToolsData.data.length; i++) {
-        var tool = repoToolsData.data[i]
-        if (tool.settings.isEnabled) {
-          var uuid = codacyToolsNameMap.get(tool.name)
+    this._repoTools = codacyToolsNameMap
 
-          if (uuid !== undefined) {
-            console.log(tool.name, uuid)
+    for (let i=0;  i<repoToolsData.data.length; i++) {
+      var tool = repoToolsData.data[i]
+      let toolRules = new Array<Pattern>()
+      if (tool.settings.isEnabled) {
+        var uuid = codacyToolsNameMap.get(tool.name)
 
+        if (uuid !== undefined) {
+          var cursor = undefined
+          do {
             const codacyToolPatternsData = await Api.CodingStandards.listCodingStandardPatterns(
               repo.provider,
               repo.organization,
               this._codingStandardId,
-              uuid)
+              uuid,undefined,undefined,undefined,undefined,undefined,cursor,1000)
+            cursor = codacyToolPatternsData.pagination?.cursor
 
-              console.log("tool patterns: ");
-              console.log(codacyToolPatternsData);
-            // then pump the patterns into a config builder
-            // the save configs to pump to the tool executions
-          }
+            for (let j=0; j<codacyToolPatternsData.data.length; j++) {
+              if (codacyToolPatternsData.data[j].enabled === true) {
+
+                let def = codacyToolPatternsData.data[j].patternDefinition;
+                toolRules.push(def)
+              }
+            }
+          } while (cursor !== undefined)
+
+          this._toolRules.set(tool.name, toolRules)
         }
+      }
+    }
+
+    if (this._toolRules.size > 0) {
+      for (var entry of this._toolRules.entries()) {
+        var name = entry[0]
+        var rules = entry[1]
+        var parmString = ''
+        var configString = ''
+        
+        // fixme: this should dispatch to a function based on tool through some sort of map...?
+        switch (name) {
+          case "Trivy":
+            let parms = new Array<string>()
+            for (let j=0; j<rules.length; j++) {
+              switch (rules[j].id)
+              {
+                case "Trivy_secret":
+                  parms.push("secret")
+                  break
+                case "Trivy_vulnerability":
+                  parms.push("vuln")
+                  break
+              }
+
+              parmString = "--scanners " + parms.join(",")
+            }
+
+            break
+          case "Semgrep":
+            configString = ''
+            for (let j=0; j<rules.length; j++) {
+              configString += rules[j].id + ", "
+            }
+            break
+          case "Checkov":
+            // fixme: it's not ideal to just stuff all the config into the cli parms.
+            // It would be better to write to a config file
+            parmString = '--check '
+            for (let j=0; j<rules.length; j++) {
+              var ruleId = rules[j].id.substring(8)
+              parmString += ruleId + ","
+            }
+            if (parmString.endsWith(",")) {
+              parmString = parmString.slice(0,-1)
+            }
+            break
+        }
+
+        this._toolParameters.set(name, parmString)
+        this._toolConfigs.set(name, configString)
       }
     }
   }
@@ -500,6 +568,16 @@ export class RepositoryManager implements vscode.Disposable {
     }
   }
 
+
+  get repoTools() {
+    return this._repoTools
+  }
+
+  public parametersForTool(tool: string) {
+    if (this._toolParameters.has(tool))
+      return this._toolParameters.get(tool)
+    return null
+  }
 
   get codingStandardId(): number | undefined {
     return this._codingStandardId
