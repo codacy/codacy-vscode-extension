@@ -4,6 +4,12 @@ const validProviders: Record<string, 'gh' | 'gl' | 'bb'> = {
   bitbucket: 'bb',
 }
 
+export interface gitRepoInfo {
+  provider: 'gh' | 'gl' | 'bb'
+  organization: string
+  repository: string
+}
+
 /**
  * Parse a git remote URL into its component parts
  * @param remoteUrl

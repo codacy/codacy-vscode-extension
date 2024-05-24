@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
-import { parseGitRemote } from '../common/parseGitRemote'
+import { gitRepoInfo, parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
 import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
 import { handleError } from '../common/utils'
@@ -9,6 +9,7 @@ import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
+import { Tools } from '../codacy/Tools'
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -52,6 +53,9 @@ export class RepositoryManager implements vscode.Disposable {
   private _branchState: BranchState = BranchState.OnUnknownBranch
   private _issuesManager = new IssuesManager(this)
 
+  private _codingStandardId: number | undefined
+  private _repoTools: any
+
   private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
   readonly onDidChangeState: vscode.Event<RepositoryManagerState> = this._onDidChangeState.event
 
@@ -70,6 +74,8 @@ export class RepositoryManager implements vscode.Disposable {
   private _prsRefreshTimeout: NodeJS.Timeout | undefined
 
   private _disposables: vscode.Disposable[] = []
+
+  private toolRules = new Map<string,Array<string>>()
 
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
@@ -99,6 +105,12 @@ export class RepositoryManager implements vscode.Disposable {
             repo.organization,
             repo.repository
           )
+          this._codingStandardId = data.repository.codingStandardId
+
+
+          await this.loadToolPatterns(repo)
+          vscode.commands.executeCommand('codacy.local.refresh')
+
 
           const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
           this._organization = organization
@@ -174,6 +186,51 @@ export class RepositoryManager implements vscode.Disposable {
     // otherwise, try to find a pull request
     else {
       this.loadPullRequest()
+    }
+  }
+
+  protected async loadToolPatterns(repo: gitRepoInfo) {
+
+    if (this._codingStandardId !== undefined) {
+      const repoToolsData = await Api.Analysis.getTools(
+        repo.provider,
+        repo.organization,
+        repo.repository
+      )
+
+      const codacyToolsData = await Api.Tools.listTools()
+
+      const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
+
+      const codacyToolsNameMap = new Map<string,string>()
+      for (let i=0; i<codacyToolsData.data.length; i++) {
+        let cTool = codacyToolsData.data[i]
+        if (supportedTools.includes(cTool.name)) {
+          codacyToolsNameMap.set(cTool.name, cTool.uuid)
+        }
+      }
+
+      for (let i=0;  i<repoToolsData.data.length; i++) {
+        var tool = repoToolsData.data[i]
+        if (tool.settings.isEnabled) {
+          var uuid = codacyToolsNameMap.get(tool.name)
+
+          if (uuid !== undefined) {
+            console.log(tool.name, uuid)
+
+            const codacyToolPatternsData = await Api.CodingStandards.listCodingStandardPatterns(
+              repo.provider,
+              repo.organization,
+              this._codingStandardId,
+              uuid)
+
+              console.log("tool patterns: ");
+              console.log(codacyToolPatternsData);
+            // then pump the patterns into a config builder
+            // the save configs to pump to the tool executions
+          }
+        }
+      }
     }
   }
 
@@ -441,6 +498,11 @@ export class RepositoryManager implements vscode.Disposable {
         organization_id: this._organization?.organization.identifier,
       })
     }
+  }
+
+
+  get codingStandardId(): number | undefined {
+    return this._codingStandardId
   }
 
   public dispose() {
