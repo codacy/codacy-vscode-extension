@@ -9,7 +9,6 @@ import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
-import { Tools } from '../codacy/Tools'
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -212,7 +211,7 @@ export class RepositoryManager implements vscode.Disposable {
 
     const codacyToolsNameMap = new Map<string,string>()
     for (let i=0; i<codacyToolsData.data.length; i++) {
-      let cTool = codacyToolsData.data[i]
+      const cTool = codacyToolsData.data[i]
       if (supportedTools.includes(cTool.name)) {
         codacyToolsNameMap.set(cTool.name, cTool.uuid)
       }
@@ -221,10 +220,10 @@ export class RepositoryManager implements vscode.Disposable {
     this._repoTools = codacyToolsNameMap
 
     for (let i=0;  i<repoToolsData.data.length; i++) {
-      var tool = repoToolsData.data[i]
+      const tool = repoToolsData.data[i]
       let toolRules = new Array<Pattern>()
       if (tool.settings.isEnabled) {
-        var uuid = codacyToolsNameMap.get(tool.name)
+        const uuid = codacyToolsNameMap.get(tool.name)
 
         if (uuid !== undefined) {
           var cursor = undefined
