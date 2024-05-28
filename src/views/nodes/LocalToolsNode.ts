@@ -4,7 +4,7 @@ import { LocalTool } from '../../local'
 
 
 export class LocalToolsNode extends vscode.TreeItem {
-  protected tool: LocalTool
+  public tool: LocalTool
   constructor(tool: LocalTool, collapsibleState?: vscode.TreeItemCollapsibleState) {
     super(tool.title, collapsibleState || vscode.TreeItemCollapsibleState.None)
 
@@ -14,10 +14,14 @@ export class LocalToolsNode extends vscode.TreeItem {
 
 
   calculateIcon() {
+    if (this.tool.cloudEnabled && !this.tool.installStatus) {
+      return 'cloud'
+    }
+
     if (this.tool.installStatus) {
-      return 'check'
+      return 'run-coverage'
     } else {
-      return 'close'
+      return 'desktop-download'
     }
   }
 

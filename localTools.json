@@ -8,13 +8,6 @@
       "cli-InstallMacos": "brew install trivy"
     },
     {
-      "title": "Semgrep",
-      "cliCommand": "semgrep",
-      "cliExecute": "semgrep scan [[PATH]] [[PARMS]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
-      "cliVersion": "semgrep --version",
-      "cliInstallMacos": "brew install semgrep"
-    },
-    {
       "title": "Checkov",
       "cliCommand": "checkov",
       "cliExecute": "checkov -s -f [[PATH]] [[PARMS]] --compact --quiet -o sarif --output-file-path ./.codacy/runs",

@@ -5,6 +5,14 @@ import * as cp from 'child_process'
 import { RepositoryManager } from './git/RepositoryManager';
 const commandExistsSync = require('command-exists').sync
 
+/*{
+"title": "Semgrep",
+"cliCommand": "semgrep",
+"cliExecute": "semgrep scan [[PATH]] [[PARMS]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
+"cliVersion": "semgrep --version",
+"cliInstallMacos": "brew install semgrep"
+},*/
+
 export interface IlocalTool
 {
 	title: string,
@@ -24,6 +32,7 @@ export class LocalTool implements IlocalTool
 	cliInstallMacos = ''
 	cliInstallApt = ''
 	public installStatus: boolean
+	public cloudEnabled: boolean
 
 	public updateInstallStatus () {
 			this.installStatus = commandExistsSync(this.cliCommand)
@@ -39,6 +48,7 @@ export class LocalTool implements IlocalTool
 		this.cliInstallMacos = toolInfo.cliInstallMacos
 		this.cliInstallApt = toolInfo.cliInstallApt
 		this.installStatus = false
+		this.cloudEnabled = false
 
 		this.updateInstallStatus()
 	}

@@ -14,7 +14,8 @@ export class LocalToolsTree
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
   private _disposables: vscode.Disposable[] = []
   private _view: vscode.TreeView<LocalToolsNode>
-  protected tools: Array<LocalToolsToolNode> 
+  protected toolsToShow: Array<LocalToolsToolNode> 
+  protected localToolsDefs: Array<LocalTool>
   public runMode: string
 
   constructor(
@@ -25,12 +26,10 @@ export class LocalToolsTree
     super(() => this.dispose())
     this.runMode = "manual";
 
-    this.tools = new Array<LocalToolsToolNode>();
-    if (toolsList)
-    for (let i=0; i<toolsList.length; i++){
-      const tool = toolsList[i];
-      this.tools.push(new LocalToolsToolNode(tool, this));
-    }
+    this.localToolsDefs = toolsList
+    this.toolsToShow = new Array<LocalToolsToolNode>()
+
+    this.refresh()
 
     // create the tree view
     this._view = vscode.window.createTreeView('codacy:localTools', {
@@ -54,7 +53,7 @@ export class LocalToolsTree
   }
 
   async getChildren(element?: LocalToolsNode | undefined) {
-    return this.tools
+    return this.toolsToShow
   }
 
   getParent(element: LocalToolsNode): vscode.ProviderResult<LocalToolsNode> {
@@ -66,7 +65,63 @@ export class LocalToolsTree
   }
 
   refresh() {
-    this.tools.forEach((tool) => {
+
+    this.toolsToShow = new Array<LocalToolsToolNode>();
+
+    let toolsMerged = new Map<string,LocalToolsToolNode>()
+
+    for (var entry of this._repositoryManager.repoTools.entries()) {
+      var key = entry[0],
+          value = entry[1];
+          
+      const tool = new LocalTool({
+        title: key,
+        cliCommand: '',
+        cliExecute: '',
+        cliVersion: '',
+        cliInstallMacos: '',
+        cliInstallApt: ''
+      })
+      tool.cloudEnabled = true
+      tool.installStatus = false
+          
+      toolsMerged.set(tool.title, new LocalToolsToolNode(tool, this))
+
+    }
+
+
+    if (this.localToolsDefs)
+      for (let i=0; i<this.localToolsDefs.length; i++){
+        const tool = this.localToolsDefs[i];
+
+        if (toolsMerged.has(tool.title)) {
+          tool.cloudEnabled = true
+        }
+        toolsMerged.set(tool.title, new LocalToolsToolNode(tool, this))
+      }
+  
+
+    
+    for (var toolEntry of toolsMerged.entries()) {
+      var key = toolEntry[0],
+          toolValue = toolEntry[1];
+
+      if (toolValue.tool.installStatus) {
+        this.toolsToShow.push(toolValue)
+      }
+    }
+
+    // this is super lazy, sorting by install status
+    for (var toolEntry of toolsMerged.entries()) {
+      var key = toolEntry[0],
+          toolValue = toolEntry[1];
+
+      if (!toolValue.tool.installStatus) {
+        this.toolsToShow.push(toolValue)
+      }
+    }
+    
+    this.toolsToShow.forEach((tool) => {
       tool.calculateIcon()
     })
     // FIXME: this doesn't seem to do anything

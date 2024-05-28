@@ -111,9 +111,10 @@ export class RepositoryManager implements vscode.Disposable {
             repo.repository
           )
           this._codingStandardId = data.repository.codingStandardId
+          const repoLangs = data.repository.languages
 
 
-          await this.loadToolPatterns(repo)
+          await this.loadToolPatterns(repo, repoLangs)
           vscode.commands.executeCommand('codacy.local.refresh')
 
 
@@ -194,11 +195,12 @@ export class RepositoryManager implements vscode.Disposable {
     }
   }
 
-  protected async loadToolPatterns(repo: gitRepoInfo) {
+  protected async loadToolPatterns(repo: gitRepoInfo, repoLangs: string[]) {
 
     if (this._codingStandardId === undefined) {
       return
     }
+
     const repoToolsData = await Api.Analysis.getTools(
       repo.provider,
       repo.organization,
@@ -207,12 +209,15 @@ export class RepositoryManager implements vscode.Disposable {
 
     const codacyToolsData = await Api.Tools.listTools()
 
-    const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
+    // fixme: at some point the concept of an available local tool needs setting up, probably somewhere else
+    //const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
 
     const codacyToolsNameMap = new Map<string,string>()
     for (let i=0; i<codacyToolsData.data.length; i++) {
       const cTool = codacyToolsData.data[i]
-      if (supportedTools.includes(cTool.name)) {
+
+      const langMatches = repoLangs.filter(value => cTool.languages.includes(value));
+      if (langMatches.length >0) {
         codacyToolsNameMap.set(cTool.name, cTool.uuid)
       }
     }
@@ -221,12 +226,12 @@ export class RepositoryManager implements vscode.Disposable {
 
     for (let i=0;  i<repoToolsData.data.length; i++) {
       const tool = repoToolsData.data[i]
-      let toolRules = new Array<Pattern>()
+      const toolRules = new Array<Pattern>()
       if (tool.settings.isEnabled) {
         const uuid = codacyToolsNameMap.get(tool.name)
 
         if (uuid !== undefined) {
-          var cursor = undefined
+          let cursor = undefined
           do {
             const codacyToolPatternsData = await Api.CodingStandards.listCodingStandardPatterns(
               repo.provider,
@@ -238,7 +243,7 @@ export class RepositoryManager implements vscode.Disposable {
             for (let j=0; j<codacyToolPatternsData.data.length; j++) {
               if (codacyToolPatternsData.data[j].enabled === true) {
 
-                let def = codacyToolPatternsData.data[j].patternDefinition;
+                const def = codacyToolPatternsData.data[j].patternDefinition;
                 toolRules.push(def)
               }
             }
@@ -251,15 +256,15 @@ export class RepositoryManager implements vscode.Disposable {
 
     if (this._toolRules.size > 0) {
       for (var entry of this._toolRules.entries()) {
-        var name = entry[0]
-        var rules = entry[1]
-        var parmString = ''
-        var configString = ''
+        const name = entry[0]
+        const rules = entry[1]
+        let parmString = ''
+        let configString = ''
         
         // fixme: this should dispatch to a function based on tool through some sort of map...?
         switch (name) {
           case "Trivy":
-            let parms = new Array<string>()
+            const parms = new Array<string>()
             for (let j=0; j<rules.length; j++) {
               switch (rules[j].id)
               {
@@ -286,7 +291,7 @@ export class RepositoryManager implements vscode.Disposable {
             // It would be better to write to a config file
             parmString = '--check '
             for (let j=0; j<rules.length; j++) {
-              var ruleId = rules[j].id.substring(8)
+              let ruleId = rules[j].id.substring(8)
               parmString += ruleId + ","
             }
             if (parmString.endsWith(",")) {
