@@ -255,7 +255,7 @@ export class RepositoryManager implements vscode.Disposable {
     }
 
     if (this._toolRules.size > 0) {
-      for (var entry of this._toolRules.entries()) {
+      for (let entry of this._toolRules.entries()) {
         const name = entry[0]
         const rules = entry[1]
         let parmString = ''
@@ -291,7 +291,7 @@ export class RepositoryManager implements vscode.Disposable {
             // It would be better to write to a config file
             parmString = '--check '
             for (let j=0; j<rules.length; j++) {
-              let ruleId = rules[j].id.substring(8)
+              const ruleId = rules[j].id.substring(8)
               parmString += ruleId + ","
             }
             if (parmString.endsWith(",")) {

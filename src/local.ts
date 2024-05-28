@@ -134,7 +134,6 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 						for (i=0; i<jsonContents.runs.length; i++) {
 
 							const toolName = jsonContents.runs[i].tool.driver.name;
-							console.log(toolName)
 							for (j=0; j<jsonContents.runs[i].results.length; j++) {
 								const issue = jsonContents.runs[i].results[j];
 
@@ -214,7 +213,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 							continue
 						}
 
-						var execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
+						let execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
 
 						const toolParms = repoManager.parametersForTool(toolsList[j].title) ?? ''
 						execCommand = execCommand.replace("[[PARMS]]", toolParms);
@@ -226,6 +225,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 							execCommand,
 							{cwd: workspaceFolder }
 							);
+
 					}
 
 					progressBar(50)

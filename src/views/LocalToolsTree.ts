@@ -68,11 +68,10 @@ export class LocalToolsTree
 
     this.toolsToShow = new Array<LocalToolsToolNode>();
 
-    let toolsMerged = new Map<string,LocalToolsToolNode>()
+    const toolsMerged = new Map<string,LocalToolsToolNode>()
 
-    for (var entry of this._repositoryManager.repoTools.entries()) {
-      var key = entry[0],
-          value = entry[1];
+    for (let entry of this._repositoryManager.repoTools.entries()) {
+      let key = entry[0];
           
       const tool = new LocalTool({
         title: key,
@@ -102,9 +101,8 @@ export class LocalToolsTree
   
 
     
-    for (var toolEntry of toolsMerged.entries()) {
-      var key = toolEntry[0],
-          toolValue = toolEntry[1];
+    for (let toolEntry of toolsMerged.entries()) {
+      let toolValue = toolEntry[1];
 
       if (toolValue.tool.installStatus) {
         this.toolsToShow.push(toolValue)
@@ -112,9 +110,8 @@ export class LocalToolsTree
     }
 
     // this is super lazy, sorting by install status
-    for (var toolEntry of toolsMerged.entries()) {
-      var key = toolEntry[0],
-          toolValue = toolEntry[1];
+    for (let toolEntry of toolsMerged.entries()) {
+      let toolValue = toolEntry[1];
 
       if (!toolValue.tool.installStatus) {
         this.toolsToShow.push(toolValue)
