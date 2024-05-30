@@ -71,7 +71,7 @@ export class LocalToolsTree
     const toolsMerged = new Map<string,LocalToolsToolNode>()
 
     for (let entry of this._repositoryManager.repoTools.entries()) {
-      let key = entry[0];
+      const key = entry[0];
           
       const tool = new LocalTool({
         title: key,
@@ -102,7 +102,7 @@ export class LocalToolsTree
 
     
     for (let toolEntry of toolsMerged.entries()) {
-      let toolValue = toolEntry[1];
+      const toolValue = toolEntry[1];
 
       if (toolValue.tool.installStatus) {
         this.toolsToShow.push(toolValue)
