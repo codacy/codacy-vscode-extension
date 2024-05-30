@@ -9,6 +9,9 @@ import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
+import { dirname, join } from 'path';
+import { readFileSync, write, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -114,7 +117,7 @@ export class RepositoryManager implements vscode.Disposable {
           const repoLangs = data.repository.languages
 
 
-          await this.loadToolPatterns(repo, repoLangs)
+          await this.loadToolPatterns(repo, gitRepository, repoLangs)
           vscode.commands.executeCommand('codacy.local.refresh')
 
 
@@ -195,7 +198,7 @@ export class RepositoryManager implements vscode.Disposable {
     }
   }
 
-  protected async loadToolPatterns(repo: gitRepoInfo, repoLangs: string[]) {
+  protected async loadToolPatterns(repo: gitRepoInfo, gitRepo: GitRepository, repoLangs: string[]) {
 
     if (this._codingStandardId === undefined) {
       return
@@ -282,9 +285,56 @@ export class RepositoryManager implements vscode.Disposable {
             break
           case "Semgrep":
             configString = ''
-            for (let j=0; j<rules.length; j++) {
-              configString += rules[j].id + ", "
+            //defaultsYaml = // Construct the path to the file
+            
+            // Construct __dirname
+            const __dirname = dirname(__filename)
+            const filePath = join(__dirname, '../codacySemgrepRules.yaml')
+
+
+            try {
+              const data = readFileSync(filePath, 'utf8')
+              const lines = data.split("\n")
+              // index patterns by id in a map
+              const ruleIdMap = new Map<string,Pattern>()
+              for (let i=0; i<rules.length; i++) {
+                ruleIdMap.set(rules[i].id.substring(8), rules[i])
+              }
+
+              let writeLines = true
+              for (let i=0; i<lines.length; i++) {
+                if (lines[i].substring(0,4) === '- id') {
+                  let idLabel = lines[i].substring(6).trimEnd()
+                  if (ruleIdMap.has(idLabel)) {
+                    writeLines = true
+                  } else {
+                    writeLines = false
+                  }
+
+                }
+                if (writeLines) {
+                  configString += "\n" + lines[i]
+                }
+
+              }
+
+            } catch (err) {
+              console.error('Error reading file:', err)
             }
+
+            configString = configString.trimStart()
+            try {
+
+             // const cwd = vscode.workspace.workspaceFolders[i].uri.path
+             // const sarifFolder = cwd + '/.codacy/runs/';
+             const writePath = gitRepo.rootUri.fsPath
+              
+              writeFileSync(writePath + '/.codacy/config/semgrep.yaml',configString, {flag: "w"})
+            } catch (e) {
+              handleError(e as Error)
+            }
+            parmString = '--config ./.codacy/config/semgrep.yaml'
+
             break
           case "Checkov":
             // fixme: it's not ideal to just stuff all the config into the cli parms.

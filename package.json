@@ -69,7 +69,7 @@
         },
         {
           "id": "codacy:localTools",
-          "name": "Scanners",
+          "name": "Scanners (BETA)",
           "icon": "$(flame)",
           "initialSize": 3
         }

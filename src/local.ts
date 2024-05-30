@@ -5,13 +5,6 @@ import * as cp from 'child_process'
 import { RepositoryManager } from './git/RepositoryManager';
 const commandExistsSync = require('command-exists').sync
 
-/*{
-"title": "Semgrep",
-"cliCommand": "semgrep",
-"cliExecute": "semgrep scan [[PATH]] [[PARMS]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
-"cliVersion": "semgrep --version",
-"cliInstallMacos": "brew install semgrep"
-},*/
 
 export interface IlocalTool
 {
@@ -131,14 +124,15 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 
 					const fileEnding = file.split(".").pop();
 					if (fileEnding === "sarif") {
-						for (i=0; i<jsonContents.runs.length; i++) {
+						for (let k=0; k<jsonContents.runs.length; k++) {
 
-							const toolName = jsonContents.runs[i].tool.driver.name;
-							for (j=0; j<jsonContents.runs[i].results.length; j++) {
-								const issue = jsonContents.runs[i].results[j];
+							const toolName = jsonContents.runs[k].tool.driver.name;
+							for (let m=0; m<jsonContents.runs[k].results.length; m++) {
+								const issue = jsonContents.runs[k].results[m];
 
-								const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '');
-								//let canonicalFile = issue.locations[0].physicalLocation.artifactLocation.uri;
+								// some sarif files give a relative path and some give an absolute path -- this normalizes to absolute.
+								const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '').replace(/^\/+/, '');
+
 								let diagnostics = diagnosticMap.get(canonicalFile);
 								if (!diagnostics) { diagnostics = []; }
 								const line = issue.locations[0].physicalLocation.region.startLine - 1
