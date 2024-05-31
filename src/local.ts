@@ -3,6 +3,7 @@ import { LocalToolsTree } from './views/LocalToolsTree';
 import * as fs from 'node:fs'
 import * as cp from 'child_process'
 import { RepositoryManager } from './git/RepositoryManager';
+import { handleError } from './common/utils'
 const commandExistsSync = require('command-exists').sync
 
 
@@ -84,7 +85,7 @@ let codacyKeypressTimeout: NodeJS.Timeout | null = null;
 
 export function handleLocalModeKeypress( 
 	diagnosticCollection : vscode.DiagnosticCollection, 
-	toolsList : Array<IlocalTool>,
+	toolsList : Array<LocalTool>,
 	repoManager : RepositoryManager) {
 	// Clear existing timeout
 	if (codacyKeypressTimeout) {
@@ -93,18 +94,20 @@ export function handleLocalModeKeypress(
 
 	// Set new timeout
 	codacyKeypressTimeout = setTimeout(() => {
-			runLocal(diagnosticCollection, toolsList, repoManager, vscode.window.activeTextEditor?.document.uri.fsPath)
-	}, 3000);
+			runLocal(diagnosticCollection, toolsList, repoManager, vscode.window.activeTextEditor?.document.uri)
+	}, 2000);
 }
 
 
-export async function inspectLocal(diagnosticCollection : vscode.DiagnosticCollection) {
+export async function inspectLocal(diagnosticCollection : vscode.DiagnosticCollection, currentFile: vscode.Uri) {
 
 	if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
-		const diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
+		const diagnosticMap: Map<vscode.Uri, vscode.Diagnostic[]> = new Map();
 		// FIXME: only clear this for the file that's currently being worked on
-		//diagnosticCollection.clear();
+		diagnosticCollection.clear()
+		diagnosticCollection.set(currentFile, [])
+			
 
 		for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
 
@@ -118,7 +121,6 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 				const file = files[j] as string;
 				const resultFileContents = fs.readFileSync(sarifFolder + file, { encoding: 'utf8' });
 				try {
-					diagnosticCollection.set(vscode.Uri.parse(file), []);
 
 					const jsonContents = JSON.parse(resultFileContents);
 
@@ -127,14 +129,14 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 						for (let k=0; k<jsonContents.runs.length; k++) {
 
 							const toolName = jsonContents.runs[k].tool.driver.name;
+							let diagnostics = diagnosticMap.get(currentFile);
+							if (!diagnostics) { diagnostics = []; }
 							for (let m=0; m<jsonContents.runs[k].results.length; m++) {
 								const issue = jsonContents.runs[k].results[m];
 
 								// some sarif files give a relative path and some give an absolute path -- this normalizes to absolute.
-								const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '').replace(/^\/+/, '');
+								//const canonicalFile = cwd + "/" + issue.locations[0].physicalLocation.artifactLocation.uri.replace(cwd, '').replace(/^\/+/, '');
 
-								let diagnostics = diagnosticMap.get(canonicalFile);
-								if (!diagnostics) { diagnostics = []; }
 								const line = issue.locations[0].physicalLocation.region.startLine - 1
 								const column = issue.locations[0].physicalLocation.region.startColumn ?? 0
 								const endLine = issue.locations[0].physicalLocation.region.endLine - 1
@@ -152,18 +154,18 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 								}	
 
 								diagnostics.push(diagnostic)
-								diagnosticMap.set(canonicalFile, diagnostics)
 							}
+							diagnosticMap.set(currentFile, diagnostics)
 						}
 					}
 				} catch (error) {
 					console.log(error);
 					progressBar(100)
 				}
-			};
+			}
 
 			diagnosticMap.forEach((diags, file) => {
-				diagnosticCollection.set(vscode.Uri.parse(file), diags);
+				diagnosticCollection.set(file, diags);
 				});
 
 			progressBar(100)
@@ -176,7 +178,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 	}
 }
 
-export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<IlocalTool>, repoManager : RepositoryManager, currentFile: string | undefined) {
+export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<LocalTool>, repoManager : RepositoryManager, currentFile: vscode.Uri | undefined) {
 
 	if (!currentFile) {
 		return
@@ -207,7 +209,12 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 							continue
 						}
 
-						let execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile);
+						if (!toolsList[j].installStatus) {
+							continue
+						}
+
+
+						let execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile.fsPath);
 
 						const toolParms = repoManager.parametersForTool(toolsList[j].title) ?? ''
 						execCommand = execCommand.replace("[[PARMS]]", toolParms);
@@ -223,7 +230,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 					}
 
 					progressBar(50)
-					inspectLocal(diagnosticCollection)
+					inspectLocal(diagnosticCollection, currentFile)
 			}
 
 
@@ -232,7 +239,6 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 			return
 		}
 }
-
 function installRef (tool : IlocalTool) {
 	let ref = '';
 	switch (process.platform) {
@@ -266,23 +272,62 @@ export function installLocal(toolsList : Array<LocalTool>, toolsTree : LocalTool
 		return
 	}
 
+	switch (process.platform.toLowerCase()) {
+		case 'linux':
+			options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy will open a terminal with the install commands (snap and python first, then the individual tools). You will need to supply your password to sudo, then manually refresh Codacy.', modal: true };
+			vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"]).then((selection)=>{
+				if (selection !== 'Proceed')
+					return
+				
+
+				if (!commandExistsSync('snap')) {
+					installScript = 'sudo apt install snapd; ' + installScript
+				}
+
+				if (!commandExistsSync('pip3')) {
+					installScript = 'sudo apt-get update && sudo apt-get install -y python3 && sudo apt-get install -y python3-pip; ' + installScript
+				}
+
+				const terminal = vscode.window.createTerminal('Codacy Installer Terminal')
+				terminal.show()
+		
+				console.log("linux installscript: " + installScript)
+				// Send the sudo command to the terminal
+				terminal.sendText(installScript.trim())
+			})
+			break
+		case 'darwin':
+			options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for MacOS using the Brew package manager.', modal: true };
+			vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"])
+
+			options = { detail: 'Codacy will execute the following commands:\n\n' + installScript, modal: true };
+			vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then(()=>{
+		
+				progressBar(0, 'codacy installing')
+				try {
+
+					cp.execSync(installScript)
+				} catch (e) {
+					handleError(e as Error)
+				}
+				toolsList.forEach((tool) => {tool.updateInstallStatus()})
+				toolsTree.refresh()
+				progressBar(100, 'codacy installing')
+				vscode.window.showInformationMessage("Codacy finished installing local tools.")
+			})
+
+			break
+		default:
+			options = { detail: 'Windows is currently unsupported. Sorry! Coming soon, leveraging WSL.', modal: true };
+			vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"])
+			return
+	}
 
 
-	options = { detail: 'To accomplish local scanning, Codacy needs some open-source tools installed globally on your local machine. Codacy can do this automatically for Linux (using apt) and MacOS (using Brew).', modal: true };
-	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Proceed"])
 
 
 
 
-	options = { detail: 'Codacy will execute the following commands. If you need to sudo, please copy this script and execute manually:\n\n' + installScript, modal: true };
-	vscode.window.showInformationMessage("Codacy - Install Local Tools", options, ...["Install"]).then(()=>{
-
-		progressBar(0, 'codacy installing')
-		cp.execSync(installScript)
-		toolsList.forEach((tool) => {tool.updateInstallStatus()})
-		toolsTree.refresh()
-		progressBar(100, 'codacy installing')
-	})
 	
 	
 }

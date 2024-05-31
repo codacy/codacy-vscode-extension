@@ -14,6 +14,11 @@ export class LocalToolsNode extends vscode.TreeItem {
 
 
   calculateIcon() {
+    // cliCommand is a proxy for it being available as a local tool
+    if (!this.tool.installStatus && this.tool.cliCommand && this.tool.cloudEnabled) {
+      return 'desktop-download'
+    }
+
     if (this.tool.cloudEnabled && !this.tool.installStatus) {
       return 'cloud'
     }

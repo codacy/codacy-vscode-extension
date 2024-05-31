@@ -199,7 +199,7 @@
       },
       {
         "command": "codacy.local.runMode.currentOnHesitate",
-        "title": "on hesitation"
+        "title": "active"
       },
       {
         "command": "codacy.local.runMode.setManual",
@@ -211,11 +211,11 @@
       },
       {
         "command": "codacy.local.runMode.setOnHesitate",
-        "title": "on hesitation"
+        "title": "active"
       },
       {
         "command": "codacy.local.installMissingTools",
-        "title": "install missing tools"
+        "title": "install available tools"
       }
     ],
     "menus": {

@@ -5,21 +5,24 @@
       "cliCommand": "checkov",
       "cliExecute": "checkov -s -f [[PATH]] [[PARMS]] --compact --quiet -o sarif --output-file-path ./.codacy/runs",
       "cliVersion": "checkov --version",
-      "cliInstallMacos": "brew install checkov"
+      "cliInstallMacos": "brew install checkov",
+      "cliInstallApt": "pip3 install checkov"
     },
     {
-    "title": "Semgrep",
-    "cliCommand": "semgrep",
-    "cliExecute": "semgrep scan [[PATH]] [[PARMS]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
-    "cliVersion": "semgrep --version",
-    "cliInstallMacos": "brew install semgrep"
+      "title": "Semgrep",
+      "cliCommand": "semgrep",
+      "cliExecute": "semgrep scan [[PATH]] [[PARMS]] --quiet --sarif --output ./.codacy/runs/semgrep.sarif",
+      "cliVersion": "semgrep --version",
+      "cliInstallMacos": "brew install semgrep",
+      "cliInstallApt": "sudo snap install semgrep"
     },
     {
       "title": "Trivy",
       "cliCommand": "trivy",
       "cliExecute": "trivy fs [[PATH]] [[PARMS]] --quiet --format sarif -o ./.codacy/runs/trivy.sarif",
       "cliVersion": "trivy -v",
-      "cli-InstallMacos": "brew install trivy"
+      "cli-InstallMacos": "brew install trivy",
+      "cliInstallApt": "sudo snap install trivy"
     }
   ]
 }

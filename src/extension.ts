@@ -18,6 +18,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { LocalToolsTree } from './views/LocalToolsTree'
 import { handleLocalModeKeypress, LocalTool, runLocal, installLocal } from './local'
+import * as cp from 'child_process'
 const localToolsListJson = require('./../localTools.json')
 
 
@@ -179,11 +180,23 @@ export async function activate(context: vscode.ExtensionContext) {
 
 // most oss tools are not available to execute on the windows CLI.
 // so we'll limit this window to linux/macos.
-  if (['darwin','Linux'].includes(process.platform)) {
+//  if (['darwin','Linux'].includes(process.platform)) {
 
     const localToolsList = Array<LocalTool>();
     for (let i=0; i<localToolsListJson.tools.length; i++) {
       const tool = new LocalTool(localToolsListJson.tools[i])
+
+						if (tool.title === 'Checkov' && process.platform.toLowerCase() === 'linux') {
+              // find where python is installed and add it to the checkov command.
+              const checkovPath = cp.execSync(
+                'python3 -m site --user-base'
+                ).toString().trim()
+
+							tool.cliCommand = checkovPath + '/bin/' + tool.cliCommand
+              tool.cliExecute = checkovPath + '/bin/' + tool.cliExecute
+						}
+
+
       localToolsList.push(tool)
     }
   
@@ -203,12 +216,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.installMissingTools', () => {installLocal(localToolsList, localToolsTree)}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {
-      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri.fsPath)
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
     }));
   
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
-    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {setLocalRunMode("hesitate")}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {
+      setLocalRunMode("hesitate")
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
+    }));
   
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnSave', () => {}));
@@ -226,8 +242,29 @@ export async function activate(context: vscode.ExtensionContext) {
 			handleLocalModeKeypress(localDiags, localToolsList, repositoryManager);
 		}
 	}, null, context.subscriptions);
+
+  // Register the event listener for opening new documents
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document: vscode.TextDocument) => {
+      if (localToolsTree.runMode === 'hesitate')
+      runLocal(localDiags, localToolsList, repositoryManager, document.uri)
+    })
+  );
+
+  // Register the event listener for switching between documents
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
+        if (editor && localToolsTree.runMode === 'hesitate') {
+            // Run the tools when switching to an already opened file
+            runLocal(localDiags, localToolsList, repositoryManager, editor.document.uri)
+        }
+    })
+  );
+
+
+
   
-  }
+//  }
 }
 
 

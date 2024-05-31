@@ -10,8 +10,7 @@ import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
 import { dirname, join } from 'path';
-import { readFileSync, write, writeFileSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { readFileSync, writeFileSync, mkdirSync , chmodSync, existsSync} from 'fs';
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -258,7 +257,7 @@ export class RepositoryManager implements vscode.Disposable {
     }
 
     if (this._toolRules.size > 0) {
-      for (let entry of this._toolRules.entries()) {
+      for (const entry of this._toolRules.entries()) {
         const name = entry[0]
         const rules = entry[1]
         let parmString = ''
@@ -304,7 +303,7 @@ export class RepositoryManager implements vscode.Disposable {
               let writeLines = true
               for (let i=0; i<lines.length; i++) {
                 if (lines[i].substring(0,4) === '- id') {
-                  let idLabel = lines[i].substring(6).trimEnd()
+                  const idLabel = lines[i].substring(6).trimEnd()
                   if (ruleIdMap.has(idLabel)) {
                     writeLines = true
                   } else {
@@ -325,11 +324,12 @@ export class RepositoryManager implements vscode.Disposable {
             configString = configString.trimStart()
             try {
 
-             // const cwd = vscode.workspace.workspaceFolders[i].uri.path
-             // const sarifFolder = cwd + '/.codacy/runs/';
-             const writePath = gitRepo.rootUri.fsPath
-              
-              writeFileSync(writePath + '/.codacy/config/semgrep.yaml',configString, {flag: "w"})
+              const writePath = gitRepo.rootUri.fsPath + '/.codacy/config'
+              if (!existsSync(writePath)) {
+                mkdirSync(writePath, { recursive: true })
+                chmodSync(writePath, '766')
+              }
+              writeFileSync(writePath + '/semgrep.yaml',configString, {flag: "w"})
             } catch (e) {
               handleError(e as Error)
             }
