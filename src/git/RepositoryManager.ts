@@ -1,14 +1,16 @@
 import * as vscode from 'vscode'
 import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
-import { parseGitRemote } from '../common/parseGitRemote'
+import { gitRepoInfo, parseGitRemote } from '../common/parseGitRemote'
 import { Api } from '../api'
-import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
+import { Branch, OpenAPIError, OrganizationWithMeta, Pattern, RepositoryWithAnalysis } from '../api/client'
 import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
+import { dirname, join } from 'path';
+import { readFileSync, writeFileSync, mkdirSync , chmodSync, existsSync} from 'fs';
 
 export enum RepositoryManagerState {
   NoRepository = 'NoRepository',
@@ -71,6 +73,17 @@ export class RepositoryManager implements vscode.Disposable {
 
   private _disposables: vscode.Disposable[] = []
 
+
+  private _codingStandardId: number | undefined
+  private _repoTools = new Map<string, string>()
+
+  // fixme: all this stuff should move out to an attached LocalToolManager
+  private _toolRules = new Map<string,Array<Pattern>>()
+  private _toolParameters = new Map<string, string>()
+
+  private _toolConfigs = new Map<string,string>()
+
+
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
     vscode.commands.executeCommand('setContext', PR_STATE_CONTEXT_KEY, this._prState)
@@ -99,6 +112,13 @@ export class RepositoryManager implements vscode.Disposable {
             repo.organization,
             repo.repository
           )
+          this._codingStandardId = data.repository.codingStandardId
+          const repoLangs = data.repository.languages
+
+
+          await this.loadToolPatterns(repo, gitRepository, repoLangs)
+          vscode.commands.executeCommand('codacy.local.refresh')
+
 
           const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
           this._organization = organization
@@ -174,6 +194,165 @@ export class RepositoryManager implements vscode.Disposable {
     // otherwise, try to find a pull request
     else {
       this.loadPullRequest()
+    }
+  }
+
+  protected async loadToolPatterns(repo: gitRepoInfo, gitRepo: GitRepository, repoLangs: string[]) {
+
+    if (this._codingStandardId === undefined) {
+      return
+    }
+
+    const repoToolsData = await Api.Analysis.getTools(
+      repo.provider,
+      repo.organization,
+      repo.repository
+    )
+
+    const codacyToolsData = await Api.Tools.listTools()
+
+    // fixme: at some point the concept of an available local tool needs setting up, probably somewhere else
+    //const supportedTools = ['Checkov', 'Trivy', 'Semgrep']
+
+    const codacyToolsNameMap = new Map<string,string>()
+    for (let i=0; i<codacyToolsData.data.length; i++) {
+      const cTool = codacyToolsData.data[i]
+
+      const langMatches = repoLangs.filter(value => cTool.languages.includes(value));
+      if (langMatches.length >0) {
+        codacyToolsNameMap.set(cTool.name, cTool.uuid)
+      }
+    }
+
+    this._repoTools = codacyToolsNameMap
+
+    for (let i=0;  i<repoToolsData.data.length; i++) {
+      const tool = repoToolsData.data[i]
+      const toolRules = new Array<Pattern>()
+      if (tool.settings.isEnabled) {
+        const uuid = codacyToolsNameMap.get(tool.name)
+
+        if (uuid !== undefined) {
+          let cursor = undefined
+          do {
+            const codacyToolPatternsData = await Api.CodingStandards.listCodingStandardPatterns(
+              repo.provider,
+              repo.organization,
+              this._codingStandardId,
+              uuid,undefined,undefined,undefined,undefined,undefined,cursor,1000)
+            cursor = codacyToolPatternsData.pagination?.cursor
+
+            for (let j=0; j<codacyToolPatternsData.data.length; j++) {
+              if (codacyToolPatternsData.data[j].enabled === true) {
+
+                const def = codacyToolPatternsData.data[j].patternDefinition;
+                toolRules.push(def)
+              }
+            }
+          } while (cursor !== undefined)
+
+          this._toolRules.set(tool.name, toolRules)
+        }
+      }
+    }
+
+    if (this._toolRules.size > 0) {
+      for (const entry of this._toolRules.entries()) {
+        const name = entry[0]
+        const rules = entry[1]
+        let parmString = ''
+        let configString = ''
+        
+        // fixme: this should dispatch to a function based on tool through some sort of map...?
+        switch (name) {
+          case "Trivy":
+            const parms = new Array<string>()
+            for (let j=0; j<rules.length; j++) {
+              switch (rules[j].id)
+              {
+                case "Trivy_secret":
+                  parms.push("secret")
+                  break
+                case "Trivy_vulnerability":
+                  parms.push("vuln")
+                  break
+              }
+
+              parmString = "--scanners " + parms.join(",")
+            }
+
+            break
+          case "Semgrep":
+            configString = ''
+            //defaultsYaml = // Construct the path to the file
+            
+            // Construct __dirname
+            const __dirname = dirname(__filename)
+            const filePath = join(__dirname, '../codacySemgrepRules.yaml')
+
+
+            try {
+              const data = readFileSync(filePath, 'utf8')
+              const lines = data.split("\n")
+              // index patterns by id in a map
+              const ruleIdMap = new Map<string,Pattern>()
+              for (let i=0; i<rules.length; i++) {
+                ruleIdMap.set(rules[i].id.substring(8), rules[i])
+              }
+
+              let writeLines = true
+              for (let i=0; i<lines.length; i++) {
+                if (lines[i].substring(0,4) === '- id') {
+                  const idLabel = lines[i].substring(6).trimEnd()
+                  if (ruleIdMap.has(idLabel)) {
+                    writeLines = true
+                  } else {
+                    writeLines = false
+                  }
+
+                }
+                if (writeLines) {
+                  configString += "\n" + lines[i]
+                }
+
+              }
+
+            } catch (err) {
+              console.error('Error reading file:', err)
+            }
+
+            configString = configString.trimStart()
+            try {
+
+              const writePath = gitRepo.rootUri.fsPath + '/.codacy/config'
+              if (!existsSync(writePath)) {
+                mkdirSync(writePath, { recursive: true })
+                chmodSync(writePath, '766')
+              }
+              writeFileSync(writePath + '/semgrep.yaml',configString, {flag: "w"})
+            } catch (e) {
+              handleError(e as Error)
+            }
+            parmString = '--config ./.codacy/config/semgrep.yaml'
+
+            break
+          case "Checkov":
+            // fixme: it's not ideal to just stuff all the config into the cli parms.
+            // It would be better to write to a config file
+            parmString = '--check '
+            for (let j=0; j<rules.length; j++) {
+              const ruleId = rules[j].id.substring(8)
+              parmString += ruleId + ","
+            }
+            if (parmString.endsWith(",")) {
+              parmString = parmString.slice(0,-1)
+            }
+            break
+        }
+
+        this._toolParameters.set(name, parmString)
+        this._toolConfigs.set(name, configString)
+      }
     }
   }
 
@@ -441,6 +620,21 @@ export class RepositoryManager implements vscode.Disposable {
         organization_id: this._organization?.organization.identifier,
       })
     }
+  }
+
+
+  get repoTools() {
+    return this._repoTools
+  }
+
+  public parametersForTool(tool: string) {
+    if (this._toolParameters.has(tool))
+      return this._toolParameters.get(tool)
+    return null
+  }
+
+  get codingStandardId(): number | undefined {
+    return this._codingStandardId
   }
 
   public dispose() {

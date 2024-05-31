@@ -66,6 +66,12 @@
           "icon": "$(library)",
           "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
           "initialSize": 1
+        },
+        {
+          "id": "codacy:localTools",
+          "name": "Scanners (BETA)",
+          "icon": "$(flame)",
+          "initialSize": 3
         }
       ]
     },
@@ -138,6 +144,12 @@
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
+        "command": "codacy.local.refresh",
+        "title": "Refresh Local Tools",
+        "category": "Codacy commands",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "codacy.pr.openSummary",
         "title": "Open Pull Request Summary",
         "category": "Codacy commands",
@@ -148,6 +160,12 @@
         "title": "Checkout Pull Request",
         "category": "Codacy commands",
         "icon": "$(arrow-right)"
+      },
+      {
+        "command": "codacy.pr.toggleCoverageOff",
+        "title": "Toggle inline coverage",
+        "category": "Codacy commands",
+        "icon": "resources/icons/coverage-inline-on.png"
       },
       {
         "command": "codacy.pullRequests.open",
@@ -165,6 +183,39 @@
         "command": "codacy.issue.seeDetails",
         "title": "See issue details",
         "category": "Codacy commands"
+      },
+      {
+        "command": "codacy.local.runMode.currentManual",
+        "title": "manual"
+      },
+      {
+        "command": "codacy.local.runMode.executeManual",
+        "title": "execute",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "codacy.local.runMode.currentOnSave",
+        "title": "on save"
+      },
+      {
+        "command": "codacy.local.runMode.currentOnHesitate",
+        "title": "active"
+      },
+      {
+        "command": "codacy.local.runMode.setManual",
+        "title": "manual"
+      },
+      {
+        "command": "codacy.local.runMode.setOnSave",
+        "title": "on save"
+      },
+      {
+        "command": "codacy.local.runMode.setOnHesitate",
+        "title": "active"
+      },
+      {
+        "command": "codacy.local.installMissingTools",
+        "title": "install available tools"
       }
     ],
     "menus": {
@@ -202,6 +253,46 @@
           "command": "codacy.branchIssues.refresh",
           "when": "view == codacy:branchIssues",
           "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentManual",
+          "when": "view == codacy:localTools && codacy.local:runMode == manual",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.executeManual",
+          "when": "view == codacy:localTools && codacy.local:runMode == manual",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentOnSave",
+          "when": "view == codacy:localTools && codacy.local:runMode == save",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.currentOnHesitate",
+          "when": "view == codacy:localTools && codacy.local:runMode == hesitate",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.runMode.setManual",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@1"
+        },
+        {
+          "command": "codacy.local.runMode.setOnSave",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@2"
+        },
+        {
+          "command": "codacy.local.runMode.setOnHesitate",
+          "when": "view == codacy:localTools",
+          "group": "localRunMode@3"
+        },
+        {
+          "command": "codacy.local.installMissingTools",
+          "when": "view == codacy:localTools",
+          "group": "status@1"
         }
       ],
       "view/item/context": [
@@ -213,6 +304,11 @@
         {
           "command": "codacy.pr.checkout",
           "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
+          "group": "inline"
+        },
+        {
+          "command": "codacy.pr.toggleCoverageOff",
+          "when": "view == codacy:prSummary && viewItem =~ /toggleCoverage/ ",
           "group": "inline"
         }
       ]
@@ -242,7 +338,7 @@
     "pretest": "npm run compile-tests && npm run lint",
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 npm run test",
-    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/33.2.15/apiv3.yaml -o ./api-v3/api-swagger.yaml",
+    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/33.11.11/apiv3.yaml -o ./api-v3/api-swagger.yaml",
     "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios",
     "update-api": "npm run fetch-api && npm run generate-api",
     "postinstall": "npm run update-api",
@@ -250,6 +346,8 @@
   },
   "devDependencies": {
     "@codacy/openapi-typescript-codegen": "^0.0.2",
+    "@openapitools/openapi-generator-cli": "^2.7.0",
+    "@types/command-exists": "^1.2.3",
     "@types/glob": "^8.1.0",
     "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
@@ -278,6 +376,7 @@
   "dependencies": {
     "@segment/analytics-node": "^1.1.3",
     "axios": "^1.4.0",
+    "command-exists": "^1.2.9",
     "date-fns": "^2.30.0",
     "form-data": "^4.0.0",
     "lodash": "^4.17.21"

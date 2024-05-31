@@ -15,6 +15,12 @@ import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
+import { decorateWithCoverage } from './views/coverage'
+import { LocalToolsTree } from './views/LocalToolsTree'
+import { handleLocalModeKeypress, LocalTool, runLocal, installLocal } from './local'
+import * as cp from 'child_process'
+const localToolsListJson = require('./../localTools.json')
+
 
 /**
  * Helper function to register all extension commands
@@ -112,6 +118,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
   context.subscriptions.push(new BranchIssuesTree(context, repositoryManager))
 
+
   context.subscriptions.push(AuthUriHandler.register())
 
   context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
@@ -139,7 +146,129 @@ export async function activate(context: vscode.ExtensionContext) {
   if (gitProvider.repositories.length > 0) {
     repositoryManager.open(gitProvider.repositories[0])
   }
+
+  // coverage decoration
+	function triggerCoverageDecoration(editor: vscode.TextEditor | undefined) {
+		activeEditor = editor;
+		if (editor) {
+			decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
+		}
+	}
+
+	let activeEditor = vscode.window.activeTextEditor;
+	vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions)
+
+	if (activeEditor) {
+		decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
+	}
+
+
+  vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
+    if (vscode.window.activeTextEditor) {
+      decorateWithCoverage(vscode.window.activeTextEditor, vscode.window.activeTextEditor?.document.uri, repositoryManager?.pullRequest)
+    }
+  });
+
+// coverage show/hide buttons
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOff', (item) => {item.onClick()})
+  vscode.commands.registerCommand('codacy.pr.toggleCoverageOn', (item) => {item.onClick()})
+  
+
+//
+// local mode
+//
+
+// most oss tools are not available to execute on the windows CLI.
+// so we'll limit this window to linux/macos.
+//  if (['darwin','Linux'].includes(process.platform)) {
+
+    const localToolsList = Array<LocalTool>();
+    for (let i=0; i<localToolsListJson.tools.length; i++) {
+      const tool = new LocalTool(localToolsListJson.tools[i])
+
+						if (tool.title === 'Checkov' && process.platform.toLowerCase() === 'linux') {
+              // find where python is installed and add it to the checkov command.
+              const checkovPath = cp.execSync(
+                'python3 -m site --user-base'
+                ).toString().trim()
+
+							tool.cliCommand = checkovPath + '/bin/' + tool.cliCommand
+              tool.cliExecute = checkovPath + '/bin/' + tool.cliExecute
+						}
+
+
+      localToolsList.push(tool)
+    }
+  
+    const localToolsTree = new LocalToolsTree(context, repositoryManager, localToolsList);
+    context.subscriptions.push(localToolsTree)
+  
+    const localDiags = vscode.languages.createDiagnosticCollection('codacy.local');
+    const setLocalRunMode = (mode : string) => {
+      vscode.commands.executeCommand('setContext', 'codacy.local:runMode', mode);
+      localToolsTree.runMode = mode;
+      localToolsTree.refresh();
+      };
+
+    vscode.commands.registerCommand('codacy.local.refresh', () => {
+      localToolsTree.refresh();
+    });
+
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.installMissingTools', () => {installLocal(localToolsList, localToolsTree)}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
+    }));
+  
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {
+      setLocalRunMode("hesitate")
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
+    }));
+  
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnSave', () => {}));
+    context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentOnHesitate', () => {}));
+    setLocalRunMode("manual");
+  
+    vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
+      if (document.uri.scheme === "file" && localToolsTree.runMode === "save") {
+        vscode.commands.executeCommand('codacy.local.runMode.executeManual');
+      }
+    });
+
+	vscode.workspace.onDidChangeTextDocument(event => {
+		if (activeEditor && event.document === activeEditor.document && localToolsTree.runMode === 'hesitate') {
+			handleLocalModeKeypress(localDiags, localToolsList, repositoryManager);
+		}
+	}, null, context.subscriptions);
+
+  // Register the event listener for opening new documents
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document: vscode.TextDocument) => {
+      if (localToolsTree.runMode === 'hesitate')
+      runLocal(localDiags, localToolsList, repositoryManager, document.uri)
+    })
+  );
+
+  // Register the event listener for switching between documents
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
+        if (editor && localToolsTree.runMode === 'hesitate') {
+            // Run the tools when switching to an already opened file
+            runLocal(localDiags, localToolsList, repositoryManager, editor.document.uri)
+        }
+    })
+  );
+
+
+
+  
+//  }
 }
+
+
+
 
 // This method is called when your extension is deactivated
 export function deactivate() {
