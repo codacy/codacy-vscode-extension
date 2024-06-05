@@ -29,6 +29,8 @@ export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
   constructor(private readonly _pr: PullRequest) {
     super(_pr)
 
+    this.contextValue = 'toggleCoverageOn'
+
     this.collapsibleState =
       this.childrenFiles.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
   }
@@ -49,5 +51,11 @@ export class PullRequestCoverageNode extends PullRequestCoverageInfoNode {
         else return 0
       })
       .map((file) => new PullRequestFileNode(file, 'coverage'))
+  }
+
+  public onClick() {
+    this.contextValue = this.contextValue === 'toggleCoverageOn' ? 'toggleCoverageOff' : 'toggleCoverageOn'
+    this._pr.displayCoverage = this.contextValue === 'toggleCoverageOn'
+    vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration');
   }
 }

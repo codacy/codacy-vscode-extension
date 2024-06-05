@@ -78,4 +78,8 @@ export class PullRequestSummaryTree
   dispose() {
     this._disposables.forEach((disposable) => disposable.dispose())
   }
+
+  refresh() {
+    this._onDidChangeTreeData.fire()
+  }
 }

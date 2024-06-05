@@ -150,6 +150,12 @@
         "icon": "$(arrow-right)"
       },
       {
+        "command": "codacy.pr.toggleCoverage",
+        "title": "Toggle inline coverage",
+        "category": "Codacy commands",
+        "icon": "resources/icons/coverage-inline-on.png"
+      },
+      {
         "command": "codacy.pullRequests.open",
         "title": "Open Pull Requests",
         "category": "Codacy commands",
@@ -214,6 +220,11 @@
           "command": "codacy.pr.checkout",
           "when": "view == codacy:pullRequests && viewItem =~ /pullRequest/",
           "group": "inline"
+        },
+        {
+          "command": "codacy.pr.toggleCoverage",
+          "when": "view == codacy:prSummary && viewItem =~ /toggleCoverage/ ",
+          "group": "inline"
         }
       ]
     },
@@ -242,7 +253,7 @@
     "pretest": "npm run compile-tests && npm run lint",
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 npm run test",
-    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/33.2.15/apiv3.yaml -o ./api-v3/api-swagger.yaml",
+    "fetch-api": "curl https://artifacts.codacy.com/api/codacy-api/33.57.4/apiv3.yaml -o ./api-v3/api-swagger.yaml",
     "generate-api": "rm -rf ./src/api/client && openapi --input ./api-v3/api-swagger.yaml --output ./src/api/client --useUnionTypes --indent 2 --client axios",
     "update-api": "npm run fetch-api && npm run generate-api",
     "postinstall": "npm run update-api",
