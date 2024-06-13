@@ -4,6 +4,7 @@ import * as fs from 'node:fs'
 import * as cp from 'child_process'
 import { RepositoryManager } from './git/RepositoryManager';
 import { handleError } from './common/utils'
+import * as crypto from 'crypto'
 const commandExistsSync = require('command-exists').sync
 
 
@@ -94,7 +95,7 @@ export function handleLocalModeKeypress(
 
 	// Set new timeout
 	codacyKeypressTimeout = setTimeout(() => {
-			runLocal(diagnosticCollection, toolsList, repoManager, vscode.window.activeTextEditor?.document.uri)
+			runLocal(diagnosticCollection, toolsList, repoManager, vscode.window.activeTextEditor?.document, "hesitate")
 	}, 2000);
 }
 
@@ -178,7 +179,7 @@ export async function inspectLocal(diagnosticCollection : vscode.DiagnosticColle
 	}
 }
 
-export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<LocalTool>, repoManager : RepositoryManager, currentFile: vscode.Uri | undefined) {
+export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, toolsList : Array<LocalTool>, repoManager : RepositoryManager, currentFile: vscode.TextDocument | undefined, mode: string) {
 
 	if (!currentFile) {
 		return
@@ -186,58 +187,89 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 	progressBar(10)
 
-		if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
-			for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
-				const workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
 
-				// reset the runs directory
-				// fixme: only delete outputs of tools we're about to run, instead.
-				const dir = workspaceFolder + '/.codacy/runs';
+	if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0) {
 
-				if (fs.existsSync(dir)) {
-					fs.rmSync(dir, {"force":true, "recursive": true} )
+		for (let i = 0; i < vscode.workspace.workspaceFolders.length; i++) {
+			const workspaceFolder = vscode.workspace.workspaceFolders[i].uri.path;
+			const hesitateTempDir = workspaceFolder + '/.codacy/temp';
+
+			let scanFilePath = currentFile.uri.fsPath
+			// to scan a file on hesitate we need to copy the current file into a temp file and scan that
+			if (mode === "hesitate") {
+
+				if (fs.existsSync(hesitateTempDir)) {
+					fs.rmSync(hesitateTempDir, {"force":true, "recursive": true} )
 				}
+				fs.mkdirSync(hesitateTempDir, { recursive: true });
+				fs.chmodSync(hesitateTempDir, '766');
 
-				fs.mkdirSync(dir, { recursive: true });
-				fs.chmodSync(dir, '766');
-				
-				for (let j=0; j<toolsList.length; j++)
-					{
-						// fixme: don't use title, record the codacyToolName in the json
-						if (!repoManager.repoTools.has(toolsList[j].title)) {
-							continue
-						}
+				const docText = currentFile.getText()
 
-						if (!toolsList[j].installStatus) {
-							continue
-						}
+				const randomBytes = crypto.randomBytes(10).toString('hex')
+				var fileExtension = currentFile.fileName.split('.').pop()
+				fileExtension = (fileExtension != currentFile.fileName) ? '.' + fileExtension : ''
 
+				const tempFileName = hesitateTempDir + '/codacyTemp' + randomBytes + fileExtension
+				fs.writeFileSync(tempFileName, docText)
+				scanFilePath = tempFileName
+			} 
 
-						let execCommand = toolsList[j].cliExecute.replace("[[PATH]]", currentFile.fsPath);
+			// reset the runs directory
+			// fixme: only delete outputs of tools we're about to run, instead.
+			const dir = workspaceFolder + '/.codacy/runs';
 
-						const toolParms = repoManager.parametersForTool(toolsList[j].title) ?? ''
-						execCommand = execCommand.replace("[[PARMS]]", toolParms);
-
-						// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
-						// for the last one to finish before inspecting results.
-						// fixme: figure out how to do error handling here (sync doesn't take a callback)
-						cp.execSync(
-							execCommand,
-							{cwd: workspaceFolder }
-							);
-
-					}
-
-					progressBar(50)
-					inspectLocal(diagnosticCollection, currentFile)
+			if (fs.existsSync(dir)) {
+				fs.rmSync(dir, {"force":true, "recursive": true} )
 			}
 
+			fs.mkdirSync(dir, { recursive: true });
+			fs.chmodSync(dir, '766');
+			
+			for (let j=0; j<toolsList.length; j++)
+				{
+					// fixme: don't use title, record the codacyToolName in the json
+					if (!repoManager.repoTools.has(toolsList[j].title)) {
+						continue
+					}
 
-		} else {
-			vscode.window.showErrorMessage('There are no workspaces to analyze!')
-			return
+					if (!toolsList[j].installStatus) {
+						continue
+					}
+
+
+					let execCommand = toolsList[j].cliExecute.replace("[[PATH]]", scanFilePath);
+
+					const toolParms = repoManager.parametersForTool(toolsList[j].title) ?? ''
+					execCommand = execCommand.replace("[[PARMS]]", toolParms);
+
+					// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
+					// for the last one to finish before inspecting results.
+					// fixme: figure out how to do error handling here (sync doesn't take a callback)
+					cp.execSync(
+						execCommand,
+						{cwd: workspaceFolder }
+						);
+
+				}
+
+				// leave no trace on disk!
+				if (mode === "hesitate") {
+					if (fs.existsSync(hesitateTempDir)) {
+						fs.rmSync(hesitateTempDir, {"force":true, "recursive": true} )
+					}
+				}
+				
+				progressBar(50)
+				inspectLocal(diagnosticCollection, currentFile.uri)
 		}
+
+
+	} else {
+		vscode.window.showErrorMessage('There are no workspaces to analyze!')
+		return
+	}
 }
 function installRef (tool : IlocalTool) {
 	let ref = '';

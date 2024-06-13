@@ -216,14 +216,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.installMissingTools', () => {installLocal(localToolsList, localToolsTree)}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.executeManual', () => {
-      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document, localToolsTree.runMode)
     }));
   
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setManual', () => {setLocalRunMode("manual")}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnSave', () => {setLocalRunMode("save")}));
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.setOnHesitate', () => {
       setLocalRunMode("hesitate")
-      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document.uri)
+      runLocal(localDiags, localToolsList, repositoryManager, vscode.window.activeTextEditor?.document, localToolsTree.runMode)
     }));
   
     context.subscriptions.push(vscode.commands.registerCommand('codacy.local.runMode.currentManual', () => {}));
@@ -232,8 +232,8 @@ export async function activate(context: vscode.ExtensionContext) {
     setLocalRunMode("manual");
   
     vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-      if (document.uri.scheme === "file" && localToolsTree.runMode === "save") {
-        vscode.commands.executeCommand('codacy.local.runMode.executeManual');
+      if (document.uri.scheme === "file" && ["save","hesitate"].includes(localToolsTree.runMode)) {
+        vscode.commands.executeCommand('codacy.local.runMode.executeManual', localToolsTree.runMode);
       }
     });
 
@@ -247,7 +247,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document: vscode.TextDocument) => {
       if (localToolsTree.runMode === 'hesitate')
-      runLocal(localDiags, localToolsList, repositoryManager, document.uri)
+      runLocal(localDiags, localToolsList, repositoryManager, document, localToolsTree.runMode)
     })
   );
 
@@ -256,7 +256,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
         if (editor && localToolsTree.runMode === 'hesitate') {
             // Run the tools when switching to an already opened file
-            runLocal(localDiags, localToolsList, repositoryManager, editor.document.uri)
+            runLocal(localDiags, localToolsList, repositoryManager, editor.document, localToolsTree.runMode)
         }
     })
   );
