@@ -208,7 +208,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 				const docText = currentFile.getText()
 
 				const randomBytes = crypto.randomBytes(10).toString('hex')
-				var fileExtension = currentFile.fileName.split('.').pop()
+				let fileExtension = currentFile.fileName.split('.').pop()
 				fileExtension = (fileExtension != currentFile.fileName) ? '.' + fileExtension : ''
 
 				const tempFileName = hesitateTempDir + '/codacyTemp' + randomBytes + fileExtension
