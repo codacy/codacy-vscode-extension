@@ -21,7 +21,7 @@
       "cliCommand": "trivy",
       "cliExecute": "trivy fs [[PATH]] [[PARMS]] --quiet --format sarif -o ./.codacy/runs/trivy.sarif",
       "cliVersion": "trivy -v",
-      "cli-InstallMacos": "brew install trivy",
+      "cliInstallMacos": "brew install trivy",
       "cliInstallApt": "sudo snap install trivy"
     }
   ]
