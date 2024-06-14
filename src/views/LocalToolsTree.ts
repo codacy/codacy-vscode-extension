@@ -92,6 +92,7 @@ export class LocalToolsTree
     if (this.localToolsDefs)
       for (let i=0; i<this.localToolsDefs.length; i++){
         const tool = this.localToolsDefs[i];
+        tool.updateInstallStatus()
 
         if (toolsMerged.has(tool.title)) {
           tool.cloudEnabled = true

@@ -247,10 +247,16 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 					// doing this synchronously because I'm too stupid to work out how to run all the tools in their own thread and wait
 					// for the last one to finish before inspecting results.
 					// fixme: figure out how to do error handling here (sync doesn't take a callback)
+					try {
 					cp.execSync(
 						execCommand,
 						{cwd: workspaceFolder }
 						);
+					}
+					catch (e) {
+						handleError(e as Error)
+						return
+					}
 
 				}
 

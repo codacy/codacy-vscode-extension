@@ -145,7 +145,7 @@
       },
       {
         "command": "codacy.local.refresh",
-        "title": "Refresh Local Tools",
+        "title": "Refresh Scanners",
         "category": "Codacy commands",
         "icon": "$(refresh)"
       },
@@ -252,6 +252,11 @@
         {
           "command": "codacy.branchIssues.refresh",
           "when": "view == codacy:branchIssues",
+          "group": "navigation"
+        },
+        {
+          "command": "codacy.local.refresh",
+          "when": "view == codacy:localTools",
           "group": "navigation"
         },
         {
