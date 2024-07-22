@@ -199,11 +199,7 @@ export class RepositoryManager implements vscode.Disposable {
 
   protected async loadToolPatterns(repo: gitRepoInfo, gitRepo: GitRepository, repoLangs: string[]) {
 
-    if (this._codingStandardId === undefined) {
-      return
-    }
-
-    const repoToolsData = await Api.Analysis.getTools(
+    const repoToolsData = await Api.Analysis.listRepositoryTools(
       repo.provider,
       repo.organization,
       repo.repository
@@ -235,11 +231,14 @@ export class RepositoryManager implements vscode.Disposable {
         if (uuid !== undefined) {
           let cursor = undefined
           do {
-            const codacyToolPatternsData = await Api.CodingStandards.listCodingStandardPatterns(
+            const codacyToolPatternsData = await Api.Analysis.listRepositoryToolPatterns(
               repo.provider,
               repo.organization,
-              this._codingStandardId,
-              uuid,undefined,undefined,undefined,undefined,undefined,cursor,1000)
+              repo.repository,
+              uuid,
+              undefined,undefined,undefined,undefined,true,undefined,undefined,
+              cursor,1000)
+
             cursor = codacyToolPatternsData.pagination?.cursor
 
             for (let j=0; j<codacyToolPatternsData.data.length; j++) {
