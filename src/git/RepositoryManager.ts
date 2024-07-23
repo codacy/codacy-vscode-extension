@@ -262,10 +262,10 @@ export class RepositoryManager implements vscode.Disposable {
         let parmString = ''
         let configString = ''
         
+        const parms = new Array<string>()
         // fixme: this should dispatch to a function based on tool through some sort of map...?
         switch (name) {
           case "Trivy":
-            const parms = new Array<string>()
             for (let j=0; j<rules.length; j++) {
               switch (rules[j].id)
               {
@@ -283,9 +283,6 @@ export class RepositoryManager implements vscode.Disposable {
             break
           case "Semgrep":
             configString = ''
-            //defaultsYaml = // Construct the path to the file
-            
-            // Construct __dirname
             const __dirname = dirname(__filename)
             const filePath = join(__dirname, '../codacySemgrepRules.yaml')
 

@@ -209,7 +209,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 
 				const randomBytes = crypto.randomBytes(10).toString('hex')
 				let fileExtension = currentFile.fileName.split('.').pop()
-				fileExtension = (fileExtension != currentFile.fileName) ? '.' + fileExtension : ''
+				fileExtension = (fileExtension !== currentFile.fileName) ? '.' + fileExtension : ''
 
 				const tempFileName = hesitateTempDir + '/codacyTemp' + randomBytes + fileExtension
 				fs.writeFileSync(tempFileName, docText)
@@ -250,7 +250,7 @@ export function runLocal(diagnosticCollection : vscode.DiagnosticCollection, too
 					try {
 					cp.execSync(
 						execCommand,
-						{cwd: workspaceFolder }
+						{cwd: workspaceFolder, maxBuffer: 2000 * 1024 }
 						);
 					}
 					catch (e) {
