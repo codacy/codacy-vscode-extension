@@ -194,7 +194,6 @@ export class PullRequest extends PullRequestInfo {
         repo.owner,
         repo.name,
         this._prWithAnalysis.pullRequest.number,
-        undefined,
         nextCursor
       )
 
