@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       releaseType:
-        description: "Release Type"
+        description: 'Release Type'
         required: true
         type: choice
-        default: "patch"
+        default: 'patch'
         options:
           - patch
           - minor
@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node version
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
       - name: Install dependencies
         run: npm install
       - name: Install VSCE
@@ -52,9 +52,9 @@ jobs:
           npm version $RELEASE_VERSION --no-git-tag-version
           git tag -a v$RELEASE_VERSION -m "v$RELEASE_VERSION"
       - name: Package Extension
-        run: vsce package $RELEASE_VERSION --no-git-tag-version --no-update-package-json -o "./releases/codacy-$RELEASE_VERSION.vsix" 
+        run: vsce package $RELEASE_VERSION --no-git-tag-version --no-update-package-json -o "./releases/codacy-$RELEASE_VERSION.vsix"
       - name: Publish to Visual Studio Marketplace
-        run: vsce publish --packagePath "./releases/codacy-$RELEASE_VERSION.vsix" --no-git-tag-version --no-update-package-json -p ${{ secrets.VSC_MKTP_PAT }} 
+        run: vsce publish --packagePath "./releases/codacy-$RELEASE_VERSION.vsix" --no-git-tag-version --no-update-package-json -p ${{ secrets.VSC_MKTP_PAT }}
       - name: Publish to Open VSX Registry
         uses: HaaLeo/publish-vscode-extension@v1
         with:
@@ -71,7 +71,7 @@ jobs:
       - name: GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "./releases/codacy-*"
+          artifacts: './releases/codacy-*'
           bodyFile: ${{ github.workspace }}-CHANGELOG.txt
           tag: ${{ env.GIT_TAG }}
           prerelease: false
@@ -85,4 +85,4 @@ jobs:
               "releaseType": "${{ github.event.inputs.releaseType }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}          
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
