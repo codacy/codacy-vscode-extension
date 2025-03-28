@@ -16,6 +16,7 @@ import { BranchIssuesTree } from './views/BranchIssuesTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
+import { APIState, Repository as GitRepository } from './git/git'
 
 /**
  * Helper function to register all extension commands
@@ -53,15 +54,15 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 
   if (git) {
     // register events
-    git.onDidOpenRepository((repo) => {
+    git.onDidOpenRepository((repo: GitRepository) => {
       repositoryManager.open(repo)
     })
 
-    git.onDidCloseRepository((repo) => {
+    git.onDidCloseRepository((repo: GitRepository) => {
       repositoryManager.close(repo)
     })
 
-    git.onDidChangeState((state) => {
+    git.onDidChangeState((state: APIState) => {
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
           repositoryManager.open(git.repositories[0])
@@ -166,7 +167,7 @@ export async function activate(context: vscode.ExtensionContext) {
   })
 
   // coverage show/hide buttons
-  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item) => {
+  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
     item.onClick()
   })
 }
