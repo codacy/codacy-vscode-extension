@@ -40,6 +40,13 @@
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
         {
+          "id": "codacy:mcp",
+          "name": "Codacy MCP Server",
+          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor",
+          "icon": "$(gear)",
+          "initialSize": 2
+        },
+        {
           "id": "codacy:prSummary",
           "name": "Pull request",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
@@ -74,6 +81,16 @@
         "view": "codacy:login",
         "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)",
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "Enable your Cursor AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && !codacy:mcpConfigured"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && codacy:mcpConfigured"
       },
       {
         "view": "codacy:statuses",
@@ -171,6 +188,26 @@
         "command": "codacy.issue.seeDetails",
         "title": "See issue details",
         "category": "Codacy commands"
+      },
+      {
+        "command": "codacy.configureMCP",
+        "title": "Configure Codacy MCP Server",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor"
+      },
+      {
+        "command": "codacy.configureMCP.reset",
+        "title": "Reset Codacy MCP Server",
+        "category": "Codacy commands",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && codacy:mcpConfigured"
+      },
+      {
+        "command": "codacy.configureMCP",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && !codacy:mcpConfigured"
+      },
+      {
+        "command": "codacy.configureMCP.reset",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && codacy:mcpConfigured"
       }
     ],
     "menus": {
@@ -186,6 +223,14 @@
         {
           "command": "codacy.pr.checkout",
           "when": "false"
+        },
+        {
+          "command": "codacy.configureMCP",
+          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && !codacy:mcpConfigured"
+        },
+        {
+          "command": "codacy.configureMCP.reset",
+          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:isCursor && codacy:mcpConfigured"
         }
       ],
       "view/title": [

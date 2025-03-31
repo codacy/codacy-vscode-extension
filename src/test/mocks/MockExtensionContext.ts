@@ -41,6 +41,7 @@ export class MockExtensionContext implements ExtensionContext {
   extensionRuntime: any
   extension: any
   isNewInstall: any
+  languageModelAccessInformation: any
 
   constructor() {
     this.extensionPath = path.resolve(__dirname, '..')
