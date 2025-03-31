@@ -17,6 +17,7 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
+import { configureMCP, isMCPConfigured } from './commands/configureMCP'
 
 /**
  * Helper function to register all extension commands
@@ -86,6 +87,13 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+
+  // Set initial context values
+  await vscode.commands.executeCommand(
+    'setContext',
+    'codacy:isCursor',
+    vscode.env.appName.toLowerCase().includes('cursor')
+  )
 
   Config.init(context)
 
@@ -170,6 +178,31 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
     item.onClick()
   })
+
+  // Register MCP commands
+  const updateMCPState = () => {
+    const isConfigured = isMCPConfigured()
+    vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
+  }
+
+  // Update initially
+  updateMCPState()
+
+  // Register configure command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codacy.configureMCP', async () => {
+      await configureMCP()
+      updateMCPState()
+    })
+  )
+
+  // Register reset command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
+      await configureMCP()
+      updateMCPState()
+    })
+  )
 }
 
 // This method is called when your extension is deactivated
