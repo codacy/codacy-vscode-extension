@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { Config } from '../common/config'
 
 export function isMCPConfigured(): boolean {
   try {
@@ -20,9 +21,7 @@ export function isMCPConfigured(): boolean {
 
 export async function configureMCP() {
   try {
-    // Get the Codacy API token from extension settings
-    const config = vscode.workspace.getConfiguration('codacy')
-    const apiToken = config.get<string>('apiToken')
+    const apiToken = Config.apiToken
 
     if (!apiToken) {
       throw new Error('Codacy API token not found in settings')
