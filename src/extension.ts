@@ -94,6 +94,11 @@ export async function activate(context: vscode.ExtensionContext) {
     'codacy:isCursor',
     vscode.env.appName.toLowerCase().includes('cursor')
   )
+  await vscode.commands.executeCommand(
+    'setContext',
+    'codacy:isWindsurf',
+    vscode.env.appName.toLowerCase().includes('windsurf')
+  )
 
   Config.init(context)
 

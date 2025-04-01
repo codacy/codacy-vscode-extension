@@ -4,13 +4,17 @@ import * as path from 'path'
 import * as os from 'os'
 
 export function isMCPConfigured(): boolean {
+  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   try {
-    const mcpPath = path.join(os.homedir(), '.cursor', 'mcp.json')
-    if (!fs.existsSync(mcpPath)) {
+    const cursorMcpPath = path.join(os.homedir(), '.cursor', 'mcp.json')
+    const windsurfMcpPath = path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json')
+
+    const ideConfigFile = isCursor ? cursorMcpPath : windsurfMcpPath
+    if (!fs.existsSync(ideConfigFile)) {
       return false
     }
 
-    const config = JSON.parse(fs.readFileSync(mcpPath, 'utf8'))
+    const config = JSON.parse(fs.readFileSync(ideConfigFile, 'utf8'))
     return config?.mcpServers?.codacy !== undefined
   } catch (error) {
     // If there's any error reading or parsing the file, assume it's not configured
@@ -19,6 +23,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP() {
+  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   try {
     // Get the Codacy API token from extension settings
     const config = vscode.workspace.getConfiguration('codacy')
@@ -29,12 +34,13 @@ export async function configureMCP() {
     }
 
     // Create .cursor directory if it doesn't exist
-    const cursorDir = path.join(os.homedir(), '.cursor')
-    if (!fs.existsSync(cursorDir)) {
-      fs.mkdirSync(cursorDir)
+    const ideDir = isCursor ? path.join(os.homedir(), '.cursor') : path.join(os.homedir(), '.codeium', 'windsurf')
+
+    if (!fs.existsSync(ideDir)) {
+      fs.mkdirSync(ideDir)
     }
 
-    const mcpPath = path.join(cursorDir, 'mcp.json')
+    const mcpPath = path.join(ideDir, isCursor ? 'mcp.json' : 'mcp_config.json')
 
     // Prepare the Codacy server configuration
     const codacyServer = {
