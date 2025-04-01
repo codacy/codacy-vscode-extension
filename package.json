@@ -84,7 +84,7 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "Enable your Cursor AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
+        "contents": "Enable your AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
         "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && (codacy:isCursor || codacy:isWindsurf) && !codacy:mcpConfigured"
       },
       {
