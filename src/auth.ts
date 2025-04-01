@@ -21,10 +21,13 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
   }
 }
 
-export type IDE = 'vscode' | 'cursor'
+export type IDE = 'vscode' | 'cursor' | 'windsurf'
 
 export const detectEditor = (): IDE => {
-  return vscode.env.appName.toLowerCase().includes('cursor') ? 'cursor' : 'vscode'
+  const appName = vscode.env.appName.toLowerCase()
+  if (appName.includes('cursor')) return 'cursor'
+  if (appName.includes('windsurf')) return 'windsurf'
+  return 'vscode'
 }
 
 export const signIn = async () => {
