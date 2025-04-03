@@ -167,7 +167,7 @@ export class PullRequest extends PullRequestInfo {
         ...issues.map((issue) => ({
           ...issue,
           uri: vscode.Uri.parse(
-            `https://app.codacy.com/${repo.provider}/${repo.owner}/${repo.name}/pullRequest?prid=${this.meta.id}#issue-${issue.commitIssue.issueId}`
+            `https://app.codacy.com/${repo.provider}/${repo.owner}/${repo.name}/pull-requests/${this.meta.number}/issues#issue-${issue.commitIssue.issueId}`
           ),
         }))
       )
