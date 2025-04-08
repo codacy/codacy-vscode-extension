@@ -11,8 +11,7 @@ function getCurrentIDE(): string {
   if (isWindsurf) return 'windsurf'
   return 'vscode'
 }
-function getCorrectMcpPath(): {
-  filePath: string
+function getCorrectMcpConfig(): {
   fileDir: string
   fileName: string
   configAccessor: string
@@ -21,21 +20,18 @@ function getCorrectMcpPath(): {
 
   if (currentIde === 'cursor')
     return {
-      filePath: path.join(os.homedir(), '.cursor', 'mcp.json'),
       fileDir: path.join(os.homedir(), '.cursor'),
       fileName: 'mcp.json',
       configAccessor: 'mcpServers',
     }
   if (currentIde === 'windsurf')
     return {
-      filePath: path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json'),
       fileDir: path.join(os.homedir(), '.codeium', 'windsurf'),
       fileName: 'mcp_config.json',
       configAccessor: 'mcpServers',
     }
 
   return {
-    filePath: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'settings.json'),
     fileDir: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User'),
     fileName: 'settings.json',
     configAccessor: 'mcp.servers',
@@ -44,16 +40,17 @@ function getCorrectMcpPath(): {
 
 export function isMCPConfigured(): boolean {
   try {
-    const ideConfig = getCorrectMcpPath()
-    if (!fs.existsSync(ideConfig.filePath)) {
+    const ideConfig = getCorrectMcpConfig()
+    const filePath = path.join(ideConfig.fileDir, ideConfig.fileName)
+    if (!fs.existsSync(filePath)) {
       return false
     }
 
-    const config = JSON.parse(fs.readFileSync(ideConfig.filePath, 'utf8'))
+    const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
     // Navigate through the nested structure using the configAccessor path
-    const path = ideConfig.configAccessor.split('.')
+    const accessorParts = ideConfig.configAccessor.split('.')
     let current = config
-    for (const segment of path) {
+    for (const segment of accessorParts) {
       current = current?.[segment]
       if (!current) return false
     }
@@ -65,7 +62,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP() {
-  const ideConfig = getCorrectMcpPath()
+  const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
 
