@@ -6,6 +6,7 @@ import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
 import { runCodacyAnalyze } from '../commands/runCodacyAnalyze'
+import Logger from '../common/logger'
 
 interface CLIOutputIssue {
   level: string
@@ -15,10 +16,7 @@ interface CLIOutputIssue {
   locations: [
     {
       physicalLocation: {
-        artifactLocation: {
-          uri: string
-          index: number
-        }
+        artifactLocation?: any
         region: {
           startLine: number
           startColumn: number
@@ -28,9 +26,10 @@ interface CLIOutputIssue {
       }
     },
   ]
-  descriptor: {
+  descriptor?: {
     id: string
   }
+  ruleId?: string
 }
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
@@ -79,6 +78,8 @@ export class IssueDiagnostic extends vscode.Diagnostic {
 export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
   private _currentIssues: PullRequestIssue[] | BranchIssue[] = []
+  private _isAnalysisRunning: boolean = false
+  private _analysisDebounceTimeout: NodeJS.Timeout | undefined
 
   constructor(private readonly _repositoryManager: RepositoryManager) {
     _repositoryManager.onDidUpdatePullRequest((pr) => {
@@ -105,51 +106,69 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
-    try {
-      // Run the analysis using the existing function
-      const stdout = await runCodacyAnalyze(document.uri.fsPath)
-
-      const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
-      const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
-
-      const diagnostics: vscode.Diagnostic[] = []
-
-      const issues: CLIOutputIssue[] | undefined = sarifResult.runs[0].invocations[0].toolConfigurationNotifications
-      const tool: string = sarifResult.runs[0].tool.driver.name
-
-      issues?.map((issue) => {
-        if (issue.locations && issue.locations[0].physicalLocation) {
-          const location = issue.locations[0].physicalLocation
-          const startLine = location.region.startLine - 1
-          const startColumn = location.region.startColumn - 1 || 0
-          const endLine = location.region.endLine ? location.region.endLine - 1 : startLine
-          const endColumn = location.region.endColumn ? location.region.endColumn - 1 : startColumn + 1
-
-          const message = issue.message.text
-
-          const severity =
-            issue.level === 'error'
-              ? vscode.DiagnosticSeverity.Error
-              : issue.level === 'warning'
-              ? vscode.DiagnosticSeverity.Warning
-              : vscode.DiagnosticSeverity.Information
-
-          const range = new vscode.Range(startLine, startColumn, endLine, endColumn)
-
-          const diagnostic = new vscode.Diagnostic(range, message, severity)
-
-          diagnostic.source = `Codacy CLI [${tool.replace('Codacy ', '')}]`
-          diagnostic.code = issue.descriptor.id
-
-          diagnostics.push(diagnostic)
-        }
-      })
-
-      // Update diagnostics for this file
-      this._collection.set(document.uri, diagnostics)
-    } catch (error) {
-      console.error('Failed to process Codacy analysis:', error)
+    // Clear any pending analysis
+    if (this._analysisDebounceTimeout) {
+      clearTimeout(this._analysisDebounceTimeout)
     }
+
+    // Debounce the analysis for 2 seconds
+    this._analysisDebounceTimeout = setTimeout(async () => {
+      // Skip if analysis is already running
+      if (this._isAnalysisRunning) {
+        return
+      }
+
+      try {
+        this._isAnalysisRunning = true
+        // Run the analysis using the existing function
+        const stdout = await runCodacyAnalyze(document.uri.fsPath)
+
+        const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
+        const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
+
+        const diagnostics: vscode.Diagnostic[] = []
+
+        const issues: CLIOutputIssue[] | undefined =
+          sarifResult.runs[0].results || sarifResult.runs[0].invocations[0].toolConfigurationNotifications
+        const tool: string = sarifResult.runs[0].tool.driver.name
+
+        Logger.warn('issues', JSON.stringify(issues, null, 2))
+        issues?.map((issue) => {
+          if (issue.locations && issue.locations[0].physicalLocation) {
+            const location = issue.locations[0].physicalLocation
+            const startLine = location.region.startLine - 1
+            const startColumn = location.region.startColumn - 1 || 0
+            const endLine = location.region.endLine ? location.region.endLine - 1 : startLine
+            const endColumn = location.region.endColumn ? location.region.endColumn - 1 : startColumn + 1
+
+            const message = issue.message.text
+
+            const severity =
+              issue.level === 'error'
+                ? vscode.DiagnosticSeverity.Error
+                : issue.level === 'warning'
+                ? vscode.DiagnosticSeverity.Warning
+                : vscode.DiagnosticSeverity.Information
+
+            const range = new vscode.Range(startLine, startColumn, endLine, endColumn)
+
+            const diagnostic = new vscode.Diagnostic(range, message, severity)
+
+            diagnostic.source = `Codacy CLI [${tool.replace('Codacy ', '')}]`
+            diagnostic.code = issue.ruleId || issue.descriptor.id
+
+            diagnostics.push(diagnostic)
+          }
+        })
+
+        // Update diagnostics for this file
+        this._collection.set(document.uri, diagnostics)
+      } catch (error) {
+        console.error('Failed to process Codacy analysis:', error)
+      } finally {
+        this._isAnalysisRunning = false
+      }
+    }, 2000)
   }
 
   public load(issues: PullRequestIssue[] | BranchIssue[]) {
