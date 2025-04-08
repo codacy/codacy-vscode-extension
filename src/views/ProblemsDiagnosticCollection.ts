@@ -16,7 +16,6 @@ interface CLIOutputIssue {
   locations: [
     {
       physicalLocation: {
-        artifactLocation?: any
         region: {
           startLine: number
           startColumn: number
@@ -155,7 +154,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
             const diagnostic = new vscode.Diagnostic(range, message, severity)
 
             diagnostic.source = `Codacy CLI [${tool.replace('Codacy ', '')}]`
-            diagnostic.code = issue.ruleId || issue.descriptor.id
+            diagnostic.code = issue.ruleId || issue.descriptor?.id || ''
 
             diagnostics.push(diagnostic)
           }

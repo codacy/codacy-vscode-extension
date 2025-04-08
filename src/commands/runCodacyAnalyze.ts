@@ -6,6 +6,13 @@ import * as path from 'path'
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
+const sanitizeFilePath = (workspaceRoot: string, filePath?: string): string => {
+  // Remove any shell metacharacters
+  const safePath = filePath?.replace(/[;&|`$]/g, '') || ''
+
+  return path.relative(workspaceRoot, safePath) || ''
+}
+
 export async function runCodacyAnalyze(filePath?: string) {
   return vscode.window.withProgress(
     {
@@ -23,7 +30,7 @@ export async function runCodacyAnalyze(filePath?: string) {
         const workspaceRoot = workspaceFolders[0].uri.fsPath
 
         // If filePath is provided, make it relative to workspace root
-        const relativeFilePath = filePath ? path.relative(workspaceRoot, filePath) : undefined
+        const relativeFilePath = sanitizeFilePath(workspaceRoot, filePath)
 
         // Construct the command
         const command = `codacy-cli analyze -t eslint --format sarif ${relativeFilePath || ''}`
