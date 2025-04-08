@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
+import { set } from 'lodash'
 
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
@@ -104,31 +105,8 @@ export async function configureMCP() {
       }
     }
 
-    // Helper function to set nested value
-    const setNestedValue = (obj: Record<string, unknown>, accessor: string) => {
-      // Create a deep copy of the object to avoid mutations
-      const result = JSON.parse(JSON.stringify(obj))
-      const path = accessor.split('.')
-      let current = result
-
-      // Build the path if it doesn't exist
-      for (let i = 0; i < path.length - 1; i++) {
-        current[path[i]] = current[path[i]] || {}
-        current = current[path[i]] as Record<string, unknown>
-      }
-
-      const lastKey = path[path.length - 1]
-      // Ensure we preserve the existing structure at the final level
-      current[lastKey] = {
-        ...current[lastKey], // Preserve all existing keys at this level
-        codacy: codacyServer,
-      }
-
-      return result
-    }
-
     // Set the codacyServer configuration at the correct nested level
-    const modifiedConfig = setNestedValue(config, ideConfig.configAccessor)
+    const modifiedConfig = set(config, ideConfig.configAccessor, { codacy: codacyServer })
 
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
