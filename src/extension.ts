@@ -88,16 +88,12 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
 
-  // Set initial context values
   await vscode.commands.executeCommand(
     'setContext',
-    'codacy:isCursor',
-    vscode.env.appName.toLowerCase().includes('cursor')
-  )
-  await vscode.commands.executeCommand(
-    'setContext',
-    'codacy:isWindsurf',
-    vscode.env.appName.toLowerCase().includes('windsurf')
+    'codacy:supportsMCP',
+    vscode.env.appName.toLowerCase().includes('cursor') ||
+      vscode.env.appName.toLowerCase().includes('windsurf') ||
+      vscode.env.appName.toLowerCase().includes('code')
   )
 
   Config.init(context)

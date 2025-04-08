@@ -4,19 +4,53 @@ import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
 
-export function isMCPConfigured(): boolean {
+function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
-  try {
-    const cursorMcpPath = path.join(os.homedir(), '.cursor', 'mcp.json')
-    const windsurfMcpPath = path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json')
+  const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
+  if (isCursor) return 'cursor'
+  if (isWindsurf) return 'windsurf'
+  return 'vscode'
+}
+function getCorrectMcpPath(): {
+  filePath: string
+  fileDir: string
+  fileName: string
+  configAccessor: string
+} {
+  const currentIde = getCurrentIDE()
 
-    const ideConfigFile = isCursor ? cursorMcpPath : windsurfMcpPath
-    if (!fs.existsSync(ideConfigFile)) {
+  if (currentIde === 'cursor')
+    return {
+      filePath: path.join(os.homedir(), '.cursor', 'mcp.json'),
+      fileDir: path.join(os.homedir(), '.cursor'),
+      fileName: 'mcp.json',
+      configAccessor: 'mcpServers',
+    }
+  if (currentIde === 'windsurf')
+    return {
+      filePath: path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json'),
+      fileDir: path.join(os.homedir(), '.codeium', 'windsurf'),
+      fileName: 'mcp_config.json',
+      configAccessor: 'mcpServers',
+    }
+
+  return {
+    filePath: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'settings.json'),
+    fileDir: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User'),
+    fileName: 'settings.json',
+    configAccessor: 'mcp.servers',
+  }
+}
+
+export function isMCPConfigured(): boolean {
+  try {
+    const ideConfig = getCorrectMcpPath()
+    if (!fs.existsSync(ideConfig.filePath)) {
       return false
     }
 
-    const config = JSON.parse(fs.readFileSync(ideConfigFile, 'utf8'))
-    return config?.mcpServers?.codacy !== undefined
+    const config = JSON.parse(fs.readFileSync(ideConfig.filePath, 'utf8'))
+    return config?.[ideConfig.configAccessor]?.codacy !== undefined
   } catch (error) {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
@@ -24,7 +58,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP() {
-  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
+  const ideConfig = getCorrectMcpPath()
   try {
     const apiToken = Config.apiToken
 
@@ -32,14 +66,14 @@ export async function configureMCP() {
       throw new Error('Codacy API token not found in settings')
     }
 
-    // Create .cursor directory if it doesn't exist
-    const ideDir = isCursor ? path.join(os.homedir(), '.cursor') : path.join(os.homedir(), '.codeium', 'windsurf')
+    // Create directory if it doesn't exist
+    const ideDir = ideConfig.fileDir
 
     if (!fs.existsSync(ideDir)) {
       fs.mkdirSync(ideDir)
     }
 
-    const mcpPath = path.join(ideDir, isCursor ? 'mcp.json' : 'mcp_config.json')
+    const mcpPath = path.join(ideDir, ideConfig.fileName)
 
     // Prepare the Codacy server configuration
     const codacyServer = {
@@ -51,27 +85,28 @@ export async function configureMCP() {
     }
 
     // Read existing configuration if it exists
-    let mcpConfig = { mcpServers: {} }
+    let mcpConfig = { [ideConfig.configAccessor]: {} }
     if (fs.existsSync(mcpPath)) {
       try {
         const existingConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf8'))
         mcpConfig = {
-          mcpServers: {
-            ...(existingConfig.mcpServers || {}),
+          ...existingConfig,
+          [ideConfig.configAccessor]: {
+            ...(existingConfig[ideConfig.configAccessor] || {}),
             codacy: codacyServer,
           },
         }
       } catch (parseError) {
         // If the existing file is invalid JSON, we'll create a new one
         mcpConfig = {
-          mcpServers: {
+          [ideConfig.configAccessor]: {
             codacy: codacyServer,
           },
         }
       }
     } else {
       mcpConfig = {
-        mcpServers: {
+        [ideConfig.configAccessor]: {
           codacy: codacyServer,
         },
       }
