@@ -50,7 +50,14 @@ export function isMCPConfigured(): boolean {
     }
 
     const config = JSON.parse(fs.readFileSync(ideConfig.filePath, 'utf8'))
-    return config?.[ideConfig.configAccessor]?.codacy !== undefined
+    // Navigate through the nested structure using the configAccessor path
+    const path = ideConfig.configAccessor.split('.')
+    let current = config
+    for (const segment of path) {
+      current = current?.[segment]
+      if (!current) return false
+    }
+    return current?.codacy !== undefined
   } catch (error) {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
@@ -73,7 +80,7 @@ export async function configureMCP() {
       fs.mkdirSync(ideDir)
     }
 
-    const mcpPath = path.join(ideDir, ideConfig.fileName)
+    const filePath = path.join(ideDir, ideConfig.fileName)
 
     // Prepare the Codacy server configuration
     const codacyServer = {
@@ -85,34 +92,48 @@ export async function configureMCP() {
     }
 
     // Read existing configuration if it exists
-    let mcpConfig = { [ideConfig.configAccessor]: {} }
-    if (fs.existsSync(mcpPath)) {
+    let config = {}
+    if (fs.existsSync(filePath)) {
       try {
-        const existingConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf8'))
-        mcpConfig = {
-          ...existingConfig,
-          [ideConfig.configAccessor]: {
-            ...(existingConfig[ideConfig.configAccessor] || {}),
-            codacy: codacyServer,
-          },
-        }
+        // Read and clean the file content
+        const rawContent = fs.readFileSync(filePath, 'utf8')
+        // Remove trailing commas - replace },} with }}
+        const cleanedContent = rawContent.replace(/,([\s\r\n]*[}\]])/g, '$1')
+        config = JSON.parse(cleanedContent)
       } catch (parseError) {
+        console.log('Error parsing config:', parseError)
         // If the existing file is invalid JSON, we'll create a new one
-        mcpConfig = {
-          [ideConfig.configAccessor]: {
-            codacy: codacyServer,
-          },
-        }
-      }
-    } else {
-      mcpConfig = {
-        [ideConfig.configAccessor]: {
-          codacy: codacyServer,
-        },
+        config = {}
       }
     }
 
-    fs.writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2))
+    // Helper function to set nested value
+    const setNestedValue = (obj: Record<string, unknown>, accessor: string) => {
+      // Create a deep copy of the object to avoid mutations
+      const result = JSON.parse(JSON.stringify(obj))
+      const path = accessor.split('.')
+      let current = result
+
+      // Build the path if it doesn't exist
+      for (let i = 0; i < path.length - 1; i++) {
+        current[path[i]] = current[path[i]] || {}
+        current = current[path[i]] as Record<string, unknown>
+      }
+
+      const lastKey = path[path.length - 1]
+      // Ensure we preserve the existing structure at the final level
+      current[lastKey] = {
+        ...current[lastKey], // Preserve all existing keys at this level
+        codacy: codacyServer,
+      }
+
+      return result
+    }
+
+    // Set the codacyServer configuration at the correct nested level
+    const modifiedConfig = setNestedValue(config, ideConfig.configAccessor)
+
+    fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
   } catch (error: unknown) {
