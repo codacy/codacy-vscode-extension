@@ -18,6 +18,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureMCP, isMCPConfigured } from './commands/configureMCP'
+import { runCodacyAnalyze } from './commands/runCodacyAnalyze'
 
 /**
  * Helper function to register all extension commands
@@ -39,6 +40,7 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.branchIssues.refresh': () => repositoryManager.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
+    'codacy.analyze': runCodacyAnalyze,
   }
 
   Object.keys(commands).forEach((cmd) => {
