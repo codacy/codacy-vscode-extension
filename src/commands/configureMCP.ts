@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
-import { set } from 'lodash'
+import { get, set } from 'lodash'
 
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
@@ -48,14 +48,8 @@ export function isMCPConfigured(): boolean {
     }
 
     const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-    // Navigate through the nested structure using the configAccessor path
-    const accessorParts = ideConfig.configAccessor.split('.')
-    let current = config
-    for (const segment of accessorParts) {
-      current = current?.[segment]
-      if (!current) return false
-    }
-    return current?.codacy !== undefined
+
+    return get(config, ideConfig.configAccessor) !== undefined
   } catch (error) {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
@@ -106,7 +100,7 @@ export async function configureMCP() {
     }
 
     // Set the codacyServer configuration at the correct nested level
-    const modifiedConfig = set(config, ideConfig.configAccessor, { codacy: codacyServer })
+    const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy`, codacyServer)
 
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
