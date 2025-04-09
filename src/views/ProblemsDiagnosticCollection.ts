@@ -6,30 +6,8 @@ import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
 import { runCodacyAnalyze } from '../commands/runCodacyAnalyze'
-import Logger from '../common/logger'
-
-interface CLIOutputIssue {
-  level: string
-  message: {
-    text: string
-  }
-  locations: [
-    {
-      physicalLocation: {
-        region: {
-          startLine: number
-          startColumn: number
-          endLine?: number
-          endColumn?: number
-        }
-      }
-    },
-  ]
-  descriptor?: {
-    id: string
-  }
-  ruleId?: string
-}
+import * as path from 'path'
+import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -99,7 +77,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
+      // update positions of remote issues in the document
       this.updatePositions(e.document)
+
+      // run local analysis for available tools
       await this.runAnalysisAndUpdateDiagnostics(e.document)
     })
   }
@@ -117,47 +98,51 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         return
       }
 
+      let pathToFile = document.uri.fsPath
+
       try {
         this._isAnalysisRunning = true
-        // Run the analysis using the existing function
-        const stdout = await runCodacyAnalyze(document.uri.fsPath)
 
-        const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
-        const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
+        // check if document is saved or not
+        if (document.isDirty) {
+          // use a temporary file instead for analysis
+          const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
+          const fileName = path.basename(document.fileName)
+          pathToFile = path.join(tmpDir, `${Date.now().valueOf().toString()}-${fileName}`)
+
+          // create the temp directory if it doesn't exist
+          await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
+
+          // Convert string content to Uint8Array
+          await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), Buffer.from(document.getText()))
+        }
+
+        // Run the analysis using the existing function
+        const results = await runCodacyAnalyze(pathToFile)
 
         const diagnostics: vscode.Diagnostic[] = []
 
-        const issues: CLIOutputIssue[] | undefined =
-          sarifResult.runs[0].results || sarifResult.runs[0].invocations[0].toolConfigurationNotifications
-        const tool: string = sarifResult.runs[0].tool.driver.name
+        results.forEach((result) => {
+          const severity =
+            result.level === 'error'
+              ? vscode.DiagnosticSeverity.Error
+              : result.level === 'warning'
+              ? vscode.DiagnosticSeverity.Warning
+              : vscode.DiagnosticSeverity.Information
 
-        Logger.warn('issues', JSON.stringify(issues, null, 2))
-        issues?.map((issue) => {
-          if (issue.locations && issue.locations[0].physicalLocation) {
-            const location = issue.locations[0].physicalLocation
-            const startLine = location.region.startLine - 1
-            const startColumn = location.region.startColumn - 1 || 0
-            const endLine = location.region.endLine ? location.region.endLine - 1 : startLine
-            const endColumn = location.region.endColumn ? location.region.endColumn - 1 : startColumn + 1
+          const range = new vscode.Range(
+            result.region?.startLine || 0,
+            result.region?.startColumn || 0,
+            result.region?.endLine || 0,
+            result.region?.endColumn || 0
+          )
 
-            const message = issue.message.text
+          const diagnostic = new vscode.Diagnostic(range, result.message, severity)
 
-            const severity =
-              issue.level === 'error'
-                ? vscode.DiagnosticSeverity.Error
-                : issue.level === 'warning'
-                ? vscode.DiagnosticSeverity.Warning
-                : vscode.DiagnosticSeverity.Information
+          diagnostic.source = `Codacy CLI [${result.tool}]`
+          diagnostic.code = result.rule?.id || ''
 
-            const range = new vscode.Range(startLine, startColumn, endLine, endColumn)
-
-            const diagnostic = new vscode.Diagnostic(range, message, severity)
-
-            diagnostic.source = `Codacy CLI [${tool.replace('Codacy ', '')}]`
-            diagnostic.code = issue.ruleId || issue.descriptor?.id || ''
-
-            diagnostics.push(diagnostic)
-          }
+          diagnostics.push(diagnostic)
         })
 
         // Update diagnostics for this file
@@ -166,6 +151,15 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         console.error('Failed to process Codacy analysis:', error)
       } finally {
         this._isAnalysisRunning = false
+
+        if (document.isDirty) {
+          // Remove the temporary file after analysis
+          try {
+            //await vscode.workspace.fs.delete(vscode.Uri.file(pathToFile))
+          } catch (err) {
+            console.error('Failed to delete temporary file:', err)
+          }
+        }
       }
     }, 2000)
   }
