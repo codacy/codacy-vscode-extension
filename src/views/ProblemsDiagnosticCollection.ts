@@ -5,31 +5,9 @@ import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
-import { runCodacyAnalyze } from '../commands/runCodacyAnalyze'
-import Logger from '../common/logger'
-
-interface CLIOutputIssue {
-  level: string
-  message: {
-    text: string
-  }
-  locations: [
-    {
-      physicalLocation: {
-        region: {
-          startLine: number
-          startColumn: number
-          endLine?: number
-          endColumn?: number
-        }
-      }
-    },
-  ]
-  descriptor?: {
-    id: string
-  }
-  ruleId?: string
-}
+import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
+import * as path from 'path'
+// import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -44,7 +22,7 @@ const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Err
   }
 }
 
-export class IssueDiagnostic extends vscode.Diagnostic {
+export class ApiIssueDiagnostic extends vscode.Diagnostic {
   constructor(
     readonly commitIssue: CommitIssue,
     readonly uri?: vscode.Uri
@@ -74,37 +52,108 @@ export class IssueDiagnostic extends vscode.Diagnostic {
   }
 }
 
+export class CliIssueDiagnostic extends vscode.Diagnostic {
+  constructor(readonly result: ProcessedSarifResult) {
+    const severity =
+      result.level === 'error'
+        ? vscode.DiagnosticSeverity.Error
+        : result.level === 'warning'
+        ? vscode.DiagnosticSeverity.Warning
+        : vscode.DiagnosticSeverity.Information
+
+    const range = new vscode.Range(
+      (result.region?.startLine || 1) - 1,
+      (result.region?.startColumn || 1) - 1,
+      (result.region?.endLine || result.region?.startLine || 1) - 1,
+      (result.region?.endColumn || 100) - 1
+    )
+
+    super(range, result.message, severity)
+
+    this.source = `Codacy CLI [${result.tool}]`
+    this.code = result.rule?.helpUri
+      ? {
+          value: result.rule.id,
+          target: vscode.Uri.parse(result.rule.helpUri),
+        }
+      : result.rule?.id
+  }
+}
+
 export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
-  private _currentIssues: PullRequestIssue[] | BranchIssue[] = []
+
+  private _currentApiIssues: { [key in string]: PullRequestIssue[] | BranchIssue[] } = {}
+  private _currentCliIssues: { [key in string]: ProcessedSarifResult[] } = {}
+
   private _isAnalysisRunning: boolean = false
   private _analysisDebounceTimeout: NodeJS.Timeout | undefined
 
   constructor(private readonly _repositoryManager: RepositoryManager) {
+    // load all API issues when the pull request is updated
     _repositoryManager.onDidUpdatePullRequest((pr) => {
       const newIssues = pr?.issues.filter((issue) => issue.deltaType === 'Added') || []
-      if (newIssues.length > 0) {
-        this.load(newIssues)
-      } else {
-        this.clear()
-      }
+      this.loadAPIIssues(newIssues)
     })
 
+    // load all API issues when the branch is updated
     _repositoryManager.branchIssues.onDidUpdateBranchIssues((issues) => {
-      if (issues.length > 0) {
-        this.load(issues)
-      } else {
-        this.clear()
-      }
+      this.loadAPIIssues(issues)
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
-      this.updatePositions(e.document)
+      // avoid if the ddocument is a .git file
+      if (e.document.uri.fsPath.endsWith('.git')) return
+
+      // update positions of remote issues in the document
+      this.updateApiISsuesPositions(e.document)
+
+      // run local analysis for available tools
       await this.runAnalysisAndUpdateDiagnostics(e.document)
     })
   }
 
+  private updateDiagnostics() {
+    this._collection.clear()
+    const filesWithApiIssues = Object.keys(this._currentApiIssues)
+    const filesWithCliIssues = Object.keys(this._currentCliIssues)
+    const allFiles = [...new Set([...filesWithApiIssues, ...filesWithCliIssues])]
+    allFiles.forEach((file) => {
+      const document = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === file)
+      if (document) {
+        this.updateDocumentDiagnostics(document)
+      }
+    })
+  }
+
+  private updateDocumentDiagnostics(document: vscode.TextDocument) {
+    this._collection.delete(document.uri)
+
+    // get API issues for the current document
+    const documentApiIssues = this._currentApiIssues[document.uri.fsPath] || []
+    const documentCliIssues = this._currentCliIssues[document.uri.fsPath] || []
+
+    // remove API issues found in the CLI issues
+    const filteredApiIssues = documentCliIssues.length
+      ? documentApiIssues.filter(
+          (apiIssue) =>
+            !documentCliIssues.some(
+              (cliIssue) =>
+                cliIssue.message === apiIssue.commitIssue.message &&
+                cliIssue.region?.startLine === apiIssue.commitIssue.lineNumber
+            )
+        )
+      : documentApiIssues
+
+    const apiDiagnostics = filteredApiIssues.map(({ commitIssue, uri }) => new ApiIssueDiagnostic(commitIssue, uri))
+    const cliDiagnostics = documentCliIssues.map((result) => new CliIssueDiagnostic(result))
+
+    this._collection.set(document.uri, [...apiDiagnostics, ...cliDiagnostics])
+  }
+
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
+    // TODO: check if Codacy CLI is available and initialized
+
     // Clear any pending analysis
     if (this._analysisDebounceTimeout) {
       clearTimeout(this._analysisDebounceTimeout)
@@ -113,119 +162,101 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     // Debounce the analysis for 2 seconds
     this._analysisDebounceTimeout = setTimeout(async () => {
       // Skip if analysis is already running
-      if (this._isAnalysisRunning) {
-        return
-      }
+      if (this._isAnalysisRunning) return
+
+      // Check for the presence of the .codacy/codacy.yaml file to know if the CLI is initialized
+      const codacyConfigPath = path.join(this._repositoryManager.rootUri?.fsPath || '', '.codacy', 'codacy.yaml')
+      const codacyConfigExists =
+        (await vscode.workspace.fs.stat(vscode.Uri.file(codacyConfigPath)).then(() => true)) || false
+
+      if (!codacyConfigExists) return
+
+      let pathToFile = document.uri.fsPath
 
       try {
         this._isAnalysisRunning = true
-        // Run the analysis using the existing function
-        const stdout = await runCodacyAnalyze(document.uri.fsPath)
 
-        const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
-        const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
+        // check if document is saved or not
+        if (document.isDirty) {
+          // use a temporary file instead for analysis
+          const fileName = path.basename(document.fileName)
 
-        const diagnostics: vscode.Diagnostic[] = []
+          // system temp directory -- doesn't work, TODO: check if the CLI can receive a base path
+          //const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
 
-        const issues: CLIOutputIssue[] | undefined =
-          sarifResult.runs[0].results || sarifResult.runs[0].invocations[0].toolConfigurationNotifications
-        const tool: string = sarifResult.runs[0].tool.driver.name
+          // or ... .codacy/tmp directory -- doesn't work
+          // const tmpDir = path.join(this._repositoryManager.rootUri?.path || '', '.codacy', 'tmp')
 
-        Logger.warn('issues', JSON.stringify(issues, null, 2))
-        issues?.map((issue) => {
-          if (issue.locations && issue.locations[0].physicalLocation) {
-            const location = issue.locations[0].physicalLocation
-            const startLine = location.region.startLine - 1
-            const startColumn = location.region.startColumn - 1 || 0
-            const endLine = location.region.endLine ? location.region.endLine - 1 : startLine
-            const endColumn = location.region.endColumn ? location.region.endColumn - 1 : startColumn + 1
+          // create the temp directory if it doesn't exist
+          // await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
 
-            const message = issue.message.text
+          // same directory as the document
+          const filePath = path.dirname(document.fileName)
+          pathToFile = path.join(filePath, `${Date.now().valueOf().toString()}-${fileName}`)
 
-            const severity =
-              issue.level === 'error'
-                ? vscode.DiagnosticSeverity.Error
-                : issue.level === 'warning'
-                ? vscode.DiagnosticSeverity.Warning
-                : vscode.DiagnosticSeverity.Information
+          // Convert string content to Uint8Array
+          const content = new TextEncoder().encode(document.getText())
+          await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), content)
+        }
 
-            const range = new vscode.Range(startLine, startColumn, endLine, endColumn)
+        // Run the local analysis
+        const results = await runCodacyAnalyze(pathToFile)
 
-            const diagnostic = new vscode.Diagnostic(range, message, severity)
+        this._currentCliIssues[document.uri.fsPath] = results
 
-            diagnostic.source = `Codacy CLI [${tool.replace('Codacy ', '')}]`
-            diagnostic.code = issue.ruleId || issue.descriptor?.id || ''
-
-            diagnostics.push(diagnostic)
-          }
-        })
-
-        // Update diagnostics for this file
-        this._collection.set(document.uri, diagnostics)
+        this.updateDocumentDiagnostics(document)
       } catch (error) {
         console.error('Failed to process Codacy analysis:', error)
       } finally {
         this._isAnalysisRunning = false
+
+        if (document.isDirty) {
+          // Remove the temporary file after analysis
+          try {
+            await vscode.workspace.fs.delete(vscode.Uri.file(pathToFile))
+          } catch (err) {
+            console.error('Failed to delete temporary file:', err)
+          }
+        }
       }
     }, 2000)
   }
 
-  public load(issues: PullRequestIssue[] | BranchIssue[]) {
-    // clear previous diagnostics
-    this._collection.clear()
-    this._currentIssues = []
-
-    // group issues by file using lodash
-    const issuesByFile = groupBy(issues, (issue) => issue.commitIssue.filePath)
+  public loadAPIIssues(issues: PullRequestIssue[] | BranchIssue[]) {
     const baseUri = this._repositoryManager.rootUri?.path
+    const issuesByFile = groupBy(issues, (issue) => issue.commitIssue.filePath)
 
-    // create diagnostics for each file
-    for (const [filePath, issues] of Object.entries(issuesByFile)) {
-      const diagnostics = issues.map(({ commitIssue, uri }) => new IssueDiagnostic(commitIssue, uri))
-      this._collection.set(vscode.Uri.file(`${baseUri}/${filePath}`), diagnostics)
-    }
-
-    this._currentIssues = [...issues]
-
-    // go over opened documents and update any previous changes
-    vscode.workspace.textDocuments.forEach((document) => {
-      this.updatePositions(document)
-    })
+    this._currentApiIssues = Object.fromEntries(
+      Object.entries(issuesByFile).map(([filePath, issues]) => [`${baseUri}/${filePath}`, issues])
+    )
+    this.updateDiagnostics()
   }
 
-  private updatePositions(document: vscode.TextDocument) {
-    const baseUri = this._repositoryManager.rootUri?.path
-
-    const documentIssues =
-      this._currentIssues.filter((issue) => `${baseUri}/${issue.commitIssue.filePath}` === document.uri.fsPath) || []
+  private updateApiISsuesPositions(document: vscode.TextDocument) {
+    const documentIssues = this._currentApiIssues[document.uri.fsPath] || []
 
     const documentLines = document.getText().split('\n')
 
-    this._collection.delete(document.uri)
-    const newDiagnostics: IssueDiagnostic[] = []
-
-    documentIssues.forEach(({ commitIssue, uri }) => {
-      if (documentLines[commitIssue.lineNumber - 1].trim() === commitIssue.lineText.trim()) {
-        // nothing changed
-        newDiagnostics.push(new IssueDiagnostic(commitIssue, uri))
-      } else {
+    documentIssues.forEach(({ commitIssue }) => {
+      if (documentLines[commitIssue.lineNumber - 1].trim() !== commitIssue.lineText.trim()) {
         const foundInLine = documentLines.findIndex((line) => line.trim() === commitIssue.lineText.trim())
 
-        // add the issue updating the line
         if (foundInLine >= 0) {
-          newDiagnostics.push(new IssueDiagnostic({ ...commitIssue, lineNumber: foundInLine + 1 }, uri))
+          commitIssue.lineNumber = foundInLine + 1
         }
       }
     })
 
-    this._collection.set(document.uri, newDiagnostics)
+    this.updateDocumentDiagnostics(document)
   }
 
   public clear() {
     this._collection.clear()
   }
 
-  public dispose() {}
+  public dispose() {
+    this.clear()
+  }
 }
 
 /**
@@ -239,7 +270,7 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
   ): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
     const diagnostics = context.diagnostics.filter(
       (diagnostic) => diagnostic.source?.startsWith('Codacy') && diagnostic.range.contains(range)
-    ) as IssueDiagnostic[]
+    ) as ApiIssueDiagnostic[]
 
     return diagnostics.flatMap((diagnostic) => {
       const actions: vscode.CodeAction[] = []
