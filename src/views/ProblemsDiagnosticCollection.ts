@@ -7,7 +7,7 @@ import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
 import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
 import * as path from 'path'
-import * as os from 'os'
+// import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -110,7 +110,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
   }
 
-  private _updateDiagnostics() {
+  private updateDiagnostics() {
     this._collection.clear()
     const filesWithApiIssues = Object.keys(this._currentApiIssues)
     const filesWithCliIssues = Object.keys(this._currentCliIssues)
@@ -118,12 +118,12 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     allFiles.forEach((file) => {
       const document = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === file)
       if (document) {
-        this._updateDocumentDiagnostics(document)
+        this.updateDocumentDiagnostics(document)
       }
     })
   }
 
-  private _updateDocumentDiagnostics(document: vscode.TextDocument) {
+  private updateDocumentDiagnostics(document: vscode.TextDocument) {
     this._collection.delete(document.uri)
 
     // get API issues for the current document
@@ -137,6 +137,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
+    // TODO: check if Codacy CLI is available and initialized
+
     // Clear any pending analysis
     if (this._analysisDebounceTimeout) {
       clearTimeout(this._analysisDebounceTimeout)
@@ -145,9 +147,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     // Debounce the analysis for 2 seconds
     this._analysisDebounceTimeout = setTimeout(async () => {
       // Skip if analysis is already running
-      if (this._isAnalysisRunning) {
-        return
-      }
+      if (this._isAnalysisRunning) return
 
       let pathToFile = document.uri.fsPath
 
@@ -157,15 +157,24 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         // check if document is saved or not
         if (document.isDirty) {
           // use a temporary file instead for analysis
-          const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
           const fileName = path.basename(document.fileName)
-          pathToFile = path.join(tmpDir, `${Date.now().valueOf().toString()}-${fileName}`)
+
+          // system temp directory -- doesn't work, TODO: check if the CLI can receive a base path
+          //const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
+
+          // or ... .codacy/tmp directory -- doesn't work
+          // const tmpDir = path.join(this._repositoryManager.rootUri?.path || '', '.codacy', 'tmp')
 
           // create the temp directory if it doesn't exist
-          await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
+          // await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
+
+          // same directory as the document
+          const filePath = path.dirname(document.fileName)
+          pathToFile = path.join(filePath, `${Date.now().valueOf().toString()}-${fileName}`)
 
           // Convert string content to Uint8Array
-          await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), Buffer.from(document.getText()))
+          const content = new TextEncoder().encode(document.getText())
+          await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), content)
         }
 
         // Run the analysis using the existing function
@@ -173,7 +182,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
         this._currentCliIssues[document.uri.fsPath] = results
 
-        this._updateDocumentDiagnostics(document)
+        this.updateDocumentDiagnostics(document)
       } catch (error) {
         console.error('Failed to process Codacy analysis:', error)
       } finally {
@@ -198,7 +207,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     this._currentApiIssues = Object.fromEntries(
       Object.entries(issuesByFile).map(([filePath, issues]) => [`${baseUri}/${filePath}`, issues])
     )
-    this._updateDiagnostics()
+    this.updateDiagnostics()
   }
 
   private updateApiISsuesPositions(document: vscode.TextDocument) {
@@ -216,7 +225,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       }
     })
 
-    this._updateDocumentDiagnostics(document)
+    this.updateDocumentDiagnostics(document)
   }
 
   public clear() {
