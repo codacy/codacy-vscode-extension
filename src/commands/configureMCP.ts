@@ -3,20 +3,53 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
+import { get, set } from 'lodash'
+
+function getCurrentIDE(): string {
+  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
+  const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
+  if (isCursor) return 'cursor'
+  if (isWindsurf) return 'windsurf'
+  return 'vscode'
+}
+function getCorrectMcpConfig(): {
+  fileDir: string
+  fileName: string
+  configAccessor: string
+} {
+  const currentIde = getCurrentIDE()
+
+  if (currentIde === 'cursor')
+    return {
+      fileDir: path.join(os.homedir(), '.cursor'),
+      fileName: 'mcp.json',
+      configAccessor: 'mcpServers',
+    }
+  if (currentIde === 'windsurf')
+    return {
+      fileDir: path.join(os.homedir(), '.codeium', 'windsurf'),
+      fileName: 'mcp_config.json',
+      configAccessor: 'mcpServers',
+    }
+
+  return {
+    fileDir: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User'),
+    fileName: 'settings.json',
+    configAccessor: 'mcp.servers',
+  }
+}
 
 export function isMCPConfigured(): boolean {
-  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   try {
-    const cursorMcpPath = path.join(os.homedir(), '.cursor', 'mcp.json')
-    const windsurfMcpPath = path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json')
-
-    const ideConfigFile = isCursor ? cursorMcpPath : windsurfMcpPath
-    if (!fs.existsSync(ideConfigFile)) {
+    const ideConfig = getCorrectMcpConfig()
+    const filePath = path.join(ideConfig.fileDir, ideConfig.fileName)
+    if (!fs.existsSync(filePath)) {
       return false
     }
 
-    const config = JSON.parse(fs.readFileSync(ideConfigFile, 'utf8'))
-    return config?.mcpServers?.codacy !== undefined
+    const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+
+    return get(config, ideConfig.configAccessor) !== undefined
   } catch (error) {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
@@ -24,7 +57,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP() {
-  const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
+  const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
 
@@ -32,14 +65,14 @@ export async function configureMCP() {
       throw new Error('Codacy API token not found in settings')
     }
 
-    // Create .cursor directory if it doesn't exist
-    const ideDir = isCursor ? path.join(os.homedir(), '.cursor') : path.join(os.homedir(), '.codeium', 'windsurf')
+    // Create directory if it doesn't exist
+    const ideDir = ideConfig.fileDir
 
     if (!fs.existsSync(ideDir)) {
       fs.mkdirSync(ideDir)
     }
 
-    const mcpPath = path.join(ideDir, isCursor ? 'mcp.json' : 'mcp_config.json')
+    const filePath = path.join(ideDir, ideConfig.fileName)
 
     // Prepare the Codacy server configuration
     const codacyServer = {
@@ -51,33 +84,25 @@ export async function configureMCP() {
     }
 
     // Read existing configuration if it exists
-    let mcpConfig = { mcpServers: {} }
-    if (fs.existsSync(mcpPath)) {
+    let config = {}
+    if (fs.existsSync(filePath)) {
       try {
-        const existingConfig = JSON.parse(fs.readFileSync(mcpPath, 'utf8'))
-        mcpConfig = {
-          mcpServers: {
-            ...(existingConfig.mcpServers || {}),
-            codacy: codacyServer,
-          },
-        }
+        // Read and clean the file content
+        const rawContent = fs.readFileSync(filePath, 'utf8')
+        // Remove trailing commas - replace },} with }}
+        const cleanedContent = rawContent.replace(/,([\s\r\n]*[}\]])/g, '$1')
+        config = JSON.parse(cleanedContent)
       } catch (parseError) {
+        console.log('Error parsing config:', parseError)
         // If the existing file is invalid JSON, we'll create a new one
-        mcpConfig = {
-          mcpServers: {
-            codacy: codacyServer,
-          },
-        }
-      }
-    } else {
-      mcpConfig = {
-        mcpServers: {
-          codacy: codacyServer,
-        },
+        config = {}
       }
     }
 
-    fs.writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2))
+    // Set the codacyServer configuration at the correct nested level
+    const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy`, codacyServer)
+
+    fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
   } catch (error: unknown) {
