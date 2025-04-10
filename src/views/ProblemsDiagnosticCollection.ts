@@ -64,8 +64,8 @@ export class CliIssueDiagnostic extends vscode.Diagnostic {
     const range = new vscode.Range(
       (result.region?.startLine || 1) - 1,
       (result.region?.startColumn || 1) - 1,
-      (result.region?.endLine || 1) - 1,
-      (result.region?.endColumn || 1) - 1
+      (result.region?.endLine || result.region?.startLine || 1) - 1,
+      (result.region?.endColumn || 100) - 1
     )
 
     super(range, result.message, severity)
@@ -102,6 +102,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
+      // avoid if the ddocument is a .git file
+      if (e.document.uri.fsPath.endsWith('.git')) return
+
       // update positions of remote issues in the document
       this.updateApiISsuesPositions(e.document)
 
@@ -130,7 +133,19 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     const documentApiIssues = this._currentApiIssues[document.uri.fsPath] || []
     const documentCliIssues = this._currentCliIssues[document.uri.fsPath] || []
 
-    const apiDiagnostics = documentApiIssues.map(({ commitIssue, uri }) => new ApiIssueDiagnostic(commitIssue, uri))
+    // remove API issues found in the CLI issues
+    const filteredApiIssues = documentCliIssues.length
+      ? documentApiIssues.filter(
+          (apiIssue) =>
+            !documentCliIssues.some(
+              (cliIssue) =>
+                cliIssue.message === apiIssue.commitIssue.message &&
+                cliIssue.region?.startLine === apiIssue.commitIssue.lineNumber
+            )
+        )
+      : documentApiIssues
+
+    const apiDiagnostics = filteredApiIssues.map(({ commitIssue, uri }) => new ApiIssueDiagnostic(commitIssue, uri))
     const cliDiagnostics = documentCliIssues.map((result) => new CliIssueDiagnostic(result))
 
     this._collection.set(document.uri, [...apiDiagnostics, ...cliDiagnostics])
@@ -148,6 +163,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     this._analysisDebounceTimeout = setTimeout(async () => {
       // Skip if analysis is already running
       if (this._isAnalysisRunning) return
+
+      // Check for the presence of the .codacy/codacy.yaml file to know if the CLI is initialized
+      const codacyConfigPath = path.join(this._repositoryManager.rootUri?.fsPath || '', '.codacy', 'codacy.yaml')
+      const codacyConfigExists =
+        (await vscode.workspace.fs.stat(vscode.Uri.file(codacyConfigPath)).then(() => true)) || false
+
+      if (!codacyConfigExists) return
 
       let pathToFile = document.uri.fsPath
 
@@ -177,7 +199,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
           await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), content)
         }
 
-        // Run the analysis using the existing function
+        // Run the local analysis
         const results = await runCodacyAnalyze(pathToFile)
 
         this._currentCliIssues[document.uri.fsPath] = results

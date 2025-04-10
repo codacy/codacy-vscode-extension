@@ -121,13 +121,6 @@
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
       {
-        "command": "codacy.analyze",
-        "title": "Run Codacy Analysis",
-        "category": "Codacy commands",
-        "icon": "$(search)",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication"
-      },
-      {
         "command": "codacy.signOut",
         "title": "Sign out from Codacy",
         "category": "Codacy commands",
