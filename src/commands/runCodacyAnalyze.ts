@@ -31,7 +31,7 @@ export async function runCodacyAnalyze(filePath?: string) {
 
     Logger.appendLine(`Running Codacy CLI V2 analyze command for ${relativeFilePath || 'entire workspace'}...`)
 
-    return new Promise<ProcessedSarifResults[]>((resolve, reject) => {
+    return new Promise<ProcessedSarifResult[]>((resolve, reject) => {
       // Execute in workspace directory with increased maxBuffer
       exec(
         command,
@@ -54,7 +54,7 @@ export async function runCodacyAnalyze(filePath?: string) {
           const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
           const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
 
-          const results: ProcessedSarifResults[] =
+          const results: ProcessedSarifResult[] =
             sarifResult && 'runs' in sarifResult ? processSarifResults(sarifResult.runs) : []
 
           Logger.appendLine(
@@ -112,4 +112,4 @@ const processSarifResults = (runs: Run[]) => {
   )
 }
 
-export type ProcessedSarifResults = ReturnType<typeof processSarifResults>[number]
+export type ProcessedSarifResult = ReturnType<typeof processSarifResults>[number]
