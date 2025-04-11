@@ -47,10 +47,12 @@ const parseMdcContent = (content: string): RuleConfig => {
   }
 }
 
-const convertRulesToMarkdown = (rules: RuleConfig): string => {
-  return `# ${rules.name}\n${rules.description}\n${rules.rules
-    .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
-    .join('\n\n')}`
+const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
+  return `${!existingContent?.includes(rules.name) ? `# ${rules.name}\n${rules.description}\n` : ''}
+${rules.rules
+  .filter((rule) => !(existingContent?.includes(rule.when) && existingContent?.includes(rule.enforce.join('\n - '))))
+  .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
+  .join('\n\n')}`
 }
 
 const rulesPrefixForMdc = `---
@@ -122,7 +124,7 @@ export async function createRules() {
           }
           fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
         } else {
-          fs.writeFileSync(rulesPath, `${existingContent}\n${convertRulesToMarkdown(newRules)}`)
+          fs.writeFileSync(rulesPath, `${existingContent}\n${convertRulesToMarkdown(newRules, existingContent)}`)
         }
 
         vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
@@ -255,7 +257,7 @@ export async function configureMCP() {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
-    createRules()
+    await createRules()
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
