@@ -21,7 +21,7 @@ const newRules: RuleConfig = {
   description: 'Configuration for AI behavior when interacting with Codacy',
   rules: [
     {
-      when: 'using any tool that has provider, organization and/or repository as an argument',
+      when: 'using any tool that has either one of the following arguments: provider, organization or repository',
       enforce: ['validate provider, organization and repository by checking the gitUrl'],
     },
     {
@@ -31,14 +31,39 @@ const newRules: RuleConfig = {
   ],
 }
 
-const rulesPrefix = `---
+const parseMdcContent = (content: string): RuleConfig => {
+  const parts = content.split('---')
+
+  if (parts.length < 3) {
+    throw new Error('Invalid MDC file format: missing frontmatter')
+  }
+
+  const jsonContent = parts[2].trim()
+
+  try {
+    return JSON.parse(jsonContent)
+  } catch (error) {
+    throw new Error('Invalid JSON content in MDC file')
+  }
+}
+
+const convertRulesToMarkdown = (rules: RuleConfig): string => {
+  return `
+  #${rules.name}
+  ${rules.description}
+  
+  ${rules.rules.map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n-')}`).join('\n\n')}
+  `
+}
+
+const rulesPrefixForMdc = `---
 description: 
 globs: 
 alwaysApply: true
 ---
 \n`
 
-function getCorrectRulesPath(): string {
+function getCorrectRulesInfo(): { path: string; format: string } {
   const ideInfo = getCurrentIDE()
   // Get the workspace folder path
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
@@ -46,12 +71,12 @@ function getCorrectRulesPath(): string {
     throw new Error('No workspace folder found')
   }
   if (ideInfo === 'cursor') {
-    return path.join(workspacePath, '.cursor', 'rules', 'codacy.mdc')
+    return { path: path.join(workspacePath, '.cursor', 'rules', 'codacy.mdc'), format: 'mdc' }
   }
   if (ideInfo === 'windsurf') {
-    return path.join(workspacePath, '.windsurfrules.mdc')
+    return { path: path.join(workspacePath, '.windsurfrules'), format: 'md' }
   }
-  return path.join(workspacePath, '.github', 'copilot-instruction.mdc')
+  return { path: path.join(workspacePath, '.github', 'copilot-instructions.md'), format: 'md' }
 }
 
 export async function createRules() {
@@ -60,7 +85,8 @@ export async function createRules() {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
 
   try {
-    const rulesPath = getCorrectRulesPath()
+    const { path: rulesPath, format } = getCorrectRulesInfo()
+    const isMdc = format === 'mdc'
     const dirPath = path.dirname(rulesPath)
     const gitignorePath = path.join(workspacePath, '.gitignore')
 
@@ -70,28 +96,40 @@ export async function createRules() {
     }
 
     if (!fs.existsSync(rulesPath)) {
-      fs.writeFileSync(rulesPath, `${rulesPrefix}${JSON.stringify(newRules, null, 2)}`)
+      fs.writeFileSync(
+        rulesPath,
+        `${isMdc ? rulesPrefixForMdc : ''}${JSON.stringify(
+          isMdc ? newRules : convertRulesToMarkdown(newRules),
+          null,
+          2
+        )}`
+      )
       vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
     } else {
       try {
         const existingContent = fs.readFileSync(rulesPath, 'utf8')
-        const existingRules = JSON.parse(existingContent)
 
-        const mergedRules = {
-          ...existingRules,
-          rules: [
-            ...(existingRules.rules || []),
-            ...newRules.rules.filter(
-              (newRule) =>
-                !existingRules.rules?.some(
-                  (existingRule: Rule) =>
-                    existingRule.when === newRule.when && existingRule.enforce.every((e) => newRule.enforce.includes(e))
-                )
-            ),
-          ],
+        if (isMdc) {
+          const existingRules = parseMdcContent(existingContent)
+          const mergedRules = {
+            ...existingRules,
+            rules: [
+              ...(existingRules.rules || []),
+              ...newRules.rules.filter(
+                (newRule) =>
+                  !existingRules.rules?.some(
+                    (existingRule: Rule) =>
+                      existingRule.when === newRule.when &&
+                      existingRule.enforce.every((e) => newRule.enforce.includes(e))
+                  )
+              ),
+            ],
+          }
+          fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
+        } else {
+          fs.writeFileSync(rulesPath, `${existingContent}\n${convertRulesToMarkdown(newRules)}`)
         }
 
-        fs.writeFileSync(rulesPath, JSON.stringify(mergedRules, null, 2))
         vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
       } catch (parseError) {
         vscode.window.showWarningMessage(`Error parsing existing rules file. Creating new one.`)
