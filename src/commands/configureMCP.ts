@@ -48,12 +48,9 @@ const parseMdcContent = (content: string): RuleConfig => {
 }
 
 const convertRulesToMarkdown = (rules: RuleConfig): string => {
-  return `
-  #${rules.name}
-  ${rules.description}
-  
-  ${rules.rules.map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n-')}`).join('\n\n')}
-  `
+  return `# ${rules.name}\n${rules.description}\n${rules.rules
+    .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
+    .join('\n\n')}`
 }
 
 const rulesPrefixForMdc = `---
@@ -98,11 +95,9 @@ export async function createRules() {
     if (!fs.existsSync(rulesPath)) {
       fs.writeFileSync(
         rulesPath,
-        `${isMdc ? rulesPrefixForMdc : ''}${JSON.stringify(
-          isMdc ? newRules : convertRulesToMarkdown(newRules),
-          null,
-          2
-        )}`
+        `${isMdc ? rulesPrefixForMdc : ''}${
+          isMdc ? JSON.stringify(newRules, null, 2) : convertRulesToMarkdown(newRules)
+        }`
       )
       vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
     } else {
