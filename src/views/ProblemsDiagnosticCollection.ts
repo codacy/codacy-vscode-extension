@@ -102,11 +102,11 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
-      // avoid if the ddocument is a .git file
+      // avoid if the document is a .git file
       if (e.document.uri.fsPath.endsWith('.git')) return
 
       // update positions of remote issues in the document
-      this.updateApiISsuesPositions(e.document)
+      this.updateApiIssuesPositions(e.document)
 
       // run local analysis for available tools
       await this.runAnalysisAndUpdateDiagnostics(e.document)
@@ -232,7 +232,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     this.updateDiagnostics()
   }
 
-  private updateApiISsuesPositions(document: vscode.TextDocument) {
+  private updateApiIssuesPositions(document: vscode.TextDocument) {
     const documentIssues = this._currentApiIssues[document.uri.fsPath] || []
 
     const documentLines = document.getText().split('\n')
