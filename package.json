@@ -203,11 +203,13 @@
       },
       {
         "command": "codacy.configureMCP",
+        "title": "Configure Codacy MCP Server",
         "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && !codacy:mcpConfigured"
       },
       {
         "command": "codacy.configureMCP.reset",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && codacy:mcpConfigured"
+        "title": "Reset Codacy MCP Server configuration",
+        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && !codacy:mcpConfigured"
       }
     ],
     "menus": {
@@ -310,6 +312,7 @@
     "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.4.7",
+    "@types/sarif": "2.1.7",    
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
     "@types/vscode": "^1.81.0",
