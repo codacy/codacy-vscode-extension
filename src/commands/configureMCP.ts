@@ -31,8 +31,8 @@ const newRulesTemplate = (provider?: string, organization?: string, repository?:
       when: 'after ANY successful edit_file or reapply tool call',
       enforce: [
         'IMMEDIATELY run mcp_codacy_cli_analyze with:',
-        '- rootPath set to the workspace path',
-        '- file set to the edited file path',
+        'rootPath set to the workspace path',
+        'file set to the edited file path',
         'If issues are found, propose fixes for them',
       ],
     },
@@ -86,10 +86,27 @@ function getCorrectRulesInfo(): { path: string; format: string } {
   return { path: path.join(workspacePath, '.github', 'copilot-instructions.md'), format: 'md' }
 }
 
-export async function createRules() {
+const addRulesToGitignore = (rulesPath: string) => {
   const currentIDE = getCurrentIDE()
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const gitignorePath = path.join(workspacePath, '.gitignore')
+  const relativeRulesPath = path.relative(workspacePath, rulesPath)
+  const gitignoreContent = `\n\n#Ignore ${currentIDE} AI rules\n${relativeRulesPath}\n`
+  let existingGitignore = ''
 
+  if (fs.existsSync(gitignorePath)) {
+    existingGitignore = fs.readFileSync(gitignorePath, 'utf8')
+
+    if (!existingGitignore.split('\n').some((line) => line.trim() === relativeRulesPath.trim())) {
+      fs.appendFileSync(gitignorePath, gitignoreContent)
+      vscode.window.showInformationMessage(`Added ${relativeRulesPath} to .gitignore`)
+    }
+  } else {
+    fs.writeFileSync(gitignorePath, gitignoreContent)
+    vscode.window.showInformationMessage('Created .gitignore and added rules path')
+  }
+}
+export async function createRules() {
   // Get git info
   const git = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1)
   const repo = git?.repositories[0]
@@ -108,7 +125,6 @@ export async function createRules() {
     const { path: rulesPath, format } = getCorrectRulesInfo()
     const isMdc = format === 'mdc'
     const dirPath = path.dirname(rulesPath)
-    const gitignorePath = path.join(workspacePath, '.gitignore')
 
     // Create directories if they don't exist
     if (!fs.existsSync(dirPath)) {
@@ -123,6 +139,7 @@ export async function createRules() {
         }`
       )
       vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
+      addRulesToGitignore(rulesPath)
     } else {
       try {
         const existingContent = fs.readFileSync(rulesPath, 'utf8')
@@ -153,23 +170,6 @@ export async function createRules() {
         vscode.window.showWarningMessage(`Error parsing existing rules file. Creating new one.`)
         fs.writeFileSync(rulesPath, JSON.stringify(newRules, null, 2))
       }
-    }
-
-    // Add the created file to .gitignore
-    const relativeRulesPath = path.relative(workspacePath, rulesPath)
-    const gitignoreContent = `\n\n#Ignore ${currentIDE} AI rules\n${relativeRulesPath}\n`
-    let existingGitignore = ''
-
-    if (fs.existsSync(gitignorePath)) {
-      existingGitignore = fs.readFileSync(gitignorePath, 'utf8')
-
-      if (!existingGitignore.split('\n').some((line) => line.trim() === relativeRulesPath.trim())) {
-        fs.appendFileSync(gitignorePath, gitignoreContent)
-        vscode.window.showInformationMessage(`Added ${relativeRulesPath} to .gitignore`)
-      }
-    } else {
-      fs.writeFileSync(gitignorePath, gitignoreContent)
-      vscode.window.showInformationMessage('Created .gitignore and added rules path')
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
