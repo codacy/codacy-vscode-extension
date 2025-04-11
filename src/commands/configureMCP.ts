@@ -4,6 +4,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
 import { get, set } from 'lodash'
+import { parseGitRemote } from '../common/parseGitRemote'
 
 interface Rule {
   when: string
@@ -16,20 +17,22 @@ interface RuleConfig {
   rules: Rule[]
 }
 
-const newRules: RuleConfig = {
+const newRulesTemplate = (provider?: string, organization?: string, repository?: string): RuleConfig => ({
   name: 'Codacy Rules',
   description: 'Configuration for AI behavior when interacting with Codacy',
   rules: [
     {
       when: 'using any tool that has either one of the following arguments: provider, organization or repository',
-      enforce: ['validate provider, organization and repository by checking the gitUrl'],
+      enforce: [
+        `use ${provider} for provider, ${organization} for organization and ${repository} for repository, and avoid calling 'git remote -v' unless really necessary`,
+      ],
     },
     {
       when: 'after generating code',
       enforce: ['Analyze the code using cli analysis tool and then correct any issues found'],
     },
   ],
-}
+})
 
 const parseMdcContent = (content: string): RuleConfig => {
   const parts = content.split('---')
@@ -80,8 +83,21 @@ function getCorrectRulesInfo(): { path: string; format: string } {
 
 export async function createRules() {
   const currentIDE = getCurrentIDE()
-
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+
+  // Get git info
+  const git = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1)
+  const repo = git?.repositories[0]
+  let provider, organization, repository
+
+  if (repo?.state.remotes[0]?.pushUrl) {
+    const gitInfo = parseGitRemote(repo.state.remotes[0].pushUrl)
+    provider = gitInfo.provider
+    organization = gitInfo.organization
+    repository = gitInfo.repository
+  }
+
+  const newRules = newRulesTemplate(provider, organization, repository)
 
   try {
     const { path: rulesPath, format } = getCorrectRulesInfo()
