@@ -4,6 +4,179 @@ import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
 import { get, set } from 'lodash'
+import { parseGitRemote } from '../common/parseGitRemote'
+
+interface Rule {
+  when: string
+  enforce: string[]
+}
+
+interface RuleConfig {
+  name: string
+  description: string
+  rules: Rule[]
+}
+
+const newRulesTemplate = (provider?: string, organization?: string, repository?: string): RuleConfig => ({
+  name: 'Codacy Rules',
+  description: 'Configuration for AI behavior when interacting with Codacy',
+  rules: [
+    {
+      when: 'using any tool that has either one of the following arguments: provider, organization or repository',
+      enforce: [
+        `use ${provider} for provider, ${organization} for organization and ${repository} for repository, and avoid calling 'git remote -v' unless really necessary`,
+      ],
+    },
+    {
+      when: 'after ANY successful edit_file or reapply tool call',
+      enforce: [
+        'IMMEDIATELY run codacy_cli_analyze tool with:',
+        'rootPath set to the workspace path',
+        'file set to the edited file path',
+        'If issues are found, propose fixes for them',
+      ],
+    },
+  ],
+})
+// Function to parse the json content inside an MDC file. An MDC file contains text elements that would generate errors when parsed as JSON
+const parseMdcContent = (content: string): RuleConfig => {
+  const parts = content.split('---')
+
+  if (parts.length < 3) {
+    throw new Error('Invalid MDC file format: missing frontmatter')
+  }
+
+  const jsonContent = parts[2].trim()
+
+  try {
+    return JSON.parse(jsonContent)
+  } catch (error) {
+    throw new Error('Invalid JSON content in MDC file')
+  }
+}
+
+const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
+  const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
+  const newCodacyRules = `---\n# ${rules.name}\n${rules.description}\n${rules.rules
+    .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
+    .join('\n\n')}\n---`
+  return existingContent ? existingContent?.replace(`---${codacyRules}---`, newCodacyRules) : newCodacyRules
+}
+
+const rulesPrefixForMdc = `---
+description: 
+globs: 
+alwaysApply: true
+---
+\n`
+
+function getCorrectRulesInfo(): { path: string; format: string } {
+  const ideInfo = getCurrentIDE()
+  // Get the workspace folder path
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!workspacePath) {
+    throw new Error('No workspace folder found')
+  }
+  if (ideInfo === 'cursor') {
+    return { path: path.join(workspacePath, '.cursor', 'rules', 'codacy.mdc'), format: 'mdc' }
+  }
+  if (ideInfo === 'windsurf') {
+    return { path: path.join(workspacePath, '.windsurfrules'), format: 'md' }
+  }
+  return { path: path.join(workspacePath, '.github', 'copilot-instructions.md'), format: 'md' }
+}
+
+const addRulesToGitignore = (rulesPath: string) => {
+  const currentIDE = getCurrentIDE()
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const gitignorePath = path.join(workspacePath, '.gitignore')
+  const relativeRulesPath = path.relative(workspacePath, rulesPath)
+  const gitignoreContent = `\n\n#Ignore ${currentIDE} AI rules\n${relativeRulesPath}\n`
+  let existingGitignore = ''
+
+  if (fs.existsSync(gitignorePath)) {
+    existingGitignore = fs.readFileSync(gitignorePath, 'utf8')
+
+    if (!existingGitignore.split('\n').some((line) => line.trim() === relativeRulesPath.trim())) {
+      fs.appendFileSync(gitignorePath, gitignoreContent)
+      vscode.window.showInformationMessage(`Added ${relativeRulesPath} to .gitignore`)
+    }
+  } else {
+    fs.writeFileSync(gitignorePath, gitignoreContent)
+    vscode.window.showInformationMessage('Created .gitignore and added rules path')
+  }
+}
+export async function createRules() {
+  // Get git info
+  const git = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1)
+  const repo = git?.repositories[0]
+  let provider, organization, repository
+
+  if (repo?.state.remotes[0]?.pushUrl) {
+    const gitInfo = parseGitRemote(repo.state.remotes[0].pushUrl)
+    provider = gitInfo.provider
+    organization = gitInfo.organization
+    repository = gitInfo.repository
+  }
+
+  const newRules = newRulesTemplate(provider, organization, repository)
+
+  try {
+    const { path: rulesPath, format } = getCorrectRulesInfo()
+    const isMdc = format === 'mdc'
+    const dirPath = path.dirname(rulesPath)
+
+    // Create directories if they don't exist
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true })
+    }
+
+    if (!fs.existsSync(rulesPath)) {
+      fs.writeFileSync(
+        rulesPath,
+        `${isMdc ? rulesPrefixForMdc : ''}${
+          isMdc ? JSON.stringify(newRules, null, 2) : convertRulesToMarkdown(newRules)
+        }`
+      )
+      vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
+      addRulesToGitignore(rulesPath)
+    } else {
+      try {
+        const existingContent = fs.readFileSync(rulesPath, 'utf8')
+
+        if (isMdc) {
+          const existingRules = parseMdcContent(existingContent)
+          const mergedRules = {
+            ...existingRules,
+            rules: [
+              ...(existingRules.rules || []),
+              ...newRules.rules.filter(
+                (newRule) =>
+                  !existingRules.rules?.some(
+                    (existingRule: Rule) =>
+                      existingRule.when === newRule.when &&
+                      existingRule.enforce.every((e) => newRule.enforce.includes(e))
+                  )
+              ),
+            ],
+          }
+          fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
+        } else {
+          fs.writeFileSync(rulesPath, convertRulesToMarkdown(newRules, existingContent))
+        }
+
+        vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
+      } catch (parseError) {
+        vscode.window.showWarningMessage(`Error parsing existing rules file. Creating new one.`)
+        fs.writeFileSync(rulesPath, JSON.stringify(newRules, null, 2))
+      }
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    vscode.window.showErrorMessage(`Failed to create rules: ${errorMessage}`)
+    throw error
+  }
+}
 
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
@@ -105,6 +278,7 @@ export async function configureMCP() {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
+    await createRules()
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)

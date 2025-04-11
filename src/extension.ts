@@ -17,7 +17,7 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
-import { configureMCP, isMCPConfigured } from './commands/configureMCP'
+import { configureMCP, createRules, isMCPConfigured } from './commands/configureMCP'
 
 /**
  * Helper function to register all extension commands
@@ -204,6 +204,10 @@ export async function activate(context: vscode.ExtensionContext) {
       updateMCPState()
     })
   )
+
+  if (isMCPConfigured()) {
+    await createRules()
+  }
 }
 
 // This method is called when your extension is deactivated
