@@ -28,12 +28,17 @@ const newRulesTemplate = (provider?: string, organization?: string, repository?:
       ],
     },
     {
-      when: 'after generating code',
-      enforce: ['Analyze the code using cli analysis tool and then correct any issues found'],
+      when: 'after ANY successful edit_file or reapply tool call',
+      enforce: [
+        'IMMEDIATELY run mcp_codacy_codacy_cli_analyze with:',
+        '- rootPath set to the workspace path',
+        '- file set to the edited file path',
+        'If issues are found, propose fixes for them',
+      ],
     },
   ],
 })
-
+// Function to parse the json content inside an MDC file. An MDC file contains text elements that would generate errors when parsed as JSON
 const parseMdcContent = (content: string): RuleConfig => {
   const parts = content.split('---')
 
@@ -51,11 +56,11 @@ const parseMdcContent = (content: string): RuleConfig => {
 }
 
 const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
-  return `${!existingContent?.includes(rules.name) ? `# ${rules.name}\n${rules.description}\n` : ''}
-${rules.rules
-  .filter((rule) => !(existingContent?.includes(rule.when) && existingContent?.includes(rule.enforce.join('\n - '))))
-  .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
-  .join('\n\n')}`
+  const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
+  const newCodacyRules = `---\n# ${rules.name}\n${rules.description}\n${rules.rules
+    .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
+    .join('\n\n')}\n---`
+  return existingContent ? existingContent?.replace(`---${codacyRules}---`, newCodacyRules) : newCodacyRules
 }
 
 const rulesPrefixForMdc = `---
@@ -140,7 +145,7 @@ export async function createRules() {
           }
           fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
         } else {
-          fs.writeFileSync(rulesPath, `${existingContent}\n${convertRulesToMarkdown(newRules, existingContent)}`)
+          fs.writeFileSync(rulesPath, convertRulesToMarkdown(newRules, existingContent))
         }
 
         vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
