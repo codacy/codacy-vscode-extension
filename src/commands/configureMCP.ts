@@ -5,6 +5,123 @@ import * as os from 'os'
 import { Config } from '../common/config'
 import { get, set } from 'lodash'
 
+interface Rule {
+  when: string
+  enforce: string[]
+}
+
+interface RuleConfig {
+  name: string
+  description: string
+  rules: Rule[]
+}
+
+const newRules: RuleConfig = {
+  name: 'Codacy Rules',
+  description: 'Configuration for AI behavior when interacting with Codacy',
+  rules: [
+    {
+      when: 'using any tool that has provider, organization and/or repository as an argument',
+      enforce: ['validate provider, organization and repository by checking the gitUrl'],
+    },
+    {
+      when: 'after generating code',
+      enforce: ['Analyze the code using cli analysis tool and then correct any issues found'],
+    },
+  ],
+}
+
+const rulesPrefix = `---
+description: 
+globs: 
+alwaysApply: true
+---
+\n`
+
+function getCorrectRulesPath(): string {
+  const ideInfo = getCurrentIDE()
+  // Get the workspace folder path
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!workspacePath) {
+    throw new Error('No workspace folder found')
+  }
+  if (ideInfo === 'cursor') {
+    return path.join(workspacePath, '.cursor', 'rules', 'codacy.mdc')
+  }
+  if (ideInfo === 'windsurf') {
+    return path.join(workspacePath, '.windsurfrules.mdc')
+  }
+  return path.join(workspacePath, '.github', 'copilot-instruction.mdc')
+}
+
+export async function createRules() {
+  const currentIDE = getCurrentIDE()
+
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+
+  try {
+    const rulesPath = getCorrectRulesPath()
+    const dirPath = path.dirname(rulesPath)
+    const gitignorePath = path.join(workspacePath, '.gitignore')
+
+    // Create directories if they don't exist
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true })
+    }
+
+    if (!fs.existsSync(rulesPath)) {
+      fs.writeFileSync(rulesPath, `${rulesPrefix}${JSON.stringify(newRules, null, 2)}`)
+      vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
+    } else {
+      try {
+        const existingContent = fs.readFileSync(rulesPath, 'utf8')
+        const existingRules = JSON.parse(existingContent)
+
+        const mergedRules = {
+          ...existingRules,
+          rules: [
+            ...(existingRules.rules || []),
+            ...newRules.rules.filter(
+              (newRule) =>
+                !existingRules.rules?.some(
+                  (existingRule: Rule) =>
+                    existingRule.when === newRule.when && existingRule.enforce.every((e) => newRule.enforce.includes(e))
+                )
+            ),
+          ],
+        }
+
+        fs.writeFileSync(rulesPath, JSON.stringify(mergedRules, null, 2))
+        vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
+      } catch (parseError) {
+        vscode.window.showWarningMessage(`Error parsing existing rules file. Creating new one.`)
+        fs.writeFileSync(rulesPath, JSON.stringify(newRules, null, 2))
+      }
+    }
+
+    // Add the created file to .gitignore
+    const relativeRulesPath = path.relative(workspacePath, rulesPath)
+    const gitignoreContent = `\n\n#Ignore ${currentIDE} AI rules\n${relativeRulesPath}\n`
+    let existingGitignore = ''
+
+    if (fs.existsSync(gitignorePath)) {
+      existingGitignore = fs.readFileSync(gitignorePath, 'utf8')
+
+      if (!existingGitignore.split('\n').some((line) => line.trim() === relativeRulesPath.trim())) {
+        fs.appendFileSync(gitignorePath, gitignoreContent)
+        vscode.window.showInformationMessage(`Added ${relativeRulesPath} to .gitignore`)
+      }
+    } else {
+      fs.writeFileSync(gitignorePath, gitignoreContent)
+      vscode.window.showInformationMessage('Created .gitignore and added rules path')
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    vscode.window.showErrorMessage(`Failed to create rules: ${errorMessage}`)
+    throw error
+  }
+}
+
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
@@ -105,6 +222,7 @@ export async function configureMCP() {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
+    createRules()
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
