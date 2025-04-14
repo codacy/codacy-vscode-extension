@@ -1,6 +1,7 @@
 import * as os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import * as vscode from 'vscode'
 
 const execAsync = promisify(exec)
 
@@ -13,6 +14,32 @@ async function isCLIInstalled(): Promise<boolean> {
   }
 }
 
+async function isBrewInstalled(): Promise<boolean> {
+  try {
+    await execAsync('brew --version')
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function showHomebrewInstructions(): Promise<void> {
+  const installInTerminal = 'Open Terminal'
+  const response = await vscode.window.showInformationMessage(
+    'Homebrew installation requires sudo access. Please install Homebrew by running this command in your terminal:\n\n/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+    installInTerminal,
+    'Cancel'
+  )
+
+  if (response === installInTerminal) {
+    const terminal = vscode.window.createTerminal('Homebrew Installation')
+    terminal.show()
+    terminal.sendText('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+  }
+
+  throw new Error('Please install Homebrew first and then try installing the Codacy CLI again.')
+}
+
 export async function installCodacyCLI(): Promise<void> {
   const platform = os.platform()
 
@@ -23,6 +50,9 @@ export async function installCodacyCLI(): Promise<void> {
   try {
     switch (platform) {
       case 'darwin':
+        if (!await isBrewInstalled()) {
+          await showHomebrewInstructions()
+        }
         await execAsync('brew install codacy/codacy-cli-v2/codacy-cli-v2')
         break
 
