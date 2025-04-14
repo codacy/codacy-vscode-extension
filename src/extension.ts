@@ -205,9 +205,11 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   )
 
-  if (isMCPConfigured()) {
-    await createRules()
-  }
+  repositoryManager.onDidLoadRepository(async (repository) => {
+    if (isMCPConfigured()) {
+      await createRules(repository)
+    }
+  })
 }
 
 // This method is called when your extension is deactivated

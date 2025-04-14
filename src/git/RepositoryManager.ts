@@ -85,38 +85,57 @@ export class RepositoryManager implements vscode.Disposable {
         if (gitRepository.state.HEAD === undefined) {
           this.state = RepositoryManagerState.Initializing
         } else {
-          if (!gitRepository.state.remotes[0]?.pushUrl) {
+          const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
+
+          if (remotesWithPushUrl.length === 0) {
             this.state = RepositoryManagerState.NoRemote
             Logger.error('No remote found')
             return
           }
 
-          const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
+          let remoteIdx = 0
+          this._repository = undefined
 
-          // load repository information
-          const { data } = await Api.Analysis.getRepositoryWithAnalysis(
-            repo.provider,
-            repo.organization,
-            repo.repository
-          )
+          while (this._repository === undefined && remoteIdx < remotesWithPushUrl.length) {
+            const repo = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
 
-          const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
+            try {
+              // load repository information
+              const { data } = await Api.Analysis.getRepositoryWithAnalysis(
+                repo.provider,
+                repo.organization,
+                repo.repository
+              )
+
+              this._repository = data
+            } catch {
+              remoteIdx++
+            }
+          }
+
+          if (this._repository === undefined) {
+            this.state = RepositoryManagerState.NoRepository
+            Logger.error('No repository found')
+            return
+          }
+
+          const { name: repository, owner, provider } = this._repository.repository
+
+          const { data: organization } = await Api.Organization.getOrganization(provider, owner)
           this._organization = organization
 
           // does the repository have coverage data?
           const {
             data: { hasCoverageOverview },
-          } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
+          } = await Api.Repository.listCoverageReports(provider, owner, repository)
 
           // get all branches
           const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
-            repo.provider,
-            repo.organization,
-            repo.repository,
+            provider,
+            owner,
+            repository,
             true
           )
-
-          this._repository = data
 
           this._expectCoverage = hasCoverageOverview
           this._enabledBranches = enabledBranches
@@ -125,7 +144,7 @@ export class RepositoryManager implements vscode.Disposable {
 
           this.state = RepositoryManagerState.Loaded
 
-          this._onDidLoadRepository.fire(data)
+          this._onDidLoadRepository.fire(this._repository)
 
           await this.handleBranchChange()
         }
