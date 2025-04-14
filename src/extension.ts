@@ -198,8 +198,28 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('codacy.installCLI', async () => {
-      await installCodacyCLI()
-      await updateCLIState()
+      await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Window,
+          title: 'Installing Codacy CLI',
+          cancellable: false,
+        },
+        async () => {
+          try {
+            await installCodacyCLI()
+            await updateCLIState()
+            vscode.window.showInformationMessage('Codacy CLI installed successfully!')
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          } finally {
+            await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', false)
+          }
+        }
+      )
     })
   )
 

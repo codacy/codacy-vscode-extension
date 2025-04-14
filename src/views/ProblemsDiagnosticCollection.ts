@@ -7,6 +7,7 @@ import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
 import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
 import * as path from 'path'
+import { isCLIInstalled } from '../commands/installAnalysisCLI'
 // import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
@@ -169,7 +170,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       const codacyConfigExists =
         (await vscode.workspace.fs.stat(vscode.Uri.file(codacyConfigPath)).then(() => true)) || false
 
-      if (!codacyConfigExists) return
+      const isCliInstalled = await isCLIInstalled()
+
+      if (!isCliInstalled || !codacyConfigExists) return
 
       let pathToFile = document.uri.fsPath
 

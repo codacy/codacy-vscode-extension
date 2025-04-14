@@ -42,13 +42,19 @@ async function initializeCLI(): Promise<void> {
     organization = gitInfo.organization
     repository = gitInfo.repository
   }
-  if (!fs.existsSync(codacyYamlPath)) {
-    await execAsync(
-      `codacy-cli init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repository}`
-    )
+  try {
+    if (!fs.existsSync(codacyYamlPath)) {
+      await execAsync(
+        `codacy-cli init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repository}`
+      )
+    }
+    await execAsync('codacy-cli install')
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to initialize Codacy CLI: ${error.message}`)
+    }
+    throw error
   }
-
-  await execAsync('codacy-cli install')
 }
 
 export async function installCodacyCLI(): Promise<void> {
