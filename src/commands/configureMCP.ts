@@ -5,6 +5,7 @@ import * as os from 'os'
 import { Config } from '../common/config'
 import { get, set } from 'lodash'
 import { parseGitRemote } from '../common/parseGitRemote'
+import { installCodacyCLI } from './installAnalysisCLI'
 
 interface Rule {
   when: string
@@ -279,6 +280,7 @@ export async function configureMCP() {
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
     await createRules()
+    await installCodacyCLI()
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
