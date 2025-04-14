@@ -106,7 +106,7 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "$(sync~spin) Installing Codacy CLI...",
+        "contents": "$(loading~spin) Installing Codacy CLI...",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
       },
       {
