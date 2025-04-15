@@ -93,41 +93,49 @@ export class RepositoryManager implements vscode.Disposable {
 
           const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
 
-          // load repository information
-          const { data } = await Api.Analysis.getRepositoryWithAnalysis(
-            repo.provider,
-            repo.organization,
-            repo.repository
-          )
+          try {
+            // load repository information
+            const { data } = await Api.Analysis.getRepositoryWithAnalysis(
+              repo.provider,
+              repo.organization,
+              repo.repository
+            )
 
-          const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
-          this._organization = organization
+            const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
+            this._organization = organization
 
-          // does the repository have coverage data?
-          const {
-            data: { hasCoverageOverview },
-          } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
+            // does the repository have coverage data?
+            const {
+              data: { hasCoverageOverview },
+            } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
 
-          // get all branches
-          const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
-            repo.provider,
-            repo.organization,
-            repo.repository,
-            true
-          )
+            // get all branches
+            const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
+              repo.provider,
+              repo.organization,
+              repo.repository,
+              true
+            )
 
-          this._repository = data
+            this._repository = data
+            this._expectCoverage = hasCoverageOverview
+            this._enabledBranches = enabledBranches
 
-          this._expectCoverage = hasCoverageOverview
-          this._enabledBranches = enabledBranches
+            this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
 
-          this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
+            this.state = RepositoryManagerState.Loaded
+            this._onDidLoadRepository.fire(data)
 
-          this.state = RepositoryManagerState.Loaded
-
-          this._onDidLoadRepository.fire(data)
-
-          await this.handleBranchChange()
+            await this.handleBranchChange()
+          } catch (apiError) {
+            if (apiError instanceof OpenAPIError && apiError.status === 404) {
+              Logger.appendLine(`Repository not found with name: ${repo.repository}.`)
+              handleError(apiError as Error)
+              this.state = RepositoryManagerState.NoRepository
+            } else {
+              throw apiError
+            }
+          }
         }
       } catch (e) {
         if (e instanceof OpenAPIError && !Config.apiToken) {

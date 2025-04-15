@@ -4,12 +4,32 @@ const validProviders: Record<string, 'gh' | 'gl' | 'bb'> = {
   bitbucket: 'bb',
 }
 
+interface GitRemoteInfo {
+  provider: 'gh' | 'gl' | 'bb'
+  organization: string
+  repository: string
+  originalRepository?: string
+}
+
+/**
+ * Normalize repository name based on provider
+ * For GitLab, extracts the last part of group/subgroup/project path
+ */
+const normalizeRepositoryName = (provider: 'gh' | 'gl' | 'bb', repository: string): string => {
+  if (provider === 'gl') {
+    // For GitLab, take the last part of the path
+    const parts = repository.split('/')
+    return parts[parts.length - 1]
+  }
+  return repository
+}
+
 /**
  * Parse a git remote URL into its component parts
  * @param remoteUrl
- * @returns
+ * @returns GitRemoteInfo with normalized repository name and original if different
  */
-export const parseGitRemote = (remoteUrl: string) => {
+export const parseGitRemote = (remoteUrl: string): GitRemoteInfo => {
   const pattern = /^.*(github|gitlab|bitbucket)\.(?:com|org)[:|/](.+?)\/(.+?)(\.git)?$/
   const match = remoteUrl.match(pattern)
 
@@ -19,7 +39,7 @@ export const parseGitRemote = (remoteUrl: string) => {
 
   const providerName = match[1]
   const organization = match[2]
-  const repository = match[3]
+  const originalRepository = match[3]
 
   const provider = validProviders[providerName]
 
@@ -27,9 +47,12 @@ export const parseGitRemote = (remoteUrl: string) => {
     throw new Error(`Invalid provider: ${providerName}`)
   }
 
+  const repository = normalizeRepositoryName(provider, originalRepository)
+
   return {
     provider,
     organization,
     repository,
+    ...(repository !== originalRepository && { originalRepository }),
   }
 }
