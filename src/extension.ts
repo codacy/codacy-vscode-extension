@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import * as os from 'os'
 import { CommandType, wrapCommandWithCatch } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
@@ -18,6 +19,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureMCP, createRules, isMCPConfigured } from './commands/configureMCP'
+import { installCodacyCLI, isCLIInstalled } from './commands/installAnalysisCLI'
 
 /**
  * Helper function to register all extension commands
@@ -95,6 +97,8 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.env.appName.toLowerCase().includes('windsurf') ||
       (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
   )
+
+  await vscode.commands.executeCommand('setContext', 'codacy:canInstallCLI', os.platform() === 'darwin')
 
   Config.init(context)
 
@@ -179,6 +183,46 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
     item.onClick()
   })
+
+  // Register CLI installation commands
+  const updateCLIState = async () => {
+    const isInstalled = await isCLIInstalled()
+    vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', isInstalled)
+  }
+
+  await updateCLIState()
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codacy.installCLI', async () => {
+      await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Window,
+          title: 'Installing Codacy CLI',
+          cancellable: false,
+        },
+        async () => {
+          try {
+            const repository = repositoryManager.repository
+            if (repository) {
+              await installCodacyCLI(repository)
+              await updateCLIState()
+              vscode.window.showInformationMessage('Codacy CLI installed successfully!')
+            } else {
+              throw new Error('No repository found')
+            }
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+          } finally {
+            await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', false)
+          }
+        }
+      )
+    })
+  )
 
   // Register MCP commands
   const updateMCPState = () => {

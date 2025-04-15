@@ -40,6 +40,13 @@
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
         {
+          "id": "codacy:cli",
+          "name": "Codacy CLI",
+          "when": "!codacy:cliInstalled && codacy:canInstallCLI",
+          "icon": "$(gear)",
+          "initialSize": 2
+        },
+        {
           "id": "codacy:prSummary",
           "name": "Pull request",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
@@ -81,6 +88,16 @@
         "view": "codacy:login",
         "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)",
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+      },
+      {
+        "view": "codacy:cli",
+        "contents": "[Install Codacy CLI](command:codacy.installCLI)",
+        "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+      },
+      {
+        "view": "codacy:cli",
+        "contents": "$(loading~spin) Installing Codacy CLI...",
+        "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
       },
       {
         "view": "codacy:statuses",
@@ -200,6 +217,12 @@
         "title": "Reset Codacy MCP Server",
         "category": "Codacy commands",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+      },
+      {
+        "command": "codacy.installCLI",
+        "title": "Install Codacy CLI",
+        "category": "Codacy commands",
+        "when": "!codacy:cliInstalled && codacy:canInstallCLI"
       }
     ],
     "menus": {
@@ -223,6 +246,10 @@
         {
           "command": "codacy.configureMCP.reset",
           "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+        },
+        {
+          "command": "codacy.installCLI",
+          "when": "!codacy:cliInstalled && codacy:canInstallCLI"
         }
       ],
       "view/title": [
