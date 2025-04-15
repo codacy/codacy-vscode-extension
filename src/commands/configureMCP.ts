@@ -30,9 +30,9 @@ const newRulesTemplate = (provider?: string, organization?: string, repository?:
     {
       when: 'after ANY successful edit_file or reapply tool call',
       enforce: [
-        'IMMEDIATELY run codacy_cli_analyze tool with:',
-        'rootPath set to the workspace path',
-        'file set to the edited file path',
+        'IMMEDIATELY run codacy_cli_analyze tool for each edited file with:',
+        '1. rootPath set to the workspace path',
+        '2. file set to the edited file path',
         'If issues are found, propose fixes for them',
       ],
     },
