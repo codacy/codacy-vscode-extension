@@ -148,7 +148,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     const apiDiagnostics = filteredApiIssues.map(({ commitIssue, uri }) => new ApiIssueDiagnostic(commitIssue, uri))
     const cliDiagnostics = documentCliIssues.map((result) => new CliIssueDiagnostic(result))
 
-    this._collection.set(document.uri, [...apiDiagnostics, ...cliDiagnostics])
+    const allDiagnostics = [...apiDiagnostics, ...cliDiagnostics]
+    this._collection.set(document.uri, allDiagnostics)
+
+    // Open problems panel if there are any diagnostics
+    if (allDiagnostics.length > 0) {
+      vscode.commands.executeCommand('workbench.actions.view.problems')
+    }
   }
 
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
