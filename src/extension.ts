@@ -98,11 +98,7 @@ export async function activate(context: vscode.ExtensionContext) {
       (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
   )
 
-  await vscode.commands.executeCommand(
-    'setContext',
-    'codacy:canInstallCLI',
-    os.platform() === 'darwin' || os.platform() === 'linux'
-  )
+  await vscode.commands.executeCommand('setContext', 'codacy:canInstallCLI', os.platform() === 'darwin')
 
   Config.init(context)
 
@@ -208,9 +204,14 @@ export async function activate(context: vscode.ExtensionContext) {
         },
         async () => {
           try {
-            await installCodacyCLI()
-            await updateCLIState()
-            vscode.window.showInformationMessage('Codacy CLI installed successfully!')
+            const repository = repositoryManager.repository
+            if (repository) {
+              await installCodacyCLI(repository)
+              await updateCLIState()
+              vscode.window.showInformationMessage('Codacy CLI installed successfully!')
+            } else {
+              throw new Error('No repository found')
+            }
           } catch (error) {
             vscode.window.showErrorMessage(
               `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`

@@ -4,8 +4,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { parseGitRemote } from '../common/parseGitRemote'
 import { Config } from '../common/config'
+import { Repository } from '../api/client'
 
 const execAsync = promisify(exec)
 
@@ -27,25 +27,17 @@ async function isBrewInstalled(): Promise<boolean> {
   }
 }
 
-async function initializeCLI(): Promise<void> {
+async function initializeCLI(repository: Repository): Promise<void> {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
   const codacyYamlPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
   const apiToken = Config.apiToken
 
-  const git = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1)
-  const repo = git?.repositories[0]
-  let provider, organization, repository
+  const { provider, owner: organization, name: repositoryName } = repository
 
-  if (repo?.state.remotes[0]?.pushUrl) {
-    const gitInfo = parseGitRemote(repo.state.remotes[0].pushUrl)
-    provider = gitInfo.provider
-    organization = gitInfo.organization
-    repository = gitInfo.repository
-  }
   try {
     if (!fs.existsSync(codacyYamlPath)) {
       await execAsync(
-        `codacy-cli init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repository}`
+        `codacy-cli init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`
       )
     }
     await execAsync('codacy-cli install')
@@ -57,11 +49,11 @@ async function initializeCLI(): Promise<void> {
   }
 }
 
-export async function installCodacyCLI(): Promise<void> {
+export async function installCodacyCLI(repository: Repository): Promise<void> {
   const platform = os.platform()
 
   if (await isCLIInstalled()) {
-    await initializeCLI()
+    await initializeCLI(repository)
     return
   }
 
@@ -75,7 +67,9 @@ export async function installCodacyCLI(): Promise<void> {
         break
 
       case 'linux':
-        await execAsync('bash <(curl -Ls https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh)')
+        throw new Error(
+          'Codacy CLI cannot be automatically installed on Linux yet. For manual installation, please refer to the [Codacy CLI documentation](https://github.com/codacy/codacy-cli-v2).'
+        )
         break
 
       case 'win32':
@@ -85,7 +79,7 @@ export async function installCodacyCLI(): Promise<void> {
         throw new Error(`Unsupported operating system: ${platform}`)
     }
 
-    await initializeCLI()
+    await initializeCLI(repository)
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to install Codacy CLI: ${error.message}`)

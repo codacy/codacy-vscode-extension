@@ -270,7 +270,7 @@ export async function configureMCP(repository: Repository) {
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
     await createRules(repository)
-    await installCodacyCLI()
+    await installCodacyCLI(repository)
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
