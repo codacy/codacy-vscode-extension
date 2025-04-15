@@ -4,7 +4,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { Config } from '../common/config'
 import { get, set } from 'lodash'
-import { RepositoryWithAnalysis } from '../api/client'
+import { Repository } from '../api/client'
 
 interface Rule {
   when: string
@@ -106,8 +106,8 @@ const addRulesToGitignore = (rulesPath: string) => {
     vscode.window.showInformationMessage('Created .gitignore and added rules path')
   }
 }
-export async function createRules(repository?: RepositoryWithAnalysis) {
-  const { provider, owner: organization, name } = repository?.repository ?? {}
+export async function createRules(repository: Repository) {
+  const { provider, owner: organization, name } = repository
 
   const newRules = newRulesTemplate(provider, organization, name)
 
@@ -219,7 +219,7 @@ export function isMCPConfigured(): boolean {
   }
 }
 
-export async function configureMCP() {
+export async function configureMCP(repository: Repository) {
   const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
@@ -268,7 +268,7 @@ export async function configureMCP() {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully')
-    await createRules()
+    await createRules(repository)
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
