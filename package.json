@@ -216,7 +216,7 @@
         "command": "codacy.configureMCP.reset",
         "title": "Reset Codacy MCP Server",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && codacy:mcpConfigured"
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
       },
       {
         "command": "codacy.installCLI",
@@ -245,7 +245,7 @@
         },
         {
           "command": "codacy.configureMCP.reset",
-          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && codacy:mcpConfigured"
+          "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
         },
         {
           "command": "codacy.installCLI",
