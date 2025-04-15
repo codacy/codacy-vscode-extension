@@ -235,22 +235,30 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register configure command
   context.subscriptions.push(
     vscode.commands.registerCommand('codacy.configureMCP', async () => {
-      await configureMCP()
-      updateMCPState()
+      const repository = repositoryManager.repository
+      if (repository) {
+        await configureMCP(repository)
+        updateMCPState()
+      }
     })
   )
 
   // Register reset command
   context.subscriptions.push(
     vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
-      await configureMCP()
-      updateMCPState()
+      const repository = repositoryManager.repository
+      if (repository) {
+        await configureMCP(repository)
+        updateMCPState()
+      }
     })
   )
 
-  if (isMCPConfigured()) {
-    await createRules()
-  }
+  repositoryManager.onDidLoadRepository(async ({ repository }) => {
+    if (isMCPConfigured()) {
+      await createRules(repository)
+    }
+  })
 }
 
 // This method is called when your extension is deactivated

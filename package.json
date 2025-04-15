@@ -40,13 +40,6 @@
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
         {
-          "id": "codacy:mcp",
-          "name": "Codacy MCP Server",
-          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP",
-          "icon": "$(gear)",
-          "initialSize": 2
-        },
-        {
           "id": "codacy:cli",
           "name": "Codacy CLI",
           "when": "!codacy:cliInstalled && codacy:canInstallCLI",
@@ -80,7 +73,14 @@
           "icon": "$(library)",
           "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
           "initialSize": 1
-        }
+        },
+        {
+          "id": "codacy:mcp",
+          "name": "Codacy MCP Server",
+          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP",
+          "icon": "$(gear)",
+          "initialSize": 2
+        }        
       ]
     },
     "viewsWelcome": [
@@ -88,16 +88,6 @@
         "view": "codacy:login",
         "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)",
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
-      },
-      {
-        "view": "codacy:mcp",
-        "contents": "Enable your AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && !codacy:mcpConfigured"
-      },
-      {
-        "view": "codacy:mcp",
-        "contents": "MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && codacy:mcpConfigured"
       },
       {
         "view": "codacy:cli",
@@ -128,7 +118,17 @@
         "view": "codacy:statuses",
         "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
-      }
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "Enable your AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+      }      
     ],
     "commands": [
       {
@@ -210,7 +210,7 @@
         "command": "codacy.configureMCP",
         "title": "Configure Codacy MCP Server",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && !codacy:mcpConfigured"
+        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
       },
       {
         "command": "codacy.configureMCP.reset",
@@ -241,7 +241,7 @@
         },
         {
           "command": "codacy.configureMCP",
-          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP && !codacy:mcpConfigured"
+          "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
         },
         {
           "command": "codacy.configureMCP.reset",

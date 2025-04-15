@@ -30,3 +30,6 @@ codacy-vscode-extension-CHANGELOG.txt
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+#Ignore cursor AI rules
+.cursor/rules/codacy.mdc
