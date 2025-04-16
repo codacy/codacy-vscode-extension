@@ -38,6 +38,10 @@ const newRulesTemplate = (provider?: string, organization?: string, repository?:
     },
   ],
 })
+// Function to sanitize the JSON content to avoid trailing commas
+const sanitizeJSON = (json: string): string => {
+  return json.replace(/,([\s\r\n]*[}\]])/g, '$1')
+}
 // Function to parse the json content inside an MDC file. An MDC file contains text elements that would generate errors when parsed as JSON
 const parseMdcContent = (content: string): RuleConfig => {
   const parts = content.split('---')
@@ -49,7 +53,7 @@ const parseMdcContent = (content: string): RuleConfig => {
   const jsonContent = parts[2].trim()
 
   try {
-    return JSON.parse(jsonContent)
+    return JSON.parse(sanitizeJSON(jsonContent))
   } catch (error) {
     throw new Error('Invalid JSON content in MDC file')
   }
@@ -139,15 +143,10 @@ export async function createRules(repository: Repository) {
           const mergedRules = {
             ...existingRules,
             rules: [
-              ...(existingRules.rules || []),
-              ...newRules.rules.filter(
-                (newRule) =>
-                  !existingRules.rules?.some(
-                    (existingRule: Rule) =>
-                      existingRule.when === newRule.when &&
-                      existingRule.enforce.every((e) => newRule.enforce.includes(e))
-                  )
-              ),
+              ...(existingRules.rules.filter(
+                (existingRule) => !newRules.rules?.some((newRule: Rule) => newRule.when === existingRule.when)
+              ) || []),
+              ...newRules.rules,
             ],
           }
           fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
@@ -253,7 +252,7 @@ export async function configureMCP(repository: Repository) {
         // Read and clean the file content
         const rawContent = fs.readFileSync(filePath, 'utf8')
         // Remove trailing commas - replace },} with }}
-        const cleanedContent = rawContent.replace(/,([\s\r\n]*[}\]])/g, '$1')
+        const cleanedContent = sanitizeJSON(rawContent)
         config = JSON.parse(cleanedContent)
       } catch (parseError) {
         console.log('Error parsing config:', parseError)
