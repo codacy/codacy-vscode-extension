@@ -8,6 +8,7 @@ import { CommitIssue } from '../api/client'
 import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
 import * as path from 'path'
 import { isCLIInstalled } from '../commands/installAnalysisCLI'
+import Logger from '../common/logger'
 // import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
@@ -159,7 +160,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         return true
       } catch (err) {
         if (attempt === maxAttempts) {
-          console.error(`Failed to delete temporary file after ${maxAttempts} attempts:`, err)
+          Logger.error(`Failed to delete temporary file after ${maxAttempts} attempts:`, (err as Error).message)
           return false
         }
         await new Promise((resolve) => setTimeout(resolve, delayMs))
