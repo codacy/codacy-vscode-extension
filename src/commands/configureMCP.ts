@@ -18,27 +18,52 @@ interface RuleConfig {
   rules: Rule[]
 }
 
-const newRulesTemplate = (provider?: string, organization?: string, repository?: string): RuleConfig => ({
-  name: 'Codacy Rules',
-  description: 'Configuration for AI behavior when interacting with Codacy',
-  rules: [
-    {
+const newRulesTemplate = (repository?: Repository): RuleConfig => {
+  const repositoryRules: Rule[] = []
+  if (repository) {
+    const { provider, owner: organization, name } = repository
+    repositoryRules.push({
       when: 'using any tool that has either one of the following arguments: provider, organization or repository',
       enforce: [
-        `use ${provider} for provider, ${organization} for organization and ${repository} for repository, and avoid calling 'git remote -v' unless really necessary`,
+        `use ${provider} for provider, ${organization} for organization and ${name} for repository, and avoid calling 'git remote -v' unless really necessary`,
       ],
-    },
+    })
+  }
+
+  const commonRules: Rule[] = [
     {
       when: 'after ANY successful edit_file or reapply tool call',
       enforce: [
         'IMMEDIATELY run codacy_cli_analyze tool for each edited file with:',
         '1. rootPath set to the workspace path',
         '2. file set to the edited file path',
+        '3. no tool',
+        'AT THE END run codacy_cli_analyze tool for Trivy for the entire project with:',
+        '1. rootPath set to the workspace path',
+        '2. no file',
+        '3. tool set to Trivy',
         'If issues are found, propose fixes for them',
       ],
     },
-  ],
-})
+    {
+      when: 'after adding new dependencies, libraries or packages',
+      enforce: [
+        'IMMEDIATELY run codacy_cli_analyze tool for Trivy for:',
+        '1. rootPath set to the workspace path',
+        '2. no file',
+        '3. tool set to Trivy',
+        'If issues are found, propose fixes for them',
+      ],
+    },
+  ]
+
+  return {
+    name: 'Codacy Rules',
+    description: 'Configuration for AI behavior when interacting with Codacy',
+    rules: [...repositoryRules, ...commonRules],
+  }
+}
+
 // Function to sanitize the JSON content to avoid trailing commas
 const sanitizeJSON = (json: string): string => {
   return json.replace(/,([\s\r\n]*[}\]])/g, '$1')
@@ -112,9 +137,7 @@ const addRulesToGitignore = (rulesPath: string) => {
   }
 }
 export async function createRules(repository: Repository) {
-  const { provider, owner: organization, name } = repository
-
-  const newRules = newRulesTemplate(provider, organization, name)
+  const newRules = newRulesTemplate(repository)
 
   try {
     const { path: rulesPath, format } = getCorrectRulesInfo()
