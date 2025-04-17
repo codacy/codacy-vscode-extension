@@ -234,7 +234,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
           // Remove the temporary file after analysis with retries
           const deleted = await this.retryDeleteFile(pathToFile)
           if (!deleted) {
-            console.error('Failed to delete temporary file after all attempts:', pathToFile)
+            Logger.error('Failed to delete temporary file after all attempts:', pathToFile)
           }
         }
       }
