@@ -137,8 +137,6 @@ const addRulesToGitignore = (rulesPath: string) => {
   }
 }
 export async function createRules(repository: Repository) {
-  //const { provider, owner: organization, name } = repository
-
   const newRules = newRulesTemplate(repository)
 
   try {
