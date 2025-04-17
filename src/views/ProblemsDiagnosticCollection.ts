@@ -8,6 +8,7 @@ import { CommitIssue } from '../api/client'
 import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
 import * as path from 'path'
 import { isCLIInstalled } from '../commands/installAnalysisCLI'
+import Logger from '../common/logger'
 // import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
@@ -152,6 +153,22 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     this._collection.set(document.uri, [...apiDiagnostics, ...cliDiagnostics])
   }
 
+  private async retryDeleteFile(filePath: string, maxAttempts: number = 3, delayMs: number = 1000): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await vscode.workspace.fs.delete(vscode.Uri.file(filePath))
+        return true
+      } catch (err) {
+        if (attempt === maxAttempts) {
+          Logger.error(`Failed to delete temporary file after ${maxAttempts} attempts:`, (err as Error).message)
+          return false
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+    return false
+  }
+
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
     // TODO: check if Codacy CLI is available and initialized
 
@@ -214,11 +231,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         this._isAnalysisRunning = false
 
         if (document.isDirty) {
-          // Remove the temporary file after analysis
-          try {
-            await vscode.workspace.fs.delete(vscode.Uri.file(pathToFile))
-          } catch (err) {
-            console.error('Failed to delete temporary file:', err)
+          // Remove the temporary file after analysis with retries
+          const deleted = await this.retryDeleteFile(pathToFile)
+          if (!deleted) {
+            Logger.error('Failed to delete temporary file after all attempts:', pathToFile)
           }
         }
       }
