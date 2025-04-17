@@ -27,7 +27,9 @@ export async function runCodacyAnalyze(filePath?: string) {
     const relativeFilePath = sanitizeFilePath(workspaceRoot, filePath)
 
     // Construct the command
-    const command = `codacy-cli analyze --format sarif ${relativeFilePath || ''}`
+    const command = `CODACY_CLI_V2_VERSION=1.0.0-main.232.a6a6368 codacy-cli analyze --format sarif ${
+      relativeFilePath || ''
+    }`
 
     Logger.appendLine(`Running Codacy CLI V2 analyze command for ${relativeFilePath || 'entire workspace'}...`)
 
