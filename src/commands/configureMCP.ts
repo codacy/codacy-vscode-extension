@@ -25,7 +25,7 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
     repositoryRules.push({
       when: 'using any tool that has either one of the following arguments: provider, organization or repository',
       enforce: [
-        `use ${provider} for provider, ${organization} for organization and ${repository} for repository, and avoid calling 'git remote -v' unless really necessary`,
+        `use ${provider} for provider, ${organization} for organization and ${name} for repository, and avoid calling 'git remote -v' unless really necessary`,
       ],
     })
   }
