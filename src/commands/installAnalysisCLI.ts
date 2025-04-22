@@ -107,7 +107,6 @@ export async function installCodacyCLI(repository?: Repository): Promise<void> {
     await initializeCLI(repository)
   } catch (error) {
     if (error instanceof Error) {
-      //throw new Error(`Failed to install Codacy CLI: ${error.message}`)
       Logger.error(`Failed to install Codacy CLI: ${error.message}`)
     }
     throw error
