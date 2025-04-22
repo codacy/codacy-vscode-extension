@@ -104,8 +104,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
-      // avoid if the document is a .git file
-      if (e.document.uri.fsPath.endsWith('.git')) return
+      // avoid if the document is a .git file or a temporary file from the CLI analysis
+      if (e.document.uri.fsPath.endsWith('.git') || e.document.uri.fsPath.includes('temp-cli-analysis-')) return
 
       // update positions of remote issues in the document
       this.updateApiIssuesPositions(e.document)
@@ -213,7 +213,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
           // same directory as the document
           const filePath = path.dirname(document.fileName)
-          pathToFile = path.join(filePath, `${Date.now().valueOf().toString()}-${fileName}`)
+          pathToFile = path.join(filePath, `temp-cli-analysis-${Date.now().valueOf().toString()}-${fileName}`)
 
           // Convert string content to Uint8Array
           const content = new TextEncoder().encode(document.getText())
