@@ -12,12 +12,21 @@ const codacyCli = 'cli.sh'
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
-const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-const codacyFolder = path.join(workspacePath, '.codacy')
-const codacyCliPath = path.join(codacyFolder, codacyCli)
-const codacyCliRelativePath = path.join('.codacy', codacyCli)
+function getCliPath(): {
+  codacyCliPath: string
+  codacyCliRelativePath: string
+  workspacePath: string
+  codacyFolder: string
+} {
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const codacyFolder = path.join(workspacePath, '.codacy')
+  const codacyCliPath = path.join(codacyFolder, codacyCli)
+  const codacyCliRelativePath = path.join('.codacy', codacyCli)
+  return { codacyCliPath, codacyCliRelativePath, workspacePath, codacyFolder: codacyFolder }
+}
 
 export async function isCLIInstalled(): Promise<boolean> {
+  const { codacyCliPath } = getCliPath()
   try {
     await execAsync(`${codacyCliPath} --help`)
     return true
@@ -27,6 +36,7 @@ export async function isCLIInstalled(): Promise<boolean> {
 }
 
 async function downloadCodacyCLI(): Promise<void> {
+  const { codacyFolder, codacyCliPath, workspacePath } = getCliPath()
   try {
     if (!fs.existsSync(codacyFolder)) {
       fs.mkdirSync(codacyFolder, { recursive: true })
@@ -54,7 +64,8 @@ async function downloadCodacyCLI(): Promise<void> {
 }
 
 async function initializeCLI(repository: Repository): Promise<void> {
-  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const { codacyCliRelativePath, workspacePath } = getCliPath()
+
   const codacyYamlPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
   const apiToken = Config.apiToken
 
@@ -62,7 +73,7 @@ async function initializeCLI(repository: Repository): Promise<void> {
 
   try {
     if (!fs.existsSync(codacyYamlPath)) {
-      await execAsync(
+      exec(
         `${codacyCliRelativePath} init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`,
         {
           cwd: workspacePath,
