@@ -91,7 +91,7 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "[Install Codacy CLI](command:codacy.installCLI)",
+        "contents": "Install Codacy CLI to analyze your code locally\n[Install Codacy CLI](command:codacy.installCLI)",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
       },
       {
@@ -121,12 +121,12 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "Enable your AI Chat to talk to Codacy's Cloud API \n[Add Codacy MCP Server](command:codacy.configureMCP)",
+        "contents": "Enable your AI Agent to interact with Codacy Guardrails \n[Add Codacy MCP Server](command:codacy.configureMCP)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
       },
       {
         "view": "codacy:mcp",
-        "contents": "MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
+        "contents": "Codacy Guardrails MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
       }      
     ],

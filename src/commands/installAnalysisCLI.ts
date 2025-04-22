@@ -2,33 +2,47 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 import { exec } from 'child_process'
-import { promisify } from 'util'
 import { Config } from '../common/config'
 import { Repository } from '../api/client'
+import Logger from '../common/logger'
 
-const execAsync = promisify(exec)
+const CLI_FILE_NAME = 'cli.sh'
+const CLI_FOLDER_NAME = '.codacy'
+const CLI_COMMAND = `${CLI_FOLDER_NAME}/${CLI_FILE_NAME}`
 
-const codacyCli = 'cli.sh'
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
-function getCliPath(): {
-  codacyCliPath: string
-  codacyCliRelativePath: string
-  workspacePath: string
-  codacyFolder: string
-} {
+const execAsync = (command: string) => {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-  const codacyFolder = path.join(workspacePath, '.codacy')
-  const codacyCliPath = path.join(codacyFolder, codacyCli)
-  const codacyCliRelativePath = path.join('.codacy', codacyCli)
-  return { codacyCliPath, codacyCliRelativePath, workspacePath, codacyFolder: codacyFolder }
+
+  return new Promise((resolve, reject) => {
+    exec(
+      `CODACY_CLI_V2_VERSION=1.0.0-main.232.a6a6368 ${command}`,
+      {
+        cwd: workspacePath,
+        maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        if (stderr && (!stdout || /error|fail|exception/i.test(stderr))) {
+          reject(new Error(stderr))
+          return
+        }
+
+        resolve({ stdout, stderr })
+      }
+    )
+  })
 }
 
 export async function isCLIInstalled(): Promise<boolean> {
-  const { codacyCliPath } = getCliPath()
   try {
-    await execAsync(`${codacyCliPath} --help`)
+    await execAsync(`${CLI_COMMAND} --help`)
     return true
   } catch {
     return false
@@ -36,76 +50,65 @@ export async function isCLIInstalled(): Promise<boolean> {
 }
 
 async function downloadCodacyCLI(): Promise<void> {
-  const { codacyFolder, codacyCliPath, workspacePath } = getCliPath()
-  try {
-    if (!fs.existsSync(codacyFolder)) {
-      fs.mkdirSync(codacyFolder, { recursive: true })
-    }
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const codacyFolder = path.join(workspacePath, CLI_FOLDER_NAME)
+  const codacyCliPath = path.join(codacyFolder, CLI_FILE_NAME)
 
-    if (!fs.existsSync(codacyCliPath)) {
-      await execAsync(
-        `curl -Ls -o "${codacyCliPath}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`,
-        {
-          cwd: workspacePath,
-          maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
-        }
-      )
-      await execAsync(`chmod +x "${codacyCliPath}"`, {
-        cwd: workspacePath,
-        maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
-      })
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to download Codacy CLI: ${error.message}`)
-    }
-    throw error
+  // Create .codacy folder if it doesn't exist
+  if (!fs.existsSync(codacyFolder)) {
+    fs.mkdirSync(codacyFolder, { recursive: true })
+  }
+
+  // Download cli.sh if it doesn't exist
+  if (!fs.existsSync(codacyCliPath)) {
+    await execAsync(
+      `curl -Ls -o "${CLI_COMMAND}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`
+    )
+
+    await execAsync(`chmod +x "${CLI_COMMAND}"`)
   }
 }
 
-async function initializeCLI(repository: Repository): Promise<void> {
-  const { codacyCliRelativePath, workspacePath } = getCliPath()
-
+async function initializeCLI(repository?: Repository): Promise<void> {
+  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
   const codacyYamlPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
-  const apiToken = Config.apiToken
 
-  const { provider, owner: organization, name: repositoryName } = repository
+  const apiToken = Config.apiToken ? `--api-token ${Config.apiToken}` : ''
+  const repositoryAccess = repository
+    ? `--provider ${repository.provider} --organization ${repository.owner} --repository ${repository.name}`
+    : ''
 
-  try {
-    if (!fs.existsSync(codacyYamlPath)) {
-      exec(
-        `${codacyCliRelativePath} init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`,
-        {
-          cwd: workspacePath,
-          maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
-        }
-      )
+  if (!fs.existsSync(codacyYamlPath)) {
+    await execAsync(`${CLI_COMMAND} init ${apiToken} ${repositoryAccess}`)
+  }
+
+  await execAsync(`${CLI_COMMAND} install`)
+
+  // add cli.sh to .gitignore
+  const gitignorePath = path.join(workspacePath, '.codacy', '.gitignore')
+  if (!fs.existsSync(gitignorePath)) {
+    fs.writeFileSync(gitignorePath, '*.sh\n')
+  } else {
+    const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8')
+    if (!gitignoreContent.includes('*.sh')) {
+      fs.appendFileSync(gitignorePath, '*.sh\n')
     }
-    await execAsync(`${codacyCliRelativePath} install`, {
-      cwd: workspacePath,
-      maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
-    })
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to initialize Codacy CLI: ${error.message}`)
-    }
-    throw error
   }
 }
 
-export async function installCodacyCLI(repository: Repository): Promise<void> {
-  if (await isCLIInstalled()) {
-    await initializeCLI(repository)
-    return
-  }
-
+export async function installCodacyCLI(repository?: Repository): Promise<void> {
   try {
-    await downloadCodacyCLI()
+    const isInstalled = await isCLIInstalled()
+
+    if (!isInstalled) {
+      await downloadCodacyCLI()
+    }
 
     await initializeCLI(repository)
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to install Codacy CLI: ${error.message}`)
+      //throw new Error(`Failed to install Codacy CLI: ${error.message}`)
+      Logger.error(`Failed to install Codacy CLI: ${error.message}`)
     }
     throw error
   }
