@@ -204,14 +204,9 @@ export async function activate(context: vscode.ExtensionContext) {
         },
         async () => {
           try {
-            const repository = repositoryManager.repository
-            if (repository) {
-              await installCodacyCLI(repository)
-              await updateCLIState()
-              vscode.window.showInformationMessage('Codacy CLI installed successfully!')
-            } else {
-              throw new Error('No repository found')
-            }
+            await installCodacyCLI(repositoryManager.repository)
+            await updateCLIState()
+            vscode.window.showInformationMessage('Codacy CLI installed successfully!')
           } catch (error) {
             vscode.window.showErrorMessage(
               `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
