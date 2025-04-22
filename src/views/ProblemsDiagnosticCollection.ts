@@ -231,7 +231,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       } finally {
         this._isAnalysisRunning = false
 
-        if (document.isDirty && pathToFile !== originalPath) {
+        if (pathToFile !== originalPath) {
           // Remove the temporary file after analysis with retries
           const deleted = await this.retryDeleteFile(pathToFile)
           if (!deleted) {
