@@ -1,4 +1,3 @@
-import * as os from 'os'
 import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -9,21 +8,39 @@ import { Repository } from '../api/client'
 
 const execAsync = promisify(exec)
 
+const codacyCli = 'cli.sh'
+
+const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+const codacyFolder = path.join(workspacePath, '.codacy2')
+const codacyCliPath = path.join(codacyFolder, codacyCli)
+const codacyCliRelativePath = path.join('.codacy', codacyCli)
+
 export async function isCLIInstalled(): Promise<boolean> {
   try {
-    await execAsync('codacy-cli --help')
+    await execAsync(`${codacyCliPath} --help`)
     return true
   } catch {
     return false
   }
 }
 
-async function isBrewInstalled(): Promise<boolean> {
+async function downloadCodacyCLI(): Promise<void> {
   try {
-    await execAsync('brew --version')
-    return true
-  } catch {
-    return false
+    if (!fs.existsSync(codacyFolder)) {
+      fs.mkdirSync(codacyFolder, { recursive: true })
+    }
+
+    if (!fs.existsSync(codacyCliPath)) {
+      await execAsync(
+        `curl -Ls -o "${codacyCliPath}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`
+      )
+      await execAsync(`chmod +x "${codacyCliPath}"`)
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to download Codacy CLI: ${error.message}`)
+    }
+    throw error
   }
 }
 
@@ -37,10 +54,10 @@ async function initializeCLI(repository: Repository): Promise<void> {
   try {
     if (!fs.existsSync(codacyYamlPath)) {
       await execAsync(
-        `codacy-cli init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`
+        `${codacyCliRelativePath} init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`
       )
     }
-    await execAsync('codacy-cli install')
+    await execAsync(`${codacyCliRelativePath} install`)
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to initialize Codacy CLI: ${error.message}`)
@@ -50,34 +67,13 @@ async function initializeCLI(repository: Repository): Promise<void> {
 }
 
 export async function installCodacyCLI(repository: Repository): Promise<void> {
-  const platform = os.platform()
-
   if (await isCLIInstalled()) {
     await initializeCLI(repository)
     return
   }
 
   try {
-    switch (platform) {
-      case 'darwin':
-        if (!(await isBrewInstalled())) {
-          throw new Error('Please install Homebrew first and then try installing the Codacy CLI again.')
-        }
-        await execAsync('brew install codacy/codacy-cli-v2/codacy-cli-v2')
-        break
-
-      case 'linux':
-        throw new Error(
-          'Codacy CLI cannot be automatically installed on Linux yet. For manual installation, please refer to the [Codacy CLI documentation](https://github.com/codacy/codacy-cli-v2).'
-        )
-        break
-
-      case 'win32':
-        throw new Error('Codacy CLI is not supported on Windows yet.')
-
-      default:
-        throw new Error(`Unsupported operating system: ${platform}`)
-    }
+    await downloadCodacyCLI()
 
     await initializeCLI(repository)
   } catch (error) {
