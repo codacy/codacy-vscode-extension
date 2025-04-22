@@ -191,7 +191,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
       if (!isCliInstalled || !codacyConfigExists) return
 
-      let pathToFile = document.uri.fsPath
+      const originalPath = document.uri.fsPath
+      let pathToFile = originalPath
 
       try {
         this._isAnalysisRunning = true
@@ -222,7 +223,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         // Run the local analysis
         const results = await runCodacyAnalyze(pathToFile)
 
-        this._currentCliIssues[document.uri.fsPath] = results
+        this._currentCliIssues[originalPath] = results
 
         this.updateDocumentDiagnostics(document)
       } catch (error) {
@@ -230,7 +231,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       } finally {
         this._isAnalysisRunning = false
 
-        if (document.isDirty) {
+        if (document.isDirty && pathToFile !== originalPath) {
           // Remove the temporary file after analysis with retries
           const deleted = await this.retryDeleteFile(pathToFile)
           if (!deleted) {
