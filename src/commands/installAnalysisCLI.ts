@@ -9,9 +9,11 @@ import { Repository } from '../api/client'
 const execAsync = promisify(exec)
 
 const codacyCli = 'cli.sh'
+// Set a larger buffer size (10MB)
+const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
 const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-const codacyFolder = path.join(workspacePath, '.codacy2')
+const codacyFolder = path.join(workspacePath, '.codacy')
 const codacyCliPath = path.join(codacyFolder, codacyCli)
 const codacyCliRelativePath = path.join('.codacy', codacyCli)
 
@@ -32,9 +34,16 @@ async function downloadCodacyCLI(): Promise<void> {
 
     if (!fs.existsSync(codacyCliPath)) {
       await execAsync(
-        `curl -Ls -o "${codacyCliPath}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`
+        `curl -Ls -o "${codacyCliPath}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`,
+        {
+          cwd: workspacePath,
+          maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
+        }
       )
-      await execAsync(`chmod +x "${codacyCliPath}"`)
+      await execAsync(`chmod +x "${codacyCliPath}"`, {
+        cwd: workspacePath,
+        maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
+      })
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -54,10 +63,17 @@ async function initializeCLI(repository: Repository): Promise<void> {
   try {
     if (!fs.existsSync(codacyYamlPath)) {
       await execAsync(
-        `${codacyCliRelativePath} init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`
+        `${codacyCliRelativePath} init --api-token ${apiToken} --provider ${provider} --organization ${organization} --repository ${repositoryName}`,
+        {
+          cwd: workspacePath,
+          maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
+        }
       )
     }
-    await execAsync(`${codacyCliRelativePath} install`)
+    await execAsync(`${codacyCliRelativePath} install`, {
+      cwd: workspacePath,
+      maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
+    })
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to initialize Codacy CLI: ${error.message}`)
