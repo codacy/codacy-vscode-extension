@@ -73,13 +73,13 @@ async function initializeCLI(repository?: Repository): Promise<void> {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
   const codacyYamlPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
 
-  const apiToken = Config.apiToken ? `--api-token ${Config.apiToken}` : ''
-  const repositoryAccess = repository
-    ? `--provider ${repository.provider} --organization ${repository.owner} --repository ${repository.name}`
-    : ''
+  const tokenAndRepository =
+    Config.apiToken && repository
+      ? `--api-token ${Config.apiToken} --provider ${repository.provider} --organization ${repository.owner} --repository ${repository.name}`
+      : ''
 
   if (!fs.existsSync(codacyYamlPath)) {
-    await execAsync(`${CLI_COMMAND} init ${apiToken} ${repositoryAccess}`)
+    await execAsync(`${CLI_COMMAND} init ${tokenAndRepository}`)
   }
 
   await execAsync(`${CLI_COMMAND} install`)
