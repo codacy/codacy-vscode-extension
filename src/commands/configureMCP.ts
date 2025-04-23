@@ -6,6 +6,7 @@ import { Config } from '../common/config'
 import { get, set } from 'lodash'
 import { Repository } from '../api/client'
 import { installCodacyCLI } from './installAnalysisCLI'
+import Logger from '../common/logger'
 
 interface Rule {
   when: string
@@ -81,7 +82,7 @@ const parseMdcContent = (content: string): RuleConfig => {
   try {
     return JSON.parse(sanitizeJSON(jsonContent))
   } catch (error) {
-    throw new Error('Invalid JSON content in MDC file')
+    throw new Error(`Invalid JSON content in MDC file (${(error as Error).message})`)
   }
 }
 
@@ -129,11 +130,11 @@ const addRulesToGitignore = (rulesPath: string) => {
 
     if (!existingGitignore.split('\n').some((line) => line.trim() === relativeRulesPath.trim())) {
       fs.appendFileSync(gitignorePath, gitignoreContent)
-      vscode.window.showInformationMessage(`Added ${relativeRulesPath} to .gitignore`)
+      Logger.appendLine(`Added ${relativeRulesPath} to .gitignore`)
     }
   } else {
     fs.writeFileSync(gitignorePath, gitignoreContent)
-    vscode.window.showInformationMessage('Created .gitignore and added rules path')
+    Logger.appendLine('Created .gitignore and added rules path')
   }
 }
 export async function createRules(repository: Repository) {
@@ -156,7 +157,7 @@ export async function createRules(repository: Repository) {
           isMdc ? JSON.stringify(newRules, null, 2) : convertRulesToMarkdown(newRules)
         }`
       )
-      vscode.window.showInformationMessage(`Created new rules file at ${rulesPath}`)
+      Logger.appendLine(`Created new rules file at ${rulesPath}`)
       addRulesToGitignore(rulesPath)
     } else {
       try {
@@ -178,15 +179,15 @@ export async function createRules(repository: Repository) {
           fs.writeFileSync(rulesPath, convertRulesToMarkdown(newRules, existingContent))
         }
 
-        vscode.window.showInformationMessage(`Updated rules in ${rulesPath}`)
+        Logger.appendLine(`Updated rules in ${rulesPath}`)
       } catch (parseError) {
-        vscode.window.showWarningMessage(`Error parsing existing rules file. Creating new one.`)
+        Logger.error(`Error parsing existing rules file. Creating new one. Details: ${parseError}`)
         fs.writeFileSync(rulesPath, JSON.stringify(newRules, null, 2))
       }
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    vscode.window.showErrorMessage(`Failed to create rules: ${errorMessage}`)
+    Logger.error(`Failed to create rules: ${errorMessage}`)
     throw error
   }
 }
@@ -236,7 +237,7 @@ export function isMCPConfigured(): boolean {
     const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
 
     return get(config, ideConfig.configAccessor) !== undefined
-  } catch (error) {
+  } catch {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
   }
@@ -279,7 +280,7 @@ export async function configureMCP(repository: Repository) {
         const cleanedContent = sanitizeJSON(rawContent)
         config = JSON.parse(cleanedContent)
       } catch (parseError) {
-        console.log('Error parsing config:', parseError)
+        Logger.error(`Error parsing config: ${(parseError as Error).message}`)
         // If the existing file is invalid JSON, we'll create a new one
         config = {}
       }
