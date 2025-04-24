@@ -291,7 +291,7 @@ export async function configureMCP(repository: Repository) {
 
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
-    vscode.window.showInformationMessage('Codacy MCP server added successfully')
+    vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
     await createRules(repository)
     await installCodacyCLI(repository)
   } catch (error: unknown) {
