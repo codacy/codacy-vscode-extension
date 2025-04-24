@@ -85,46 +85,66 @@ export class RepositoryManager implements vscode.Disposable {
         if (gitRepository.state.HEAD === undefined) {
           this.state = RepositoryManagerState.Initializing
         } else {
-          if (!gitRepository.state.remotes[0]?.pushUrl) {
+          const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
+
+          if (remotesWithPushUrl.length === 0) {
             this.state = RepositoryManagerState.NoRemote
             Logger.error('No remote found')
             return
           }
 
-          const repo = parseGitRemote(gitRepository.state.remotes[0].pushUrl)
+          let remoteIdx = 0
+          this._repository = undefined
 
-          try {
-            // load repository information
-            const { data } = await Api.Analysis.getRepositoryWithAnalysis(
-              repo.provider,
-              repo.organization,
-              repo.repository
-            )
+          while (this._repository === undefined && remoteIdx < remotesWithPushUrl.length) {
+            const repo = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
 
-            const { data: organization } = await Api.Organization.getOrganization(repo.provider, repo.organization)
-            this._organization = organization
+            try {
+              // load repository information
+              const { data } = await Api.Analysis.getRepositoryWithAnalysis(
+                repo.provider,
+                repo.organization,
+                repo.repository
+              )
 
-            // does the repository have coverage data?
-            const {
-              data: { hasCoverageOverview },
-            } = await Api.Repository.listCoverageReports(repo.provider, repo.organization, repo.repository)
+              this._repository = data
+            } catch {
+              remoteIdx++
+            }
+          }
 
-            // get all branches
-            const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
-              repo.provider,
-              repo.organization,
-              repo.repository,
-              true
-            )
+          if (this._repository === undefined) {
+            this.state = RepositoryManagerState.NoRepository
+            Logger.error('No repository found')
+            return
+          }
 
-            this._repository = data
-            this._expectCoverage = hasCoverageOverview
-            this._enabledBranches = enabledBranches
+          const { name: repository, owner, provider } = this._repository.repository
+
+          const { data: organization } = await Api.Organization.getOrganization(provider, owner)
+          this._organization = organization
+
+          // does the repository have coverage data?
+          const {
+            data: { hasCoverageOverview },
+          } = await Api.Repository.listCoverageReports(provider, owner, repository)
+
+          // get all branches
+          const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
+            provider,
+            owner,
+            repository,
+            true
+          )
+
+          this._expectCoverage = hasCoverageOverview
+          this._enabledBranches = enabledBranches
 
             this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
 
-            this.state = RepositoryManagerState.Loaded
-            this._onDidLoadRepository.fire(data)
+          this.state = RepositoryManagerState.Loaded
+
+          this._onDidLoadRepository.fire(this._repository)
 
             await this.handleBranchChange()
           } catch (apiError) {
