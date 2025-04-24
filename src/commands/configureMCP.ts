@@ -56,6 +56,10 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
         'If issues are found, propose fixes for them',
       ],
     },
+    {
+      when: 'a call to a Codacy tool that has repository or organization as parameter returns 404 error',
+      enforce: ['run codacy_setup_repository tool and then retry the action that failed'],
+    },
   ]
 
   return {
@@ -69,29 +73,19 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
 const sanitizeJSON = (json: string): string => {
   return json.replace(/,([\s\r\n]*[}\]])/g, '$1')
 }
-// Function to parse the json content inside an MDC file. An MDC file contains text elements that would generate errors when parsed as JSON
-const parseMdcContent = (content: string): RuleConfig => {
-  const parts = content.split('---')
-
-  if (parts.length < 3) {
-    throw new Error('Invalid MDC file format: missing frontmatter')
-  }
-
-  const jsonContent = parts[2].trim()
-
-  try {
-    return JSON.parse(sanitizeJSON(jsonContent))
-  } catch (error) {
-    throw new Error(`Invalid JSON content in MDC file (${(error as Error).message})`)
-  }
-}
 
 const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
   const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
-  const newCodacyRules = `---\n# ${rules.name}\n${rules.description}\n${rules.rules
+  const newCodacyRules = `\n# ${rules.name}\n${rules.description}\n${rules.rules
     .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
-    .join('\n\n')}\n---`
-  return existingContent ? existingContent?.replace(`---${codacyRules}---`, newCodacyRules) : newCodacyRules
+    .join('\n\n')}\n`
+
+  if (!existingContent) {
+    return `---${newCodacyRules}---`
+  }
+  return codacyRules
+    ? existingContent.replace(codacyRules, newCodacyRules)
+    : existingContent + `---${newCodacyRules}---`
 }
 
 const rulesPrefixForMdc = `---
@@ -151,33 +145,14 @@ export async function createRules(repository: Repository) {
     }
 
     if (!fs.existsSync(rulesPath)) {
-      fs.writeFileSync(
-        rulesPath,
-        `${isMdc ? rulesPrefixForMdc : ''}${
-          isMdc ? JSON.stringify(newRules, null, 2) : convertRulesToMarkdown(newRules)
-        }`
-      )
+      fs.writeFileSync(rulesPath, `${isMdc ? rulesPrefixForMdc : ''}${convertRulesToMarkdown(newRules)}`)
       Logger.appendLine(`Created new rules file at ${rulesPath}`)
       addRulesToGitignore(rulesPath)
     } else {
       try {
         const existingContent = fs.readFileSync(rulesPath, 'utf8')
 
-        if (isMdc) {
-          const existingRules = parseMdcContent(existingContent)
-          const mergedRules = {
-            ...existingRules,
-            rules: [
-              ...(existingRules.rules.filter(
-                (existingRule) => !newRules.rules?.some((newRule: Rule) => newRule.when === existingRule.when)
-              ) || []),
-              ...newRules.rules,
-            ],
-          }
-          fs.writeFileSync(rulesPath, `${rulesPrefixForMdc}${JSON.stringify(mergedRules, null, 2)}`)
-        } else {
-          fs.writeFileSync(rulesPath, convertRulesToMarkdown(newRules, existingContent))
-        }
+        fs.writeFileSync(rulesPath, convertRulesToMarkdown(newRules, existingContent))
 
         Logger.appendLine(`Updated rules in ${rulesPath}`)
       } catch (parseError) {
