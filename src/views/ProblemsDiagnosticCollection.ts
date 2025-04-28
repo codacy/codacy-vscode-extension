@@ -104,12 +104,15 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     GitProvider.instance?.onDidChangeTextDocument(async (e) => {
+      const analysisMode = vscode.workspace.getConfiguration().get('codacy.analysisMode')
+
       // avoid if the document is a .git file
       if (e.document.uri.fsPath.endsWith('.git')) return
 
       // update positions of remote issues in the document
       this.updateApiIssuesPositions(e.document)
 
+      if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && e.document.isDirty)) return
       // run local analysis for available tools
       await this.runAnalysisAndUpdateDiagnostics(e.document)
     })

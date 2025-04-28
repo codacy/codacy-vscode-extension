@@ -309,6 +309,20 @@
         "codacy.apiToken": {
           "type": "string",
           "description": "API Personal Token"
+        },
+        "codacy.analysisMode": {
+          "type": "string",
+          "title": "Local code analysis",
+          "description": "This feature allows you to analyze your code locally using the Codacy CLI.",
+          "enum": ["enabled", "only on saved files", "disabled"],
+          "default": "enabled"
+        },
+        "codacy.guardrailsOnGeneratedCode": {
+          "type": "string",
+          "title": "Automatically analyze generated code with Codacy Guardrails",
+          "description": "This feature ensures that your generated code is analyzed by Codacy Guardrails.",
+          "enum": ["enabled", "disabled"],
+          "default": "enabled"
         }
       }
     },

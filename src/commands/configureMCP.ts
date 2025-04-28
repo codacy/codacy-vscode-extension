@@ -219,6 +219,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP(repository: Repository) {
+  const guardrailsOnGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrailsOnGeneratedCode')
   const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
@@ -267,7 +268,9 @@ export async function configureMCP(repository: Repository) {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
-    await createRules(repository)
+    if (guardrailsOnGeneratedCode === 'enabled') {
+      await createRules(repository)
+    }
     await installCodacyCLI(repository)
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
