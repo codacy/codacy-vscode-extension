@@ -53,6 +53,6 @@ export const parseGitRemote = (remoteUrl: string): GitRemoteInfo => {
     provider,
     organization,
     repository,
-    ...(repository !== originalRepository && { originalRepository }),
+    ...(repository !== originalRepository ? { originalRepository } : {}),
   }
 }
