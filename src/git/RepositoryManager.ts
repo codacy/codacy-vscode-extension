@@ -140,22 +140,13 @@ export class RepositoryManager implements vscode.Disposable {
           this._expectCoverage = hasCoverageOverview
           this._enabledBranches = enabledBranches
 
-            this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
+          this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
 
           this.state = RepositoryManagerState.Loaded
 
           this._onDidLoadRepository.fire(this._repository)
 
-            await this.handleBranchChange()
-          } catch (apiError) {
-            if (apiError instanceof OpenAPIError && apiError.status === 404) {
-              Logger.appendLine(`Repository not found with name: ${repo.repository}.`)
-              handleError(apiError as Error)
-              this.state = RepositoryManagerState.NoRepository
-            } else {
-              throw apiError
-            }
-          }
+          await this.handleBranchChange()
         }
       } catch (e) {
         if (e instanceof OpenAPIError && !Config.apiToken) {
