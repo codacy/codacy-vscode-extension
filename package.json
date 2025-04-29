@@ -52,7 +52,7 @@
         {
           "id": "codacy:cli",
           "name": "Codacy CLI",
-          "when": "!codacy:cliInstalled && codacy:canInstallCLI",
+          "when": "!codacy:cliInstalled",
           "icon": "$(gear)",
           "initialSize": 2
         },
@@ -102,12 +102,12 @@
       {
         "view": "codacy:cli",
         "contents": "Install Codacy CLI to analyze your code locally\n[Install Codacy CLI](command:codacy.installCLI)",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+        "when": "!codacy:cliInstalled && !codacy:cliInstalling"
       },
       {
         "view": "codacy:cli",
         "contents": "$(loading~spin) Installing Codacy CLI...",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
+        "when": "!codacy:cliInstalled && codacy:cliInstalling"
       },
       {
         "view": "codacy:statuses",
@@ -232,7 +232,7 @@
         "command": "codacy.installCLI",
         "title": "Install Codacy CLI",
         "category": "Codacy commands",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI"
+        "when": "!codacy:cliInstalled"
       }
     ],
     "menus": {
@@ -259,7 +259,7 @@
         },
         {
           "command": "codacy.installCLI",
-          "when": "!codacy:cliInstalled && codacy:canInstallCLI"
+          "when": "!codacy:cliInstalled"
         }
       ],
       "view/title": [

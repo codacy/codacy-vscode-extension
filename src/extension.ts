@@ -98,8 +98,6 @@ export async function activate(context: vscode.ExtensionContext) {
       (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
   )
 
-  await vscode.commands.executeCommand('setContext', 'codacy:canInstallCLI', os.platform() === 'darwin')
-
   Config.init(context)
 
   initializeApi()
