@@ -251,7 +251,8 @@ export async function activate(context: vscode.ExtensionContext) {
   )
 
   repositoryManager.onDidLoadRepository(async ({ repository }) => {
-    if (isMCPConfigured()) {
+    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+    if (isMCPConfigured() && generateRules === 'enabled') {
       await createRules(repository)
     }
   })

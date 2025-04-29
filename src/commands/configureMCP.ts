@@ -11,6 +11,7 @@ import Logger from '../common/logger'
 interface Rule {
   when: string
   enforce: string[]
+  scope: 'guardrails' | 'general'
 }
 
 interface RuleConfig {
@@ -19,7 +20,7 @@ interface RuleConfig {
   rules: Rule[]
 }
 
-const newRulesTemplate = (repository?: Repository): RuleConfig => {
+const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails' | 'general')[]): RuleConfig => {
   const repositoryRules: Rule[] = []
   if (repository) {
     const { provider, owner: organization, name } = repository
@@ -28,12 +29,14 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
       enforce: [
         `use ${provider} for provider, ${organization} for organization and ${name} for repository, and avoid calling 'git remote -v' unless really necessary`,
       ],
+      scope: 'general',
     })
   }
 
   const commonRules: Rule[] = [
     {
       when: 'after ANY successful edit_file or reapply tool call',
+      scope: 'guardrails',
       enforce: [
         'IMMEDIATELY run codacy_cli_analyze tool for each edited file with:',
         '1. rootPath set to the workspace path',
@@ -48,6 +51,7 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
     },
     {
       when: 'after adding new dependencies, libraries or packages',
+      scope: 'guardrails',
       enforce: [
         'IMMEDIATELY run codacy_cli_analyze tool for Trivy for:',
         '1. rootPath set to the workspace path',
@@ -58,6 +62,7 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
     },
     {
       when: 'a call to a Codacy tool that has repository or organization as parameter returns 404 error',
+      scope: 'general',
       enforce: ['run codacy_setup_repository tool and then retry the action that failed'],
     },
   ]
@@ -65,7 +70,7 @@ const newRulesTemplate = (repository?: Repository): RuleConfig => {
   return {
     name: 'Codacy Rules',
     description: 'Configuration for AI behavior when interacting with Codacy',
-    rules: [...repositoryRules, ...commonRules],
+    rules: [...repositoryRules, ...commonRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
   }
 }
 
@@ -132,7 +137,9 @@ const addRulesToGitignore = (rulesPath: string) => {
   }
 }
 export async function createRules(repository: Repository) {
-  const newRules = newRulesTemplate(repository)
+  const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
+
+  const newRules = newRulesTemplate(repository, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
 
   try {
     const { path: rulesPath, format } = getCorrectRulesInfo()
@@ -219,6 +226,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureMCP(repository: Repository) {
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
   const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
@@ -267,7 +275,9 @@ export async function configureMCP(repository: Repository) {
     fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
     vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
-    await createRules(repository)
+    if (generateRules === 'enabled') {
+      await createRules(repository)
+    }
     await installCodacyCLI(repository)
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'

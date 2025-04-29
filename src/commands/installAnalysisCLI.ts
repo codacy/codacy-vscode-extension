@@ -15,10 +15,11 @@ const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
 const execAsync = (command: string) => {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+  const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
 
   return new Promise((resolve, reject) => {
     exec(
-      `CODACY_CLI_V2_VERSION=1.0.0-main.232.a6a6368 ${command}`,
+      `${cliVersion ? `CODACY_CLI_V2_VERSION=${cliVersion}` : ''} ${command}`,
       {
         cwd: workspacePath,
         maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded

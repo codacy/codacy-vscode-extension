@@ -18,6 +18,7 @@ export async function runCodacyAnalyze(filePath?: string) {
   try {
     // Get workspace folder (to solve: mkdir error)
     const workspaceFolders = vscode.workspace.workspaceFolders
+    const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     if (!workspaceFolders || workspaceFolders.length === 0) {
       throw new Error('No workspace folder found')
     }
@@ -27,7 +28,7 @@ export async function runCodacyAnalyze(filePath?: string) {
     const relativeFilePath = sanitizeFilePath(workspaceRoot, filePath)
 
     // Construct the command
-    const command = `CODACY_CLI_V2_VERSION=1.0.0-main.232.a6a6368 .codacy/cli.sh analyze --format sarif ${
+    const command = `${cliVersion ? `CODACY_CLI_V2_VERSION=${cliVersion}` : ''} .codacy/cli.sh analyze --format sarif ${
       relativeFilePath || ''
     }`
 
