@@ -310,6 +310,11 @@
           "type": "string",
           "description": "API Personal Token"
         },
+        "codacy.cliVersion": {
+          "type": "string",
+          "description": "The version of the Codacy CLI to use",
+          "default": "1.0.0-main.232.a6a6368"
+        },
         "codacy.analysisMode": {
           "type": "string",
           "title": "Local code analysis",
