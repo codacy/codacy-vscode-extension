@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import * as os from 'os'
 import { CommandType, wrapCommandWithCatch } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
