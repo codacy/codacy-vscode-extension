@@ -33,3 +33,7 @@ codacy-vscode-extension-CHANGELOG.txt
 
 #Ignore cursor AI rules
 .cursor/rules/codacy.mdc
+
+
+#Ignore vscode AI rules
+.github/copilot-instructions.md

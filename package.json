@@ -45,7 +45,7 @@
       "codacy-main": [
         {
           "id": "codacy:login",
-          "name": "Sign in to Codacy",
+          "name": "Connect to Codacy",
           "icon": "resources/icons/codacy-logo.svg",
           "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
         },
@@ -96,7 +96,7 @@
     "viewsWelcome": [
       {
         "view": "codacy:login",
-        "contents": "You have not yet signed in with Codacy\n[Sign in](command:codacy.signIn)",
+        "contents": "You have not yet signed in with Codacy\n[Connect to Codacy](command:codacy.signIn)",
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
       {
@@ -143,7 +143,7 @@
     "commands": [
       {
         "command": "codacy.signIn",
-        "title": "Sign in to Codacy",
+        "title": "Connect to Codacy",
         "category": "Codacy commands",
         "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
