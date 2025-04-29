@@ -90,7 +90,7 @@
           "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP",
           "icon": "$(gear)",
           "initialSize": 2
-        }        
+        }
       ]
     },
     "viewsWelcome": [
@@ -138,7 +138,7 @@
         "view": "codacy:mcp",
         "contents": "Codacy Guardrails MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
         "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
-      }      
+      }
     ],
     "commands": [
       {
@@ -310,23 +310,40 @@
           "type": "string",
           "description": "API Personal Token"
         },
-        "codacy.cliVersion": {
+        "codacy.guardrails.analyzeGeneratedCode": {
+          "type": "string",
+          "title": "Automatically analyze generated code with Codacy Guardrails",
+          "description": "This feature ensures that your generated code is analyzed by Codacy Guardrails.",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "default": "enabled"
+        },
+        "codacy.guardrails.rulesFile": {
+          "type": "string",
+          "title": "Generate rules file for the AI Agent",
+          "description": "Allow the extension to generate Codacy specific rules for the AI Agent. Disabling this option will impact the user experience of Codacy Guardrails.",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "default": "enabled"
+        },
+        "codacy.cli.cliVersion": {
           "type": "string",
           "description": "The version of the Codacy CLI to use",
           "default": "1.0.0-main.251.1952e73"
         },
-        "codacy.analysisMode": {
+        "codacy.cli.analysisMode": {
           "type": "string",
           "title": "Local code analysis",
           "description": "This feature allows you to analyze your code locally using the Codacy CLI.",
-          "enum": ["enabled", "only on saved files", "disabled"],
-          "default": "enabled"
-        },
-        "codacy.guardrailsOnGeneratedCode": {
-          "type": "string",
-          "title": "Automatically analyze generated code with Codacy Guardrails",
-          "description": "This feature ensures that your generated code is analyzed by Codacy Guardrails.",
-          "enum": ["enabled", "disabled"],
+          "enum": [
+            "enabled",
+            "only on saved files",
+            "disabled"
+          ],
           "default": "enabled"
         }
       }
@@ -358,7 +375,7 @@
     "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.4.7",
-    "@types/sarif": "2.1.7",    
+    "@types/sarif": "2.1.7",
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
     "@types/vscode": "^1.81.0",

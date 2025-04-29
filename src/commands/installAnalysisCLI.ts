@@ -15,7 +15,7 @@ const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
 const execAsync = (command: string) => {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-  const cliVersion = vscode.workspace.getConfiguration().get('codacy.cliVersion')
+  const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
 
   return new Promise((resolve, reject) => {
     exec(
