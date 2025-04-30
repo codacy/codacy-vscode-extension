@@ -19,7 +19,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureMCP, createRules, isMCPConfigured } from './commands/configureMCP'
-import { installCodacyCLI, isCLIInstalled } from './commands/installAnalysisCLI'
+import { installCodacyCLI, isCLIInstalled, updateCodacyCLI } from './commands/installAnalysisCLI'
 
 /**
  * Helper function to register all extension commands
@@ -195,6 +195,17 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   await updateCLIState()
+
+  // Update CLI on startup
+  const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
+  // When the user doesn't have a specific version, update the CLI to the latest version
+  if (!cliVersion) {
+    const isInstalled = await isCLIInstalled()
+    if (isInstalled) {
+      await updateCodacyCLI(repositoryManager.repository)
+    }
+    // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand('codacy.installCLI', async () => {
