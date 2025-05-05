@@ -87,7 +87,7 @@
         {
           "id": "codacy:mcp",
           "name": "Codacy MCP Server",
-          "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication && codacy:supportsMCP",
+          "when": "codacy:supportsMCP",
           "icon": "$(gear)",
           "initialSize": 2
         }
@@ -132,12 +132,12 @@
       {
         "view": "codacy:mcp",
         "contents": "Enable your AI Agent to interact with Codacy Guardrails \n[Add Codacy MCP Server](command:codacy.configureMCP)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured"
       },
       {
         "view": "codacy:mcp",
         "contents": "Codacy Guardrails MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+        "when": "codacy:supportsMCP && codacy:mcpConfigured"
       }
     ],
     "commands": [
@@ -220,13 +220,13 @@
         "command": "codacy.configureMCP",
         "title": "Configure Codacy MCP Server",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured"
       },
       {
         "command": "codacy.configureMCP.reset",
         "title": "Reset Codacy MCP Server",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+        "when": "codacy:supportsMCP && codacy:mcpConfigured"
       },
       {
         "command": "codacy.installCLI",
@@ -251,11 +251,11 @@
         },
         {
           "command": "codacy.configureMCP",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && !codacy:mcpConfigured"
+          "when": "codacy:supportsMCP && !codacy:mcpConfigured"
         },
         {
           "command": "codacy.configureMCP.reset",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded && codacy:supportsMCP && codacy:mcpConfigured"
+          "when": "codacy:supportsMCP && codacy:mcpConfigured"
         },
         {
           "command": "codacy.installCLI",

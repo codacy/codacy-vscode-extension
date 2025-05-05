@@ -136,7 +136,7 @@ const addRulesToGitignore = (rulesPath: string) => {
     Logger.appendLine('Created .gitignore and added rules path')
   }
 }
-export async function createRules(repository: Repository) {
+export async function createRules(repository?: Repository) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
 
   const newRules = newRulesTemplate(repository, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
@@ -225,15 +225,11 @@ export function isMCPConfigured(): boolean {
   }
 }
 
-export async function configureMCP(repository: Repository) {
+export async function configureMCP(repository?: Repository) {
   const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
   const ideConfig = getCorrectMcpConfig()
   try {
     const apiToken = Config.apiToken
-
-    if (!apiToken) {
-      throw new Error('Codacy API token not found in settings')
-    }
 
     // Create directory if it doesn't exist
     const ideDir = ideConfig.fileDir
