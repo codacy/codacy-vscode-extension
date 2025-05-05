@@ -113,3 +113,15 @@ export async function installCodacyCLI(repository?: Repository): Promise<void> {
     throw error
   }
 }
+
+export async function updateCodacyCLI(repository?: Repository): Promise<void> {
+  try {
+    await execAsync(`${CLI_COMMAND} update`)
+
+    await initializeCLI(repository)
+  } catch (error) {
+    if (error instanceof Error) {
+      Logger.error(`Failed to update Codacy CLI: ${error.message}`)
+    }
+  }
+}
