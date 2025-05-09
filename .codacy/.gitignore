@@ -1,1 +1,6 @@
 *.sh
+*.yaml
+
+# tools-config folder
+tools-configs
+

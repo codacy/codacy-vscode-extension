@@ -332,8 +332,7 @@
         },
         "codacy.cli.cliVersion": {
           "type": "string",
-          "markdownDescription": "The version of the Codacy CLI to use. Check available versions [here](https://github.com/codacy/codacy-cli-v2/releases)",
-          "default": "1.0.0-main.251.1952e73"
+          "markdownDescription": "The version of the Codacy CLI to use. Check available versions [here](https://github.com/codacy/codacy-cli-v2/releases)"
         },
         "codacy.cli.analysisMode": {
           "type": "string",
