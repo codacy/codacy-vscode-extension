@@ -218,7 +218,7 @@ export function isMCPConfigured(): boolean {
 
     const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
 
-    return get(config, ideConfig.configAccessor) !== undefined
+    return get(config, `${ideConfig.configAccessor}.codacy`) !== undefined
   } catch {
     // If there's any error reading or parsing the file, assume it's not configured
     return false
@@ -244,9 +244,11 @@ export async function configureMCP(repository?: Repository) {
     const codacyServer = {
       command: 'npx',
       args: ['-y', '@codacy/codacy-mcp@latest'],
-      env: {
-        CODACY_ACCOUNT_TOKEN: apiToken,
-      },
+      env: apiToken
+        ? {
+            CODACY_ACCOUNT_TOKEN: apiToken,
+          }
+        : undefined,
     }
 
     // Read existing configuration if it exists

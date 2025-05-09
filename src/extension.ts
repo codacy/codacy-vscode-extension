@@ -59,18 +59,25 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
     // register events
     git.onDidOpenRepository((repo: GitRepository) => {
       repositoryManager.open(repo)
+      vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', true)
     })
 
     git.onDidCloseRepository((repo: GitRepository) => {
       repositoryManager.close(repo)
+      // If there are no more repositories, set context to false
+      if (git.repositories.length === 0) {
+        vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
+      }
     })
 
-    git.onDidChangeState((state: APIState) => {
+    git.onDidChangeState(async (state: APIState) => {
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
+          await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', true)
           repositoryManager.open(git.repositories[0])
         } else {
           Logger.appendLine('No Git Repositories found')
+          await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
           repositoryManager.clear()
         }
       }
@@ -79,6 +86,9 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
     context.subscriptions.push(git)
 
     return git
+  } else {
+    // If git provider is not found, set context to false
+    await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
   }
 }
 
@@ -89,6 +99,18 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+
+  // Listen for workspace folder changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      const hasWorkspaceFolder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
+      vscode.commands.executeCommand('setContext', 'codacy:hasProject', hasWorkspaceFolder)
+    })
+  )
+
+  // Set initial workspace folder state
+  const hasWorkspaceFolder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
+  await vscode.commands.executeCommand('setContext', 'codacy:hasProject', hasWorkspaceFolder)
 
   await vscode.commands.executeCommand(
     'setContext',
@@ -104,167 +126,139 @@ export async function activate(context: vscode.ExtensionContext) {
     os.platform() === 'darwin' || os.platform() === 'linux'
   )
 
-  Config.init(context)
+  // Set isGitRepository to false by default, will be updated by git provider logic
+  await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
 
-  initializeApi()
+  if (hasWorkspaceFolder) {
+    Logger.appendLine('Codacy extension activated with workspace folder')
+    Config.init(context)
 
-  const repositoryManager = new RepositoryManager()
-  context.subscriptions.push(repositoryManager)
+    initializeApi()
 
-  const gitProvider = await registerGitProvider(context, repositoryManager)
+    const repositoryManager = new RepositoryManager()
+    context.subscriptions.push(repositoryManager)
 
-  if (!gitProvider) {
-    Logger.error('Native Git VSCode extension not found')
-    return
-  }
+    const gitProvider = await registerGitProvider(context, repositoryManager)
 
-  context.subscriptions.push(gitProvider)
+    if (!gitProvider) {
+      Logger.error('Native Git VSCode extension not found')
+      return
+    }
 
-  await registerCommands(context, repositoryManager)
+    context.subscriptions.push(gitProvider)
 
-  // initialize the problems diagnostic collection
-  context.subscriptions.push(new ProblemsDiagnosticCollection(repositoryManager))
+    await registerCommands(context, repositoryManager)
 
-  // add views
-  context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
-  context.subscriptions.push(new StatusBar(context, repositoryManager))
-  context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
-  context.subscriptions.push(new BranchIssuesTree(context, repositoryManager))
+    // initialize the problems diagnostic collection
+    context.subscriptions.push(new ProblemsDiagnosticCollection(repositoryManager))
 
-  context.subscriptions.push(AuthUriHandler.register())
+    // add views
+    context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
+    context.subscriptions.push(new StatusBar(context, repositoryManager))
+    context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
+    context.subscriptions.push(new BranchIssuesTree(context, repositoryManager))
 
-  context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
+    context.subscriptions.push(AuthUriHandler.register())
 
-  context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider('codacyIssue', new IssueDetailsProvider())
-  )
+    context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
 
-  // listen for configuration changes
-  context.subscriptions.push(
-    Config.onDidConfigChange(() => {
-      initializeApi()
+    context.subscriptions.push(
+      vscode.workspace.registerTextDocumentContentProvider('codacyIssue', new IssueDetailsProvider())
+    )
 
-      Account.current().then((user) => {
-        if (user) Telemetry.identify(user)
+    // listen for configuration changes
+    context.subscriptions.push(
+      Config.onDidConfigChange(() => {
+        initializeApi()
+
+        Account.current().then((user) => {
+          if (user) Telemetry.identify(user)
+        })
+
+        if (gitProvider?.repositories.length) {
+          repositoryManager.open(gitProvider.repositories[0])
+        }
       })
+    )
 
-      if (gitProvider?.repositories.length) {
-        repositoryManager.open(gitProvider.repositories[0])
+    // check for open repository
+    if (gitProvider.repositories.length > 0) {
+      repositoryManager.open(gitProvider.repositories[0])
+    }
+
+    // coverage decoration
+    const triggerCoverageDecoration = (editor: vscode.TextEditor | undefined) => {
+      if (editor) {
+        decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
+      }
+    }
+
+    vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions)
+
+    const activeEditor = vscode.window.activeTextEditor
+    if (activeEditor) {
+      decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
+    }
+
+    vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
+      if (vscode.window.activeTextEditor) {
+        decorateWithCoverage(
+          vscode.window.activeTextEditor,
+          vscode.window.activeTextEditor?.document.uri,
+          repositoryManager?.pullRequest
+        )
       }
     })
-  )
 
-  // check for open repository
-  if (gitProvider.repositories.length > 0) {
-    repositoryManager.open(gitProvider.repositories[0])
-  }
+    // coverage show/hide buttons
+    vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
+      item.onClick()
+    })
 
-  // coverage decoration
-  const triggerCoverageDecoration = (editor: vscode.TextEditor | undefined) => {
-    if (editor) {
-      decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
-    }
-  }
+    // Update CLI on startup
+    const cliInstalled = await isCLIInstalled()
+    vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', cliInstalled)
 
-  vscode.window.onDidChangeActiveTextEditor(triggerCoverageDecoration, null, context.subscriptions)
-
-  const activeEditor = vscode.window.activeTextEditor
-  if (activeEditor) {
-    decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
-  }
-
-  vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
-    if (vscode.window.activeTextEditor) {
-      decorateWithCoverage(
-        vscode.window.activeTextEditor,
-        vscode.window.activeTextEditor?.document.uri,
-        repositoryManager?.pullRequest
-      )
-    }
-  })
-
-  // coverage show/hide buttons
-  vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
-    item.onClick()
-  })
-
-  // Register CLI installation commands
-  const updateCLIState = async () => {
-    const isInstalled = await isCLIInstalled()
-    vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', isInstalled)
-  }
-
-  await updateCLIState()
-
-  // Update CLI on startup
-  const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
-  // When the user doesn't have a specific version, update the CLI to the latest version
-  if (!cliVersion) {
-    const isInstalled = await isCLIInstalled()
-    if (isInstalled) {
+    const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
+    const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
+    // When the user doesn't have a specific version, update the CLI to the latest version
+    if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
       await updateCodacyCLI(repositoryManager.repository)
+      // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
-    // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
-  }
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('codacy.installCLI', async () => {
-      await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
+    // Register MCP commands
+    const updateMCPState = () => {
+      const isConfigured = isMCPConfigured()
+      vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
+    }
 
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Window,
-          title: 'Installing Codacy CLI',
-          cancellable: false,
-        },
-        async () => {
-          try {
-            await installCodacyCLI(repositoryManager.repository)
-            await updateCLIState()
-            vscode.window.showInformationMessage('Codacy CLI installed successfully!')
-          } catch (error) {
-            vscode.window.showErrorMessage(
-              `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
-            )
-          } finally {
-            await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', false)
-          }
-        }
-      )
-    })
-  )
+    // Update initially
+    updateMCPState()
 
-  // Register MCP commands
-  const updateMCPState = () => {
-    const isConfigured = isMCPConfigured()
-    vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
-  }
+    // Register configure command
+    context.subscriptions.push(
+      vscode.commands.registerCommand('codacy.configureMCP', async () => {
+        const repository = repositoryManager.repository
+        await configureMCP(repository)
+        updateMCPState()
+      })
+    )
 
-  // Update initially
-  updateMCPState()
+    // Register reset command
+    context.subscriptions.push(
+      vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
+        const repository = repositoryManager.repository
+        await configureMCP(repository)
+        updateMCPState()
+      })
+    )
 
-  // Register configure command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('codacy.configureMCP', async () => {
-      const repository = repositoryManager.repository
-      await configureMCP(repository)
-      updateMCPState()
-    })
-  )
+    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
 
-  // Register reset command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
-      const repository = repositoryManager.repository
-      await configureMCP(repository)
-      updateMCPState()
-    })
-  )
-
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
-
-  if (isMCPConfigured() && generateRules === 'enabled') {
-    await createRules(repositoryManager.repository)
+    if (isMCPConfigured() && generateRules === 'enabled') {
+      await createRules(repositoryManager.repository)
+    }
   }
 }
 

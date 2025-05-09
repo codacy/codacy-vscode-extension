@@ -387,7 +387,11 @@ export class RepositoryManager implements vscode.Disposable {
 
   public clear() {
     this._current = undefined
-    this.state = RepositoryManagerState.NoRepository
+    if (!Config.apiToken) {
+      this.state = RepositoryManagerState.NeedsAuthentication
+    } else {
+      this.state = RepositoryManagerState.NoRepository
+    }
   }
 
   get repository() {
