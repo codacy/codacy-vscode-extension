@@ -44,60 +44,85 @@
     "views": {
       "codacy-main": [
         {
-          "id": "codacy:login",
-          "name": "Connect to Codacy",
-          "icon": "resources/icons/codacy-logo.svg",
-          "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+          "id": "codacy:statuses",
+          "name": "Status",
+          "icon": "$(library)",
+          "when": "!codacy:hasProject || Codacy:RepositoryManagerStateContext == NeedsAuthentication ||Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
+          "initialSize": 1,
+          "collapsed": false
         },
         {
           "id": "codacy:cli",
           "name": "Codacy CLI",
-          "when": "!codacy:cliInstalled && codacy:canInstallCLI",
+          "when": "codacy:hasProject && !codacy:cliInstalled && codacy:canInstallCLI",
+          "icon": "$(gear)",
+          "initialSize": 2
+        },
+        {
+          "id": "codacy:mcp",
+          "name": "Codacy MCP Server",
+          "when": "codacy:hasProject && codacy:supportsMCP",
           "icon": "$(gear)",
           "initialSize": 2
         },
         {
           "id": "codacy:prSummary",
           "name": "Pull request",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
+          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
           "icon": "$(git-pull-request)",
           "initialSize": 3
         },
         {
           "id": "codacy:pullRequests",
           "name": "Open pull requests",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded",
+          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded",
           "icon": "$(git-pull-request)",
           "initialSize": 3
         },
         {
           "id": "codacy:branchIssues",
           "name": "Issue Browser",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
+          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
-        },
-        {
-          "id": "codacy:statuses",
-          "name": "Status",
-          "icon": "$(library)",
-          "when": "Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
-          "initialSize": 1
-        },
-        {
-          "id": "codacy:mcp",
-          "name": "Codacy MCP Server",
-          "when": "codacy:supportsMCP",
-          "icon": "$(gear)",
-          "initialSize": 2
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "codacy:login",
-        "contents": "You have not yet signed in with Codacy\n[Connect to Codacy](command:codacy.signIn)",
-        "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+        "view": "codacy:statuses",
+        "contents": "You are not connected to Codacy.\n[Connect to Codacy](command:codacy.signIn)",
+        "when": "codacy:hasProject && Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "There is no project opened. Open a project to use Codacy extension.",
+        "when": "!codacy:hasProject"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "This project isn't a Git repository. To connect it to Codacy, initialize a Git repository first.",
+        "when": "!codacy:isGitRepository && codacy:hasProject"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Failed to find repository in Codacy.",
+        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == NoRepository"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "No remote repositories configured.",
+        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == NoRemote"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "Codacy is initializing...",
+        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Initializing"
+      },
+      {
+        "view": "codacy:statuses",
+        "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
+        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "view": "codacy:cli",
@@ -108,26 +133,6 @@
         "view": "codacy:cli",
         "contents": "$(loading~spin) Installing Codacy CLI...",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
-      },
-      {
-        "view": "codacy:statuses",
-        "contents": "No repositories open.",
-        "when": "Codacy:RepositoryManagerStateContext == NoRepository"
-      },
-      {
-        "view": "codacy:statuses",
-        "contents": "No remote repositories configured.",
-        "when": "Codacy:RepositoryManagerStateContext == NoRemote"
-      },
-      {
-        "view": "codacy:statuses",
-        "contents": "Codacy is initializing...",
-        "when": "Codacy:RepositoryManagerStateContext == Initializing"
-      },
-      {
-        "view": "codacy:statuses",
-        "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "view": "codacy:mcp",
