@@ -19,7 +19,7 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureMCP, createRules, isMCPConfigured } from './commands/configureMCP'
-import { installCodacyCLI, isCLIInstalled, updateCodacyCLI } from './commands/installAnalysisCLI'
+import { isCLIInstalled, updateCodacyCLI } from './commands/installAnalysisCLI'
 
 /**
  * Helper function to register all extension commands
