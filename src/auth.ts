@@ -34,24 +34,26 @@ export const detectEditor = (): IDE => {
 
 export const signIn = async () => {
   const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports
+  const scheme = vscode.env.uriScheme
+
   const api = gitExtension?.getAPI(1)
 
   // Get the first open repository
   const repository = api?.repositories[0]
-  let params = ''
+  const params = [`scheme=${scheme}`]
 
   if (repository) {
     const remoteUrl = repository.state.remotes[0]?.fetchUrl || repository.state.remotes[0]?.pushUrl
     if (remoteUrl) {
       try {
         const { provider, organization, repository: repoName } = parseGitRemote(remoteUrl)
-        params = `?provider=${provider}&organization=${organization}&repository=${repoName}`
+        params.push(`provider=${provider}`, `organization=${organization}`, `repository=${repoName}`)
       } catch (e) {
         Logger.error(`Error parsing git remote: ${e}`)
       }
     }
   }
   const editor = detectEditor()
-  const uri = vscode.Uri.parse(`${Config.baseUri}/auth/${editor}${params}`)
+  const uri = vscode.Uri.parse(`${Config.baseUri}/auth/${editor}?${params.join('&')}`)
   await vscode.env.openExternal(uri)
 }
