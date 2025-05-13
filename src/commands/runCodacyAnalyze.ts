@@ -50,7 +50,7 @@ export async function runCodacyAnalyze(filePath?: string) {
             return
           }
 
-          if (stderr && (!stdout || /error|fail|exception/i.test(stderr))) {
+          if (stderr && !stdout) {
             Logger.warn(`Codacy CLI V2 warnings: ${stderr}`)
           }
 
