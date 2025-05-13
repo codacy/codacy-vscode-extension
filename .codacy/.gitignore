@@ -2,5 +2,6 @@
 *.yaml
 
 # tools-config folder
-tools-configs
+tools-configs/
+logs/
 
