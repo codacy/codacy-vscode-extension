@@ -201,8 +201,23 @@ function getCorrectMcpConfig(): {
       configAccessor: 'mcpServers',
     }
 
+  // Get platform-specific VS Code settings directory
+  let vsCodeSettingsPath: string
+
+  switch (process.platform) {
+    case 'darwin': // macOS
+      vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User')
+      break
+    case 'win32': // Windows
+      vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User')
+      break
+    default: // Linux and others
+      vsCodeSettingsPath = path.join(os.homedir(), '.config', 'Code', 'User')
+      break
+  }
+
   return {
-    fileDir: path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User'),
+    fileDir: vsCodeSettingsPath,
     fileName: 'settings.json',
     configAccessor: 'mcp.servers',
   }
