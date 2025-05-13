@@ -126,6 +126,8 @@ export async function activate(context: vscode.ExtensionContext) {
     os.platform() === 'darwin' || os.platform() === 'linux'
   )
 
+  await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
+
   // Set isGitRepository to false by default, will be updated by git provider logic
   await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
 
