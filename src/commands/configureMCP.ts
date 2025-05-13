@@ -174,6 +174,24 @@ export async function createRules(repository?: Repository) {
   }
 }
 
+/**
+ * Detects if the current environment is running in Windows Subsystem for Linux (WSL)
+ * @returns boolean indicating if the current environment is WSL
+ */
+export function isRunningInWsl(): boolean {
+  if (os.platform() !== 'linux') {
+    return false
+  }
+
+  try {
+    const osReleaseContent = fs.readFileSync('/proc/version', 'utf8')
+    return osReleaseContent.toLowerCase().includes('microsoft') || osReleaseContent.toLowerCase().includes('wsl')
+  } catch {
+    // If we can't read the file, assume it's not WSL
+    return false
+  }
+}
+
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
@@ -204,16 +222,12 @@ function getCorrectMcpConfig(): {
   // Get platform-specific VS Code settings directory
   let vsCodeSettingsPath: string
 
-  switch (process.platform) {
-    case 'darwin': // macOS
-      vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User')
-      break
-    case 'win32': // Windows
-      vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User')
-      break
-    default: // Linux and others
-      vsCodeSettingsPath = path.join(os.homedir(), '.config', 'Code', 'User')
-      break
+  if (process.platform === 'win32' || isRunningInWsl()) {
+    vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User')
+  } else if (process.platform === 'darwin') {
+    vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User')
+  } /* Linux */ else {
+    vsCodeSettingsPath = path.join(os.homedir(), '.config', 'Code', 'User')
   }
 
   return {
