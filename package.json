@@ -45,25 +45,11 @@
       "codacy-main": [
         {
           "id": "codacy:statuses",
-          "name": "Status",
+          "name": "Codacy Cloud",
           "icon": "$(library)",
           "when": "!codacy:hasProject || Codacy:RepositoryManagerStateContext == NeedsAuthentication ||Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
           "initialSize": 1,
           "collapsed": false
-        },
-        {
-          "id": "codacy:cli",
-          "name": "Codacy CLI",
-          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || codacy:windowsDetected)",
-          "icon": "$(gear)",
-          "initialSize": 2
-        },
-        {
-          "id": "codacy:mcp",
-          "name": "Codacy MCP Server",
-          "when": "codacy:hasProject && codacy:supportsMCP",
-          "icon": "$(gear)",
-          "initialSize": 2
         },
         {
           "id": "codacy:prSummary",
@@ -85,24 +71,39 @@
           "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
+        },
+        {
+          "id": "codacy:mcp",
+          "name": "AI Guardrails",
+          "when": "codacy:hasProject && codacy:supportsMCP",
+          "icon": "$(gear)",
+          "initialSize": 2
+        },        
+        {
+          "id": "codacy:cli",
+          "name": "Local Analysis",
+          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || codacy:windowsDetected)",
+          "icon": "$(gear)",
+          "initialSize": 2
         }
+     
       ]
     },
     "viewsWelcome": [
       {
         "view": "codacy:statuses",
-        "contents": "You are not connected to Codacy.\n[Connect to Codacy](command:codacy.signIn)",
+        "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.signIn)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
         "when": "codacy:hasProject && Codacy:RepositoryManagerStateContext == NeedsAuthentication"
       },
       {
         "view": "codacy:statuses",
-        "contents": "There is no project opened. Open a project to use Codacy extension.",
+        "contents": "No project is open. Open a project to use the Codacy extension.",
         "when": "!codacy:hasProject"
       },
       {
         "view": "codacy:statuses",
         "contents": "This project isn't a Git repository. To connect it to Codacy, initialize a Git repository first.",
-        "when": "!codacy:isGitRepository && codacy:hasProject"
+        "when": "!codacy:isGitRepository && codacy:hasProject && Codacy:RepositoryManagerStateContext != NeedsAuthentication"
       },
       {
         "view": "codacy:statuses",
@@ -125,9 +126,44 @@
         "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
+        "view": "codacy:mcp",
+        "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/).\n[Install Guardrails](command:codacy.configureGuardrails)\n\nGets everything set up by installing Codacy CLI, setting up Codacy MCP Server, and adding the necessary agent rules files.\n\nYou can also choose to [only install the MCP Server](command:codacy.configureMCP)",
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with Codacy Guardrails, you need to be able to install the Codacy CLI (macOS, Linus, or Windows via WSL). [Learn more about Codacy Guardrails](https://www.codacy.com/guardrails/)",
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:canInstallCLI"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "Control your AI generated code with Codacy Guardrails. Install the missing components to get started.",
+        "when": "(codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled) || (!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling && codacy:mcpConfigured)"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "$(check) Codacy MCP Server is set up. [Reset MCP Server](command:codacy.configureMCP.reset)",
+        "when": "codacy:supportsMCP && codacy:mcpConfigured"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "$(warning) MCP Server not found. [Install MCP Server](command:codacy.configureMCP)",
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled && !codacy:cliInstalling"
+      },       
+      {
+        "view": "codacy:mcp",
+        "contents": "$(check) Codacy CLI is installed.",
+        "when": "codacy:canInstallCLI && codacy:cliInstalled"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "$(warning) Codacy CLI not found. [Install CLI](command:codacy.installCLI)",
+        "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+      },    
+      {
         "view": "codacy:cli",
-        "contents": "Install Codacy CLI to analyze your code locally\n[Install Codacy CLI](command:codacy.installCLI)",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling "
+        "contents": "Install Codacy CLI to analyze your code locally and get instant feedback as you type.\n[Install Codacy CLI](command:codacy.installCLI)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%22).",
+        "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
       },
       {
         "view": "codacy:cli",
@@ -138,16 +174,6 @@
         "view": "codacy:cli",
         "contents": "$(loading~spin) Installing Codacy CLI...",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
-      },
-      {
-        "view": "codacy:mcp",
-        "contents": "Enable your AI Agent to interact with Codacy Guardrails \n[Add Codacy MCP Server](command:codacy.configureMCP)",
-        "when": "codacy:supportsMCP && !codacy:mcpConfigured"
-      },
-      {
-        "view": "codacy:mcp",
-        "contents": "Codacy Guardrails MCP Server is enabled\n[Reset MCP Server](command:codacy.configureMCP.reset)",
-        "when": "codacy:supportsMCP && codacy:mcpConfigured"
       }
     ],
     "commands": [
@@ -316,10 +342,6 @@
       "type": "object",
       "title": "Codacy",
       "properties": {
-        "codacy.apiToken": {
-          "type": "string",
-          "description": "API Personal Token"
-        },
         "codacy.guardrails.analyzeGeneratedCode": {
           "type": "string",
           "title": "Automatically analyze generated code with Codacy Guardrails",

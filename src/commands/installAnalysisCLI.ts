@@ -17,7 +17,7 @@ const execAsync = (command: string) => {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
   const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
 
-  return new Promise((resolve, reject) => {
+  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     exec(
       `${cliVersion ? `CODACY_CLI_V2_VERSION=${cliVersion}` : ''} ${command}`,
       {

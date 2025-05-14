@@ -18,7 +18,13 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
-import { configureMCP, createRules, isMCPConfigured } from './commands/configureMCP'
+import {
+  configureGuardrails,
+  configureMCP,
+  createRules,
+  isMCPConfigured,
+  updateMCPConfig,
+} from './commands/configureMCP'
 import { installCodacyCLI, isCLIInstalled, updateCodacyCLI } from './commands/installAnalysisCLI'
 
 /**
@@ -31,6 +37,7 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.signOut': () => {
       Config.storeApiToken(undefined)
       Account.clear()
+      repositoryManager.clear()
     },
     'codacy.pr.load': () => repositoryManager.loadPullRequest(),
     'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
@@ -180,6 +187,11 @@ export async function activate(context: vscode.ExtensionContext) {
         if (gitProvider?.repositories.length) {
           repositoryManager.open(gitProvider.repositories[0])
         }
+
+        console.log('Updating MCP config')
+
+        // Update MCP config now that we have a token and perhaps a repository
+        updateMCPConfig(repositoryManager.repository)
       })
     )
 
@@ -221,15 +233,16 @@ export async function activate(context: vscode.ExtensionContext) {
     const updateCLIState = async () => {
       const cliInstalled = await isCLIInstalled()
       vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', cliInstalled)
+
+      return cliInstalled
     }
 
-    const cliInstalled = await isCLIInstalled()
+    const cliInstalled = await updateCLIState()
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     // When the user doesn't have a specific version, update the CLI to the latest version
     if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
       await updateCodacyCLI(repositoryManager.repository)
-      await updateCLIState()
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
@@ -269,12 +282,22 @@ export async function activate(context: vscode.ExtensionContext) {
     // Update initially
     updateMCPState()
 
-    // Register configure command
+    // Register MCP Only command
     context.subscriptions.push(
       vscode.commands.registerCommand('codacy.configureMCP', async () => {
         const repository = repositoryManager.repository
         await configureMCP(repository)
         updateMCPState()
+      })
+    )
+
+    // Register Guardrails command
+    context.subscriptions.push(
+      vscode.commands.registerCommand('codacy.configureGuardrails', async () => {
+        const repository = repositoryManager.repository
+        await configureGuardrails(repository)
+        updateMCPState()
+        await updateCLIState()
       })
     )
 
