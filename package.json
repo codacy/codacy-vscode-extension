@@ -168,7 +168,7 @@
       },       
       {
         "view": "codacy:mcp",
-        "contents": "$(check) Codacy CLI is installed. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%22).",
+        "contents": "$(check) Codacy CLI is installed. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
         "when": "codacy:canInstallCLI && codacy:cliInstalled"
       },
       {
@@ -178,7 +178,7 @@
       },    
       {
         "view": "codacy:cli",
-        "contents": "Install Codacy CLI to analyze your code locally and get instant feedback as you type.\n[Install Codacy CLI](command:codacy.installCLI)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%22).",
+        "contents": "Install Codacy CLI to analyze your code locally and get instant feedback as you type.\n[Install Codacy CLI](command:codacy.installCLI)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
       },
       {
