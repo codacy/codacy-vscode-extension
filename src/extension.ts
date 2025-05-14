@@ -188,7 +188,7 @@ export async function activate(context: vscode.ExtensionContext) {
           repositoryManager.open(gitProvider.repositories[0])
         }
 
-        console.log('Updating MCP config')
+        Logger.info('Updating MCP config')
 
         // Update MCP config now that we have a token and perhaps a repository
         updateMCPConfig(repositoryManager.repository)
