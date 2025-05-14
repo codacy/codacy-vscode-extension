@@ -186,7 +186,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       if (this._isAnalysisRunning) return
 
       // Check for the presence of the .codacy/codacy.yaml file to know if the CLI is initialized
-      const codacyConfigPath = path.join(this._repositoryManager.rootUri?.fsPath || '', '.codacy', 'codacy.yaml')
+      const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+      const codacyConfigPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
+
       const codacyConfigExists =
         (await vscode.workspace.fs.stat(vscode.Uri.file(codacyConfigPath)).then(() => true)) || false
 
