@@ -132,13 +132,18 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with Codacy Guardrails, you need to be able to install the Codacy CLI (macOS, Linus, or Windows via WSL). [Learn more about Codacy Guardrails](https://www.codacy.com/guardrails/)",
+        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/), you need to be able to install the Codacy CLI (macOS, Linus, or Windows via WSL).",
         "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:canInstallCLI"
       },
       {
         "view": "codacy:mcp",
-        "contents": "Control your AI generated code with Codacy Guardrails. Install the missing components to get started.",
+        "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/). Install the missing components to get started.",
         "when": "(codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled) || (!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling && codacy:mcpConfigured)"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/).",
+        "when": "codacy:supportsMCP && codacy:mcpConfigured && codacy:canInstallCLI && codacy:cliInstalled"
       },
       {
         "view": "codacy:mcp",
@@ -152,7 +157,7 @@
       },       
       {
         "view": "codacy:mcp",
-        "contents": "$(check) Codacy CLI is installed.",
+        "contents": "$(check) Codacy CLI is installed. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%22).",
         "when": "codacy:canInstallCLI && codacy:cliInstalled"
       },
       {
