@@ -85,11 +85,22 @@
           "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || codacy:windowsDetected)",
           "icon": "$(gear)",
           "initialSize": 2
+        },
+        {
+          "id": "codacy:support",
+          "name": "Chat with us",
+          "icon": "$(question)",
+          "collapsed": false,
+          "initialSize": 1
         }
      
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "codacy:support",
+        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://start-chat.com/slack/codacy/kShTS8?utm_source=Company+website&utm_medium=direct)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
+      },
       {
         "view": "codacy:statuses",
         "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.signIn)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
