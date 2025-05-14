@@ -85,10 +85,20 @@
           "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
+        },
+        {
+          "id": "codacy:support",
+          "name": "Chat with us",
+          "icon": "$(question)",
+          "collapsed": false
         }
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "codacy:support",
+        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://start-chat.com/slack/codacy/kShTS8?utm_source=Company+website&utm_medium=direct)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
+      },
       {
         "view": "codacy:statuses",
         "contents": "You are not connected to Codacy.\n[Connect to Codacy](command:codacy.signIn)",
