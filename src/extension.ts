@@ -71,7 +71,7 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 
     git.onDidCloseRepository((repo: GitRepository) => {
       repositoryManager.close(repo)
-      // If there are no more repositories, set context to false
+      // Only set context to false if there are truly no repositories left
       if (git.repositories.length === 0) {
         vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
       }
@@ -79,6 +79,7 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 
     git.onDidChangeState(async (state: APIState) => {
       if (state === 'initialized') {
+        // Only set the context after we know the final state
         if (git.repositories.length > 0) {
           await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', true)
           repositoryManager.open(git.repositories[0])
@@ -94,7 +95,8 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
 
     return git
   } else {
-    // If git provider is not found, set context to false
+    // Only set context to false if Git is truly not available
+    Logger.error('Native Git VSCode extension not found')
     await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
   }
 }
@@ -135,8 +137,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
 
-  // Set isGitRepository to false by default, will be updated by git provider logic
-  await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
+  // Set isGitRepository to null by default, will be properly set by git provider logic
+  // Using null instead of false prevents overriding the context when it shouldn't
+  // This will ensure we don't set it to false when a repository is actually available
+  await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', null)
 
   if (hasWorkspaceFolder) {
     Logger.appendLine('Codacy extension activated with workspace folder')
