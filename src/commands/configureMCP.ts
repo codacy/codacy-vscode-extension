@@ -99,10 +99,10 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
           `5. **Languages**
    - List the programming languages this rule applies to under \`Languages\`.`,
           `6. **Testing Your Rule**
-   - After creating or editing a rule, test it by running the following command:
-     \`\`\`sh
-     codacy-cli analyze --tool codacy-enigma-cli
-     \`\`\`
+   - After creating or editing a rule, test it by running the codacy_cli_analyze tool with::
+     -- rootPath set to the project root
+     -- no file
+     -- tool set to "codacy-enigma-cli"
    - Check the output for any parsing errors and fix them if needed.`,
    `7. **Summary**
    - All rules must:
