@@ -183,7 +183,7 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "Codacy CLI is only available on Windows via WSL. Make sure you install the WSL extension and start a WSL window.",
+        "contents": "Codacy CLI is only available on Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/install). Make sure you install the [WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) and start a WSL window.",
         "when": "codacy:windowsDetected"
       },
       {
