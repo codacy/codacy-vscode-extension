@@ -9,6 +9,9 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
 
     const query = new URLSearchParams(uri.query)
     const token = query.get('token')
+    const onboardingSkipped = query.get('onboardingSkipped')
+
+    Config.updateOnboardingSkipped(onboardingSkipped === 'true')
 
     if (!token) {
       return
@@ -32,29 +35,34 @@ export const detectEditor = (): IDE => {
   return 'vscode'
 }
 
-export const signIn = async () => {
-  const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports
+export const getRepositoryUrl = async (): Promise<string | undefined> => {
+  const gitProvider = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1)
+  if (gitProvider && gitProvider.repositories.length > 0) {
+    return (
+      gitProvider.repositories[0].state.remotes[0]?.pushUrl || gitProvider.repositories[0].state.remotes[0]?.fetchUrl
+    )
+  }
+  return undefined
+}
+
+export const codacyAuth = async () => {
+  const remoteUrl = await getRepositoryUrl()
   const scheme = vscode.env.uriScheme
 
-  const api = gitExtension?.getAPI(1)
-
   // Get the first open repository
-  const repository = api?.repositories[0]
   const params = new URLSearchParams({ scheme })
 
-  if (repository) {
-    const remoteUrl = repository.state.remotes[0]?.fetchUrl || repository.state.remotes[0]?.pushUrl
-    if (remoteUrl) {
-      try {
-        const { provider, organization, repository: repoName } = parseGitRemote(remoteUrl)
-        params.set('provider', provider)
-        params.set('organization', organization)
-        params.set('repository', repoName)
-      } catch (e) {
-        Logger.error(`Error parsing git remote: ${e}`)
-      }
+  if (remoteUrl) {
+    try {
+      const { provider, organization, repository: repoName } = parseGitRemote(remoteUrl)
+      params.set('provider', provider)
+      params.set('organization', organization)
+      params.set('repository', repoName)
+    } catch (e) {
+      Logger.error(`Error parsing git remote: ${e}`)
     }
   }
+
   const editor = detectEditor()
   const uri = vscode.Uri.parse(`${Config.baseUri}/auth/${editor}?${params.toString()}`)
   await vscode.env.openExternal(uri)

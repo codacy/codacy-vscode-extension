@@ -9,13 +9,20 @@ import { PullRequest, PullRequestInfo } from './PullRequest'
 import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
+import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
 
-export enum RepositoryManagerState {
-  NoRepository = 'NoRepository',
-  NoRemote = 'NoRemote',
+export enum CodacyCloudState {
   Initializing = 'Initializing',
   NeedsAuthentication = 'NeedsAuthentication',
+  NoGitRepository = 'NoGitRepository',
+  NeedsToJoinOrganization = 'NeedsToJoinOrganization',
+  HasPendingJoinOrganization = 'HasPendingJoinOrganization',
+  NeedsToAddOrganization = 'NeedsToAddOrganization',
+  NeedsToAddRepository = 'NeedsToAddRepository',
+  IsAnalyzing = 'IsAnalyzing',
+  AnalysisFailed = 'AnalysisFailed',
   Loaded = 'Loaded',
+  NoRepository = 'NoRepository',
 }
 
 export enum PullRequestState {
@@ -30,20 +37,27 @@ export enum BranchState {
   OnPullRequestBranch = 'OnPullRequestBranch',
 }
 
-const RM_STATE_CONTEXT_KEY = 'Codacy:RepositoryManagerStateContext'
+const RM_STATE_CONTEXT_KEY = 'Codacy:CodacyCloudStateContext'
 const PR_STATE_CONTEXT_KEY = 'Codacy:PullRequestStateContext'
 const BR_STATE_CONTEXT_KEY = 'Codacy:BranchStateContext'
 
-const LOAD_RETRY_TIME = 2 * 60 * 1000
+const LOAD_RETRY_TIME = 2 * 60 * 1000 // 2 minutes
 const MAX_LOAD_ATTEMPTS = 5
 
-export class RepositoryManager implements vscode.Disposable {
+export class CodacyCloud implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: RepositoryWithAnalysis | undefined
   private _organization: OrganizationWithMeta | undefined
   private _enabledBranches: Branch[] = []
   private _expectCoverage: boolean | undefined
-  private _state: RepositoryManagerState = RepositoryManagerState.Initializing
+  private _params:
+    | {
+        provider: 'bb' | 'gh' | 'gl'
+        organization: string
+        repository: string
+      }
+    | undefined
+  private _state: CodacyCloudState = CodacyCloudState.Initializing
 
   private _branch: string | undefined
   private _pullRequest: PullRequest | undefined
@@ -52,8 +66,8 @@ export class RepositoryManager implements vscode.Disposable {
   private _branchState: BranchState = BranchState.OnUnknownBranch
   private _issuesManager = new IssuesManager(this)
 
-  private _onDidChangeState = new vscode.EventEmitter<RepositoryManagerState>()
-  readonly onDidChangeState: vscode.Event<RepositoryManagerState> = this._onDidChangeState.event
+  private _onDidChangeState = new vscode.EventEmitter<CodacyCloudState>()
+  readonly onDidChangeState: vscode.Event<CodacyCloudState> = this._onDidChangeState.event
 
   private _onDidLoadRepository = new vscode.EventEmitter<RepositoryWithAnalysis>()
   readonly onDidLoadRepository: vscode.Event<RepositoryWithAnalysis> = this._onDidLoadRepository.event
@@ -65,9 +79,11 @@ export class RepositoryManager implements vscode.Disposable {
   readonly onDidUpdatePullRequests: vscode.Event<PullRequestInfo[] | undefined> = this._onDidUpdatePullRequests.event
 
   private _loadAttempts = 0
+  private _analysisAttempts = 0
   private _loadTimeout: NodeJS.Timeout | undefined
   private _refreshTimeout: NodeJS.Timeout | undefined
   private _prsRefreshTimeout: NodeJS.Timeout | undefined
+  private _analysisCheckTimeout: NodeJS.Timeout | undefined
 
   private _disposables: vscode.Disposable[] = []
 
@@ -83,12 +99,12 @@ export class RepositoryManager implements vscode.Disposable {
 
       try {
         if (gitRepository.state.HEAD === undefined) {
-          this.state = RepositoryManagerState.Initializing
+          this.state = CodacyCloudState.Initializing
         } else {
           const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
 
           if (remotesWithPushUrl.length === 0) {
-            this.state = RepositoryManagerState.NoRemote
+            this.state = CodacyCloudState.NoGitRepository
             Logger.error('No remote found')
             return
           }
@@ -97,24 +113,44 @@ export class RepositoryManager implements vscode.Disposable {
           this._repository = undefined
 
           while (this._repository === undefined && remoteIdx < remotesWithPushUrl.length) {
-            const repo = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
+            const { provider, organization, repository } = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
+            this._params = { provider, organization, repository }
 
             try {
               // load repository information
-              const { data } = await Api.Analysis.getRepositoryWithAnalysis(
-                repo.provider,
-                repo.organization,
-                repo.repository
-              )
+              const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, organization, repository)
 
+              if (!data.lastAnalysedCommit) {
+                const status = await checkFirstAnalysisStatus(provider, organization, repository)
+                if (
+                  (status && status.length === 0) ||
+                  data.repository.problems.some((problem) =>
+                    ['no_supported_languages', 'empty_repository'].includes(problem.code)
+                  )
+                ) {
+                  this.state = CodacyCloudState.AnalysisFailed
+                  return
+                } else {
+                  this.state = CodacyCloudState.IsAnalyzing
+                  this.checkRepositoryAnalysisStatus()
+                  return
+                }
+              }
               this._repository = data
-            } catch {
+            } catch (error) {
               remoteIdx++
             }
           }
 
           if (this._repository === undefined) {
-            this.state = RepositoryManagerState.NoRepository
+            // repository not found, check for codacy cloud status
+            if (this._params) {
+              const status = await getRepositoryCodacyCloudStatus(this._params.provider, this._params.organization)
+              this.state = status
+            } else {
+              this.state = CodacyCloudState.NoRepository
+            }
+
             Logger.error('No repository found')
             return
           }
@@ -142,7 +178,7 @@ export class RepositoryManager implements vscode.Disposable {
 
           this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
 
-          this.state = RepositoryManagerState.Loaded
+          this.state = CodacyCloudState.Loaded
 
           this._onDidLoadRepository.fire(this._repository)
 
@@ -151,22 +187,67 @@ export class RepositoryManager implements vscode.Disposable {
       } catch (e) {
         if (e instanceof OpenAPIError && !Config.apiToken) {
           console.error(e)
-          this.state = RepositoryManagerState.NeedsAuthentication
+          this.state = CodacyCloudState.NeedsAuthentication
         } else {
           handleError(e as Error)
-          this.state = RepositoryManagerState.NoRepository
+          this.state = CodacyCloudState.NoRepository
         }
       }
     }
 
     if (!Config.apiToken) {
-      this.state = RepositoryManagerState.NeedsAuthentication
+      this.state = CodacyCloudState.NeedsAuthentication
       return
     }
 
     if (this._current !== gitRepository) {
-      vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, openRepository)
+      vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, openRepository)
     }
+  }
+
+  public async checkRepositoryAnalysisStatus() {
+    this._analysisCheckTimeout && clearTimeout(this._analysisCheckTimeout)
+
+    // Exit if state changed or missing params
+    if (this._state !== CodacyCloudState.IsAnalyzing || !this._params) return
+    const { provider, organization, repository } = this._params
+
+    const check = async () => {
+      try {
+        const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, organization, repository)
+
+        // Analysis completed
+        if (data.lastAnalysedCommit) {
+          this._repository = data
+          this.state = CodacyCloudState.Loaded
+          await vscode.window.showInformationMessage('Analysis completed. Please restart the IDE.')
+          return
+        }
+
+        // Analysis still in progress
+        if (this._analysisAttempts < MAX_LOAD_ATTEMPTS) {
+          this._analysisAttempts++
+          Logger.appendLine(
+            `Analysis check attempt ${this._analysisAttempts}/${MAX_LOAD_ATTEMPTS}. Next check in ${
+              LOAD_RETRY_TIME / 60000
+            } minutes.`
+          )
+          this._analysisCheckTimeout = setTimeout(() => this.checkRepositoryAnalysisStatus(), LOAD_RETRY_TIME)
+        } else {
+          Logger.appendLine(`Maximum analysis check attempts reached. Stopping automatic checks.`)
+          await vscode.window.showWarningMessage(
+            'Repository analysis is taking longer than expected. You may need to restart your IDE later to see the results.'
+          )
+        }
+      } catch (error) {
+        handleError(error as Error)
+
+        // Stop checking on errors
+        Logger.appendLine('Error occurred during analysis check. Stopping automatic checks.')
+      }
+    }
+
+    vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, check)
   }
 
   private async handleBranchChange() {
@@ -279,7 +360,7 @@ export class RepositoryManager implements vscode.Disposable {
 
   private async getOrFetchPullRequests() {
     this._prsRefreshTimeout && clearTimeout(this._prsRefreshTimeout)
-    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return []
+    if (this._state !== CodacyCloudState.Loaded || !this._repository) return []
     const repo = this._repository.repository
 
     try {
@@ -306,7 +387,7 @@ export class RepositoryManager implements vscode.Disposable {
   }
 
   public async refreshPullRequests() {
-    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
+    if (this._state !== CodacyCloudState.Loaded || !this._repository) return
 
     // we need to make this to run getOrFetchPullRequests in the context of 'this'
     const load = async () => await this.getOrFetchPullRequests()
@@ -316,7 +397,7 @@ export class RepositoryManager implements vscode.Disposable {
 
   public async loadPullRequest() {
     this._loadTimeout && clearTimeout(this._loadTimeout)
-    if (this._state !== RepositoryManagerState.Loaded || !this._repository) return
+    if (this._state !== CodacyCloudState.Loaded || !this._repository) return
 
     const load = async () => {
       try {
@@ -365,7 +446,7 @@ export class RepositoryManager implements vscode.Disposable {
       }
     }
 
-    vscode.window.withProgress({ location: { viewId: 'codacy:statuses' } }, load)
+    vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, load)
   }
 
   public checkout(pullRequest: PullRequestInfo) {
@@ -388,14 +469,18 @@ export class RepositoryManager implements vscode.Disposable {
   public clear() {
     this._current = undefined
     if (!Config.apiToken) {
-      this.state = RepositoryManagerState.NeedsAuthentication
+      this.state = CodacyCloudState.NeedsAuthentication
     } else {
-      this.state = RepositoryManagerState.NoRepository
+      this.state = CodacyCloudState.NoGitRepository
     }
   }
 
   get repository() {
     return this._repository?.repository
+  }
+
+  get params() {
+    return this._params
   }
 
   get lastAnalysedCommit() {
@@ -434,7 +519,7 @@ export class RepositoryManager implements vscode.Disposable {
     return this._expectCoverage
   }
 
-  set state(state: RepositoryManagerState) {
+  set state(state: CodacyCloudState) {
     const stateChange = state !== this._state
     this._state = state
     if (stateChange) {

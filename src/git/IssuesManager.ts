@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
+import { CodacyCloud, CodacyCloudState } from './CodacyCloud'
 import Logger from '../common/logger'
 import { CommitIssue } from '../api/client'
 import { Api } from '../api'
@@ -18,19 +18,19 @@ export class IssuesManager implements vscode.Disposable {
   private _onDidUpdateBranchIssues = new vscode.EventEmitter<BranchIssue[]>()
   readonly onDidUpdateBranchIssues: vscode.Event<BranchIssue[]> = this._onDidUpdateBranchIssues.event
 
-  constructor(private readonly _repositoryManager: RepositoryManager) {}
+  constructor(private readonly _codacyCloud: CodacyCloud) {}
 
   public async refresh() {
-    if (this._repositoryManager.state !== RepositoryManagerState.Loaded || !this._repositoryManager.repository) return
+    if (this._codacyCloud.state !== CodacyCloudState.Loaded || !this._codacyCloud.repository) return
 
-    const currentBranch = this._repositoryManager.head?.name
+    const currentBranch = this._codacyCloud.head?.name
 
-    if (!currentBranch || !this._repositoryManager.enabledBranches.some((b) => b.name === currentBranch)) {
+    if (!currentBranch || !this._codacyCloud.enabledBranches.some((b) => b.name === currentBranch)) {
       Logger.warn(`No analysed branch found: ${currentBranch || 'no HEAD information'}`)
       return
     }
 
-    const repo = this._repositoryManager.repository
+    const repo = this._codacyCloud.repository
 
     const load = async () => {
       this._allIssues = []

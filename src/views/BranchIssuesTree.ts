@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { RepositoryManager } from '../git/RepositoryManager'
+import { CodacyCloud } from '../git/CodacyCloud'
 import {
   BranchIssuesTreeCategoryNode,
   BranchIssuesTreeGroupByCategoryNode,
@@ -22,7 +22,7 @@ export class BranchIssuesTree extends vscode.Disposable implements vscode.TreeDa
 
   constructor(
     private _context: vscode.ExtensionContext,
-    private _repositoryManager: RepositoryManager
+    private _codacyCloud: CodacyCloud
   ) {
     super(() => this.dispose())
 
@@ -42,11 +42,11 @@ export class BranchIssuesTree extends vscode.Disposable implements vscode.TreeDa
     )
 
     // subsribe to changes in the current branch
-    this._repositoryManager.branchIssues.onDidUpdateBranchIssues((issues: BranchIssue[]) => {
+    this._codacyCloud.branchIssues.onDidUpdateBranchIssues((issues: BranchIssue[]) => {
       this._allIssues = issues
       this._onDidChangeTreeData.fire()
 
-      this._view.title = `${this._repositoryManager.head?.name} - ${issues.length}${
+      this._view.title = `${this._codacyCloud.head?.name} - ${issues.length}${
         issues.length >= MAX_FETCH_BRANCH_ISSUES ? '+' : ''
       } issues`
     })
@@ -71,7 +71,7 @@ export class BranchIssuesTree extends vscode.Disposable implements vscode.TreeDa
   }
 
   async getChildren(element?: BranchIssuesTreeNode | undefined) {
-    const baseUri = this._repositoryManager.rootUri?.path || ''
+    const baseUri = this._codacyCloud.rootUri?.path || ''
     const userEmails = await Account.emails()
 
     if (!element) {

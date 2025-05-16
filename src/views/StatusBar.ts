@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { RepositoryManager } from '../git/RepositoryManager'
+import { CodacyCloud } from '../git/CodacyCloud'
 
 export class StatusBar {
   private _disposables: vscode.Disposable[] = []
@@ -7,7 +7,7 @@ export class StatusBar {
 
   constructor(
     private _context: vscode.ExtensionContext,
-    private _repositoryManager: RepositoryManager
+    private _codacyCloud: CodacyCloud
   ) {
     this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0)
     this._statusBarItem.command = 'codacy.pr.openSummary'
@@ -15,21 +15,21 @@ export class StatusBar {
     this._statusBarItem.text = '$(issue-draft) Codacy'
     this._statusBarItem.show()
 
-    this._repositoryManager.onDidUpdatePullRequest(() => {
+    this._codacyCloud.onDidUpdatePullRequest(() => {
       this.update()
     })
 
-    this._repositoryManager.onDidLoadRepository(() => {
+    this._codacyCloud.onDidLoadRepository(() => {
       this.update()
     })
 
-    this._repositoryManager.onDidChangeState(() => {
+    this._codacyCloud.onDidChangeState(() => {
       this.update()
     })
   }
 
   private update() {
-    const pr = this._repositoryManager.pullRequest?.analysis
+    const pr = this._codacyCloud.pullRequest?.analysis
     if (pr) {
       if (pr.isAnalysing) {
         this._statusBarItem.text = `$(loading~spin) Analyzing ...`
