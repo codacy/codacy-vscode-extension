@@ -6,7 +6,7 @@ import {
   PullRequestWithAnalysis,
   QualitySettingsWithGatePolicy,
 } from '../api/client'
-import { RepositoryManager, RepositoryManagerState } from './RepositoryManager'
+import { CodacyCloud, CodacyCloudState } from './CodacyCloud'
 import { Api } from '../api'
 import { QualityStatusResponse, getQualityStatus } from '../common/commitStatusHelper'
 import { Reason } from '../common/types'
@@ -72,29 +72,26 @@ export class PullRequest extends PullRequestInfo {
 
   constructor(
     prWithAnalysis: PullRequestWithAnalysis,
-    private readonly _repositoryManager: RepositoryManager
+    private readonly _codacyCloud: CodacyCloud
   ) {
-    super(prWithAnalysis, _repositoryManager.expectCoverage)
+    super(prWithAnalysis, _codacyCloud.expectCoverage)
 
     this._prWithAnalysis = prWithAnalysis
     this._issues = []
     this._files = []
     this._diffCoverageLineHits = new Map<string, DiffLineHit[]>()
 
-    this.displayCoverage = !!_repositoryManager.expectCoverage
+    this.displayCoverage = !!_codacyCloud.expectCoverage
 
     this.refresh(true)
   }
 
   private ensureRepository() {
-    if (
-      this._repositoryManager.state !== RepositoryManagerState.Loaded ||
-      this._repositoryManager.repository === undefined
-    ) {
+    if (this._codacyCloud.state !== CodacyCloudState.Loaded || this._codacyCloud.repository === undefined) {
       throw new Error('Forbidden call')
     }
 
-    return this._repositoryManager.repository
+    return this._codacyCloud.repository
   }
 
   private async fetchMetadata() {
@@ -177,7 +174,7 @@ export class PullRequest extends PullRequestInfo {
 
   private async fetchFiles() {
     const repo = this.ensureRepository()
-    const baseUri = this._repositoryManager.rootUri?.path
+    const baseUri = this._codacyCloud.rootUri?.path
 
     this._files = []
     let nextCursor: string | undefined
@@ -252,7 +249,7 @@ export class PullRequest extends PullRequestInfo {
       // if commit heads don't match, and everything was pushed, try again
       if (
         this.analysis.isAnalysing ||
-        (this._headCommit !== this._repositoryManager.head?.commit && this._repositoryManager.head?.ahead === 0)
+        (this._headCommit !== this._codacyCloud.head?.commit && this._codacyCloud.head?.ahead === 0)
       ) {
         this._refreshTimeout && clearTimeout(this._refreshTimeout)
         this._refreshTimeout = setTimeout(() => {

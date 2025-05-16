@@ -1,19 +1,19 @@
 import { SinonSandbox, createSandbox } from 'sinon'
 import { MockExtensionContext } from '../../mocks/MockExtensionContext'
-import { RepositoryManager } from '../../../git/RepositoryManager'
+import { CodacyCloud } from '../../../git/CodacyCloud'
 import { MockRepository } from '../../mocks/MockRepository'
 import { Repository as GitRepository } from '../../../git/git'
 
-suite('Repository Manager Test Suite', () => {
+suite('Codacy Cloud Test Suite', () => {
   let context: MockExtensionContext
   let sinon: SinonSandbox
-  let rm: RepositoryManager
+  let rm: CodacyCloud
   let repo: GitRepository
 
   setup(() => {
     sinon = createSandbox()
     context = new MockExtensionContext()
-    rm = new RepositoryManager()
+    rm = new CodacyCloud()
     repo = new MockRepository()
   })
 

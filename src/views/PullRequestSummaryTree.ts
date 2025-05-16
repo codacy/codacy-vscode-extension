@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { RepositoryManager } from '../git/RepositoryManager'
+import { CodacyCloud } from '../git/CodacyCloud'
 import {
   PullRequestComplexityNode,
   PullRequestCoverageNode,
@@ -20,7 +20,7 @@ export class PullRequestSummaryTree
 
   constructor(
     private _context: vscode.ExtensionContext,
-    private _repositoryManager: RepositoryManager
+    private _codacyCloud: CodacyCloud
   ) {
     super(() => this.dispose())
 
@@ -40,7 +40,7 @@ export class PullRequestSummaryTree
     )
 
     // subscribe to changes in the pull request
-    this._repositoryManager.onDidUpdatePullRequest((pr) => {
+    this._codacyCloud.onDidUpdatePullRequest((pr) => {
       this._onDidChangeTreeData.fire()
 
       if (pr) {
@@ -57,13 +57,13 @@ export class PullRequestSummaryTree
 
   async getChildren(element?: PullRequestSummaryNode | undefined) {
     if (!element) {
-      if (this._repositoryManager.pullRequest?.analysis) {
+      if (this._codacyCloud.pullRequest?.analysis) {
         return [
-          new PullRequestInformationNode(this._repositoryManager.pullRequest),
-          new PullRequestIssuesNode(this._repositoryManager.pullRequest),
-          new PullRequestCoverageNode(this._repositoryManager.pullRequest),
-          new PullRequestDuplicationNode(this._repositoryManager.pullRequest),
-          new PullRequestComplexityNode(this._repositoryManager.pullRequest),
+          new PullRequestInformationNode(this._codacyCloud.pullRequest),
+          new PullRequestIssuesNode(this._codacyCloud.pullRequest),
+          new PullRequestCoverageNode(this._codacyCloud.pullRequest),
+          new PullRequestDuplicationNode(this._codacyCloud.pullRequest),
+          new PullRequestComplexityNode(this._codacyCloud.pullRequest),
         ]
       } else return []
     } else {
