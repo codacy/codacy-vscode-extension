@@ -27,11 +27,11 @@ class Log {
     return component ? `${component} > ${message}` : message
   }
 
-  public trace(message: string, component: string) {
+  public trace(message: string, component?: string) {
     this._outputChannel.trace(this.logString(message, component))
   }
 
-  public debug(message: string, component: string) {
+  public debug(message: string, component?: string) {
     this._outputChannel.debug(this.logString(message, component))
   }
 

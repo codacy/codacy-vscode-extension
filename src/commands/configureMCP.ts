@@ -7,6 +7,7 @@ import { get, set } from 'lodash'
 import { Repository } from '../api/client'
 import { installCodacyCLI } from './installAnalysisCLI'
 import Logger from '../common/logger'
+import { CodacyError } from '../common/utils'
 
 interface Rule {
   when: string
@@ -65,53 +66,6 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
       scope: 'general',
       enforce: ['run codacy_setup_repository tool and then retry the action that failed'],
     },
-    {
-      when: 'user asks to create a rule',
-      scope: 'general',
-      enforce: [
-        'To add a new rule for code analysis, follow these steps:',
-        `1. **File Location & Name**
-   - Create or edit a file named \`enigma.yaml\` in the root of the project.`,
-        `2. **Rule Structure**
-   - Each rule should be listed under the \`rules:\` key as an item in a YAML list.
-   - Example rule format:
-     \`\`\`yaml
-     rules:
-       - Id: python_hardcoded_password
-         Pattern: $PASSWORD = $VALUE
-         Description: Detects hardcoded passwords in string variable declarations
-         Category: Security
-         MetaTags:
-           - Id: PASSWORD
-             Regex: ...
-           - Id: VALUE
-             Regex: ...
-         Languages:
-           - python
-     \`\`\``, 
-          `3. **Pattern Field**
-   - The \`Pattern\` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like \`$PASSWORD\` or \`$VALUE\`) as placeholders.
-   - MetaTags must start with a \`$\` and be defined in the \`MetaTags\` section.`,
-          `4. **MetaTags**
-   - Every MetaTag used in the \`Pattern\` must have a definition under \`MetaTags\`.
-   - Each MetaTag must have an \`Id\` and a \`Regex\`.
-   - The \`Regex\` must be Perl-compatible (PCRE), but **negative lookaheads are NOT supported**.`,
-          `5. **Languages**
-   - List the programming languages this rule applies to under \`Languages\`.`,
-          `6. **Testing Your Rule**
-   - After creating or editing a rule, test it by running the codacy_cli_analyze tool with:
-     -- rootPath set to the project root
-     -- no file
-     -- tool set to "codacy-enigma-cli"
-   - Check the output for any parsing errors and fix them if needed.`,
-   `7. **Summary**
-   - All rules must:
-     - Be in \`enigma.yaml\` at the project root
-     - Define all MetaTags used in the Pattern
-     - Use only supported regex features in MetaTags
-     - Be tested for parsing errors using the CLI`
-      ]
-    }
   ]
 
   return {
@@ -183,6 +137,12 @@ const addRulesToGitignore = (rulesPath: string) => {
     Logger.appendLine('Created .gitignore and added rules path')
   }
 }
+
+export function updateMCPState() {
+  const isConfigured = isMCPConfigured()
+  vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
+}
+
 export async function createRules(repository?: Repository) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
 
@@ -297,11 +257,13 @@ export function isMCPConfigured(): boolean {
     try {
       if (currentIde === 'vscode') {
         const mcpServers = vscode.workspace.getConfiguration('mcp').get('servers')
-        
-        if (mcpServers !== undefined && 
-            typeof mcpServers === 'object' && 
-            mcpServers !== null && 
-            (mcpServers as Record<string, unknown>).codacy !== undefined) {
+
+        if (
+          mcpServers !== undefined &&
+          typeof mcpServers === 'object' &&
+          mcpServers !== null &&
+          (mcpServers as Record<string, unknown>).codacy !== undefined
+        ) {
           Logger.debug('MCP configuration found through VS Code API', 'MCP')
           return true
         }
@@ -309,11 +271,11 @@ export function isMCPConfigured(): boolean {
     } catch (apiError) {
       Logger.debug(`VS Code API check failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`, 'MCP')
     }
-    
+
     // Otherwise, check configuration files directly
     const ideConfig = getCorrectMcpConfig()
     const filePath = path.join(ideConfig.fileDir, ideConfig.fileName)
-    
+
     if (!fs.existsSync(filePath)) {
       Logger.debug(`MCP configuration file not found: ${filePath}`, 'MCP')
       return false
@@ -322,7 +284,7 @@ export function isMCPConfigured(): boolean {
     const rawContent = fs.readFileSync(filePath, 'utf8')
     const cleanedContent = sanitizeJSON(rawContent)
     const config = JSON.parse(cleanedContent)
-    
+
     const hasConfig = get(config, `${ideConfig.configAccessor}.codacy`) !== undefined
     Logger.debug(`MCP configuration ${hasConfig ? 'found' : 'not found'} in config file`, 'MCP')
     return hasConfig
@@ -344,7 +306,6 @@ function installMCPForVSCode(server: MCPServerConfiguration) {
   const mcpConfig = vscode.workspace.getConfiguration('mcp')
   const mcpServers = mcpConfig.has('servers') ? mcpConfig.get('servers') : mcpConfig.update('servers', {}, true)
 
-
   if (mcpServers !== undefined && typeof mcpServers === 'object' && mcpServers !== null) {
     const modifiedConfig = set(mcpServers, 'codacy', server)
     vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
@@ -364,7 +325,7 @@ function installMCPForOthers(server: MCPServerConfiguration) {
     fs.mkdirSync(ideDir)
   }
 
-  const filePath = path.join(ideDir, ideConfig.fileName)  
+  const filePath = path.join(ideDir, ideConfig.fileName)
 
   // Read existing configuration if it exists
   let config = {}
@@ -385,7 +346,7 @@ function installMCPForOthers(server: MCPServerConfiguration) {
   // Set the codacyServer configuration at the correct nested level
   const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy`, server)
 
-  fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))    
+  fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 }
 
 type MCPServerConfiguration = {
@@ -414,28 +375,21 @@ export async function configureMCP(repository?: Repository, isUpdate = false) {
 
     if (ide === 'vscode') {
       installMCPForVSCode(codacyServer)
-    }
-    else if (ide === 'cursor' || ide === 'windsurf') {
+    } else if (ide === 'cursor' || ide === 'windsurf') {
       installMCPForOthers(codacyServer)
+    } else {
+      throw new CodacyError('Unsupported IDE for MCP configuration', undefined, 'MCP')
     }
-    else {
-      Logger.error('Unsupported IDE for MCP configuration')
-      return
-    }
-
-
 
     if (!isUpdate) {
       vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
     }
-    
+
     if (generateRules === 'enabled') {
       await createRules(repository)
     }
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
-    Logger.error(`Failed to configure MCP server: ${errorMessage}`)
+  } catch (error) {
+    throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }
 }
 

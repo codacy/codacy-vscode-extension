@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import * as os from 'os'
-import { CommandType, wrapCommandWithCatch } from './common/utils'
+import { CommandType, wrapExtensionCommand } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
 import { GitProvider } from './git/GitProvider'
@@ -24,8 +24,9 @@ import {
   createRules,
   isMCPConfigured,
   updateMCPConfig,
+  updateMCPState,
 } from './commands/configureMCP'
-import { installCodacyCLI, isCLIInstalled, updateCodacyCLI } from './commands/installAnalysisCLI'
+import { installCLICommand, updateCLIState, updateCodacyCLI } from './commands/installAnalysisCLI'
 
 /**
  * Helper function to register all extension commands
@@ -48,10 +49,26 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
     'codacy.branchIssues.refresh': () => repositoryManager.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
+    'codacy.installCLI': async () => {
+      await installCLICommand(repositoryManager.repository)
+    },
+    'codacy.configureMCP': async () => {
+      await configureMCP(repositoryManager.repository)
+      updateMCPState()
+    },
+    'codacy.configureGuardrails': async () => {
+      await configureGuardrails(repositoryManager.repository)
+      updateMCPState()
+      await updateCLIState()
+    },
+    'codacy.configureMCP.reset': async () => {
+      await configureMCP(repositoryManager.repository, true)
+      updateMCPState()
+    },
   }
 
   Object.keys(commands).forEach((cmd) => {
-    context.subscriptions.push(vscode.commands.registerCommand(cmd, wrapCommandWithCatch(commands[cmd])))
+    context.subscriptions.push(vscode.commands.registerCommand(cmd, wrapExtensionCommand(commands[cmd], cmd)))
   })
 }
 
@@ -233,14 +250,6 @@ export async function activate(context: vscode.ExtensionContext) {
       item.onClick()
     })
 
-    // Update CLI on startup
-    const updateCLIState = async () => {
-      const cliInstalled = await isCLIInstalled()
-      vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', cliInstalled)
-
-      return cliInstalled
-    }
-
     const cliInstalled = await updateCLIState()
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
@@ -250,69 +259,8 @@ export async function activate(context: vscode.ExtensionContext) {
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
-    context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.installCLI', async () => {
-        await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
-
-        await vscode.window.withProgress(
-          {
-            location: vscode.ProgressLocation.Window,
-            title: 'Installing Codacy CLI',
-            cancellable: false,
-          },
-          async () => {
-            try {
-              await installCodacyCLI(repositoryManager.repository)
-              await updateCLIState()
-              vscode.window.showInformationMessage('Codacy CLI installed successfully!')
-            } catch (error) {
-              vscode.window.showErrorMessage(
-                `Failed to install Codacy CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
-              )
-            } finally {
-              await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', false)
-            }
-          }
-        )
-      })
-    )
-
-    // Register MCP commands
-    const updateMCPState = () => {
-      const isConfigured = isMCPConfigured()
-      vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
-    }
-
     // Update initially
     updateMCPState()
-
-    // Register MCP Only command
-    context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.configureMCP', async () => {
-        const repository = repositoryManager.repository
-        await configureMCP(repository)
-        updateMCPState()
-      })
-    )
-
-    // Register Guardrails command
-    context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.configureGuardrails', async () => {
-        const repository = repositoryManager.repository
-        await configureGuardrails(repository)
-        updateMCPState()
-        await updateCLIState()
-      })
-    )
-
-    // Register reset command
-    context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
-        const repository = repositoryManager.repository
-        await configureMCP(repository, true)
-        updateMCPState()
-      })
-    )
 
     const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
 

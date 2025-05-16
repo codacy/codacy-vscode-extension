@@ -1,6 +1,20 @@
 import * as vscode from 'vscode'
 import Logger from './logger'
 import { ApiError, OpenAPIError } from '../api/client'
+import Telemetry from './telemetry'
+
+export class CodacyError extends Error {
+  public readonly innerException?: Error
+  public readonly component?: string
+
+  constructor(message: string, _innerException?: Error, _component?: string) {
+    super(message)
+
+    this.name = 'CodacyError'
+    this.innerException = _innerException
+    this.component = _component
+  }
+}
 
 export const handleError = (e: Error): void => {
   const showErrorMessage = async (message: string) => {
@@ -23,6 +37,11 @@ export const handleError = (e: Error): void => {
       Logger.error(`${err.statusText} - ${err.message}`)
       showErrorMessage(err.message).catch(console.error)
     }
+  } else if (e instanceof CodacyError) {
+    const err = e as CodacyError
+    Logger.error(`${err.name} - ${err.message}`)
+    if (err.innerException) Logger.debug(`Inner Exception: ${err.innerException.message}`, err.component)
+    showErrorMessage(err.message).catch(console.error)
   } else {
     const err = e as Error
     Logger.error(err.message)
@@ -31,12 +50,20 @@ export const handleError = (e: Error): void => {
 
 export type CommandType = Parameters<typeof vscode.commands.registerCommand>[1]
 
-export const wrapCommandWithCatch =
-  (command: CommandType): CommandType =>
+export const wrapExtensionCommand =
+  (command: CommandType, key: string): CommandType =>
   async (...args) => {
     try {
       await command(...args)
+
+      Telemetry.track(key.substring(7), {
+        success: true,
+      })
     } catch (e) {
       handleError(e as Error)
+
+      Telemetry.track(key.substring(7), {
+        success: false,
+      })
     }
   }
