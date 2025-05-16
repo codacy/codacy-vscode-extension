@@ -34,7 +34,11 @@ class TelemetryClient {
       this.analytics.track({
         userId: this.userId,
         event,
-        properties,
+        properties: {
+          ide: vscode.env.appName.toLowerCase(),
+          os: process.platform,
+          ...properties,
+        },
       })
     }
   }
