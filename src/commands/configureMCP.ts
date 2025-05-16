@@ -346,7 +346,7 @@ type MCPServerConfiguration = {
   env?: Record<string, string>
 }
 
-export async function configureMCP(repository?: Repository) {
+export async function configureMCP(repository?: Repository, isUpdate = false) {
   const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
   const ide = getCurrentIDE()
 
@@ -377,7 +377,10 @@ export async function configureMCP(repository?: Repository) {
 
 
 
-    vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
+    if (!isUpdate) {
+      vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
+    }
+    
     if (generateRules === 'enabled') {
       await createRules(repository)
     }
@@ -389,6 +392,6 @@ export async function configureMCP(repository?: Repository) {
 
 export async function updateMCPConfig(repository?: Repository) {
   if (isMCPConfigured()) {
-    await configureMCP(repository)
+    await configureMCP(repository, true)
   }
 }

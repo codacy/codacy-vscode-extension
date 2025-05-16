@@ -309,7 +309,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand('codacy.configureMCP.reset', async () => {
         const repository = repositoryManager.repository
-        await configureMCP(repository)
+        await configureMCP(repository, true)
         updateMCPState()
       })
     )
