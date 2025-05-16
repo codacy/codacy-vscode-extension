@@ -269,11 +269,15 @@ function getCorrectMcpConfig(): {
   // Get platform-specific VS Code settings directory
   let vsCodeSettingsPath: string
 
-  if (process.platform === 'win32' || isRunningInWsl()) {
+  if (process.platform === 'win32') {
     vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User')
   } else if (process.platform === 'darwin') {
     vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User')
   } /* Linux */ else {
+    // Could be WSL, but no way of getting the exact path on Windows from WSL
+    if (isRunningInWsl()) {
+      throw new Error('Running in WSL is not supported for MCP configuration via file')
+    }
     vsCodeSettingsPath = path.join(os.homedir(), '.config', 'Code', 'User')
   }
 
@@ -286,17 +290,46 @@ function getCorrectMcpConfig(): {
 
 export function isMCPConfigured(): boolean {
   try {
+    const currentIde = getCurrentIDE()
+    Logger.debug(`Checking if MCP is configured for ${currentIde}`, 'MCP')
+
+    // Use VS Code API if available
+    try {
+      if (currentIde === 'vscode') {
+        const mcpServers = vscode.workspace.getConfiguration('mcp').get('servers')
+        
+        if (mcpServers !== undefined && 
+            typeof mcpServers === 'object' && 
+            mcpServers !== null && 
+            (mcpServers as Record<string, unknown>).codacy !== undefined) {
+          Logger.debug('MCP configuration found through VS Code API', 'MCP')
+          return true
+        }
+      }
+    } catch (apiError) {
+      Logger.debug(`VS Code API check failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`, 'MCP')
+    }
+    
+    // Otherwise, check configuration files directly
     const ideConfig = getCorrectMcpConfig()
     const filePath = path.join(ideConfig.fileDir, ideConfig.fileName)
+    
     if (!fs.existsSync(filePath)) {
+      Logger.debug(`MCP configuration file not found: ${filePath}`, 'MCP')
       return false
     }
 
-    const config = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-
-    return get(config, `${ideConfig.configAccessor}.codacy`) !== undefined
-  } catch {
-    // If there's any error reading or parsing the file, assume it's not configured
+    const rawContent = fs.readFileSync(filePath, 'utf8')
+    const cleanedContent = sanitizeJSON(rawContent)
+    const config = JSON.parse(cleanedContent)
+    
+    const hasConfig = get(config, `${ideConfig.configAccessor}.codacy`) !== undefined
+    Logger.debug(`MCP configuration ${hasConfig ? 'found' : 'not found'} in config file`, 'MCP')
+    return hasConfig
+  } catch (error) {
+    // Log the specific error for easier debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    Logger.debug(`Error checking MCP configuration: ${errorMessage}`, 'MCP')
     return false
   }
 }
@@ -306,23 +339,70 @@ export async function configureGuardrails(repository?: Repository) {
   await configureMCP(repository)
 }
 
-export async function configureMCP(repository?: Repository) {
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+function installMCPForVSCode(server: MCPServerConfiguration) {
+  // Implement the logic for installing MCP for VSCode using native User Settings API
+  const mcpConfig = vscode.workspace.getConfiguration('mcp')
+  const mcpServers = mcpConfig.has('servers') ? mcpConfig.get('servers') : mcpConfig.update('servers', {}, true)
+
+
+  if (mcpServers !== undefined && typeof mcpServers === 'object' && mcpServers !== null) {
+    const modifiedConfig = set(mcpServers, 'codacy', server)
+    vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
+  } else {
+    Logger.error('MCP configuration not found in VS Code settings')
+  }
+}
+
+function installMCPForOthers(server: MCPServerConfiguration) {
+  // Implement the logic for installing MCP for Cursor and WindSurf
   const ideConfig = getCorrectMcpConfig()
+
+  // Create directory if it doesn't exist
+  const ideDir = ideConfig.fileDir
+
+  if (!fs.existsSync(ideDir)) {
+    fs.mkdirSync(ideDir)
+  }
+
+  const filePath = path.join(ideDir, ideConfig.fileName)  
+
+  // Read existing configuration if it exists
+  let config = {}
+  if (fs.existsSync(filePath)) {
+    try {
+      // Read and clean the file content
+      const rawContent = fs.readFileSync(filePath, 'utf8')
+      // Remove trailing commas - replace },} with }}
+      const cleanedContent = sanitizeJSON(rawContent)
+      config = JSON.parse(cleanedContent)
+    } catch (parseError) {
+      Logger.error(`Error parsing config: ${(parseError as Error).message}`)
+      // If the existing file is invalid JSON, we'll create a new one
+      config = {}
+    }
+  }
+
+  // Set the codacyServer configuration at the correct nested level
+  const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy`, server)
+
+  fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))    
+}
+
+type MCPServerConfiguration = {
+  command: string
+  args: string[]
+  env?: Record<string, string>
+}
+
+export async function configureMCP(repository?: Repository, isUpdate = false) {
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+  const ide = getCurrentIDE()
+
   try {
     const apiToken = Config.apiToken
 
-    // Create directory if it doesn't exist
-    const ideDir = ideConfig.fileDir
-
-    if (!fs.existsSync(ideDir)) {
-      fs.mkdirSync(ideDir)
-    }
-
-    const filePath = path.join(ideDir, ideConfig.fileName)
-
     // Prepare the Codacy server configuration
-    const codacyServer = {
+    const codacyServer: MCPServerConfiguration = {
       command: 'npx',
       args: ['-y', '@codacy/codacy-mcp@latest'],
       env: apiToken
@@ -332,39 +412,35 @@ export async function configureMCP(repository?: Repository) {
         : undefined,
     }
 
-    // Read existing configuration if it exists
-    let config = {}
-    if (fs.existsSync(filePath)) {
-      try {
-        // Read and clean the file content
-        const rawContent = fs.readFileSync(filePath, 'utf8')
-        // Remove trailing commas - replace },} with }}
-        const cleanedContent = sanitizeJSON(rawContent)
-        config = JSON.parse(cleanedContent)
-      } catch (parseError) {
-        Logger.error(`Error parsing config: ${(parseError as Error).message}`)
-        // If the existing file is invalid JSON, we'll create a new one
-        config = {}
-      }
+    if (ide === 'vscode') {
+      installMCPForVSCode(codacyServer)
+    }
+    else if (ide === 'cursor' || ide === 'windsurf') {
+      installMCPForOthers(codacyServer)
+    }
+    else {
+      Logger.error('Unsupported IDE for MCP configuration')
+      return
     }
 
-    // Set the codacyServer configuration at the correct nested level
-    const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy`, codacyServer)
 
-    fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 
-    vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
+    if (!isUpdate) {
+      vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
+    }
+    
     if (generateRules === 'enabled') {
       await createRules(repository)
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     vscode.window.showErrorMessage(`Failed to configure MCP server: ${errorMessage}`)
+    Logger.error(`Failed to configure MCP server: ${errorMessage}`)
   }
 }
 
 export async function updateMCPConfig(repository?: Repository) {
   if (isMCPConfigured()) {
-    await configureMCP(repository)
+    await configureMCP(repository, true)
   }
 }
