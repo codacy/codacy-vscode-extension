@@ -71,48 +71,48 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
       scope: 'general',
       enforce: [
         'To add a new rule for code analysis, follow these steps:',
-        `1. **File Location & Name**
-   - Create or edit a file named \`enigma.yaml\` in the root of the project.`,
-        `2. **Rule Structure**
-   - Each rule should be listed under the \`rules:\` key as an item in a YAML list.
-   - Example rule format:
-     \`\`\`yaml
-     rules:
-       - Id: python_hardcoded_password
-         Pattern: $PASSWORD = $VALUE
-         Description: Detects hardcoded passwords in string variable declarations
-         Category: Security
-         MetaTags:
-           - Id: PASSWORD
-             Regex: ...
-           - Id: VALUE
-             Regex: ...
-         Languages:
-           - python
-     \`\`\``,
-        `3. **Pattern Field**
-   - The \`Pattern\` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like \`$PASSWORD\` or \`$VALUE\`) as placeholders.
-   - MetaTags must start with a \`$\` and be defined in the \`MetaTags\` section.`,
-        `4. **MetaTags**
-   - Every MetaTag used in the \`Pattern\` must have a definition under \`MetaTags\`.
-   - Each MetaTag must have an \`Id\` and a \`Regex\`.
-   - The \`Regex\` must be Perl-compatible (PCRE), but **negative lookaheads are NOT supported**.`,
-        `5. **Languages**
-   - List the programming languages this rule applies to under \`Languages\`.`,
-        `6. **Testing Your Rule**
-   - After creating or editing a rule, test it by running the codacy_cli_analyze tool with:
-     -- rootPath set to the project root
-     -- no file
-     -- tool set to "codacy-enigma-cli"
-   - Check the output for any parsing errors and fix them if needed.`,
-        `7. **Summary**
-   - All rules must:
-     - Be in \`enigma.yaml\` at the project root
-     - Define all MetaTags used in the Pattern
-     - Use only supported regex features in MetaTags
-     - Be tested for parsing errors using the CLI`,
-      ],
-    },
+        '1. **File Location & Name**',
+        '  - Create or edit a file named `enigma.yaml` in the root of the project.',
+        '2. **Rule Structure**',
+        'Each rule should be listed under the `rules:` key as an item in a YAML list.',
+        '- Example rule format:',
+        '```yaml',
+        'rules:',
+        '  - Id: python_hardcoded_password',
+        '    Pattern: $PASSWORD = $VALUE',
+        '    Description: Detects hardcoded passwords in string variable declarations',
+        '    Category: Security',
+        '    MetaTags:',
+        '      - Id: PASSWORD',
+        '        Regex: ...',
+        '      - Id: VALUE',
+        '        Regex: ...',
+        '    Languages:',
+        '      - python',
+        '```',
+        '3. **Pattern Field**',
+        '  - The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
+        '  - MetaTags must start with a `$` and be defined in the `MetaTags` section.',
+        '4. **MetaTags**',
+        '  - Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
+        '  - Each MetaTag must have an `Id` and a `Regex`.',
+        '  - The `Regex` must be Perl-compatible (PCRE), but **negative lookaheads are NOT supported**.',
+        '5. **Languages**',
+        '  - List the programming languages this rule applies to under `Languages`.',
+        '6. **Testing Your Rule**',
+        '  - After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
+        '    -- rootPath set to the project root',
+        '    -- no file',
+        '    -- tool set to "codacy-enigma-cli"',
+        '  - Check the output for any parsing errors and fix them if needed.',
+        '7. **Summary**',
+        '  - All rules must:',
+        '    -- Be in `enigma.yaml` at the project root',
+        '    -- Define all MetaTags used in the Pattern',
+        '    -- Use only supported regex features in MetaTags',
+        '    -- Be tested for parsing errors using the CLI',
+      ]
+    }
   ]
 
   return {
