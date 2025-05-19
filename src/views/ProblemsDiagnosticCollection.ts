@@ -9,6 +9,7 @@ import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAna
 import * as path from 'path'
 import { isCLIInstalled } from '../commands/installAnalysisCLI'
 import Logger from '../common/logger'
+import { CodacyError, handleError } from '../common/utils'
 // import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
@@ -232,7 +233,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
         this.updateDocumentDiagnostics(document)
       } catch (error) {
-        console.error('Failed to process Codacy analysis:', error)
+        if (error instanceof CodacyError) handleError(error)
+        else {
+          handleError(new CodacyError('Error running analysis', error as Error, 'CLI'))
+        }
       } finally {
         this._isAnalysisRunning = false
 

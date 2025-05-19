@@ -3,6 +3,7 @@ import { exec } from 'child_process'
 import Logger from '../common/logger'
 import * as path from 'path'
 import { Run } from 'sarif'
+import { CodacyError } from '../common/utils'
 
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
@@ -32,7 +33,7 @@ export async function runCodacyAnalyze(filePath?: string) {
       relativeFilePath || ''
     }`
 
-    Logger.appendLine(`Running Codacy CLI V2 analyze command for ${relativeFilePath || 'entire workspace'}...`)
+    Logger.debug(`Running Codacy CLI V2 analyze command for ${relativeFilePath || 'entire workspace'}...`)
 
     return new Promise<ProcessedSarifResult[]>((resolve, reject) => {
       // Execute in workspace directory with increased maxBuffer
@@ -44,14 +45,13 @@ export async function runCodacyAnalyze(filePath?: string) {
         },
         (error, stdout, stderr) => {
           if (error) {
-            Logger.error(`Error executing Codacy CLI V2: ${error.message}`)
-            vscode.window.showErrorMessage(`Failed to run Codacy analysis: ${error.message}`)
-            reject(error)
+            reject(new CodacyError('Failed to run Codacy analysis', error, 'CLI'))
             return
           }
 
           if (stderr && !stdout) {
             Logger.warn(`Codacy CLI V2 warnings: ${stderr}`)
+            return
           }
 
           const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
@@ -60,7 +60,7 @@ export async function runCodacyAnalyze(filePath?: string) {
           const results: ProcessedSarifResult[] =
             sarifResult && 'runs' in sarifResult ? processSarifResults(sarifResult.runs) : []
 
-          Logger.appendLine(
+          Logger.debug(
             `Codacy CLI V2 analysis completed for ${filePath || 'entire workspace'} with ${results.length} results.`
           )
 
@@ -69,10 +69,11 @@ export async function runCodacyAnalyze(filePath?: string) {
       )
     })
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    Logger.error(`Failed to run Codacy analysis: ${errorMessage}`)
-    vscode.window.showErrorMessage(`Failed to run Codacy analysis: ${errorMessage}`)
-    throw error
+    if (error instanceof CodacyError) {
+      throw error
+    } else {
+      throw new CodacyError('Failed to run Codacy analysis', error as Error, 'CLI')
+    }
   }
 }
 

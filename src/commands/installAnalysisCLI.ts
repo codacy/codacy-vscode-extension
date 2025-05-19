@@ -5,6 +5,7 @@ import { exec } from 'child_process'
 import { Config } from '../common/config'
 import { Repository } from '../api/client'
 import Logger from '../common/logger'
+import { CodacyError } from '../common/utils'
 
 const CLI_FILE_NAME = 'cli.sh'
 const CLI_FOLDER_NAME = '.codacy'
@@ -95,6 +96,36 @@ async function initializeCLI(repository?: Repository): Promise<void> {
       fs.appendFileSync(gitignorePath, '*.sh\n')
     }
   }
+}
+
+export async function updateCLIState(): Promise<boolean> {
+  const cliInstalled = await isCLIInstalled()
+  vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', cliInstalled)
+
+  return cliInstalled
+}
+
+export async function installCLICommand(repository?: Repository): Promise<void> {
+  await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Window,
+      title: 'Installing Codacy CLI',
+      cancellable: false,
+    },
+    async () => {
+      try {
+        await installCodacyCLI(repository)
+        await updateCLIState()
+        vscode.window.showInformationMessage('Codacy CLI installed successfully!')
+      } catch (error) {
+        throw new CodacyError('Failed to install Codacy CLI', error as Error, 'CLI')
+      } finally {
+        await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', false)
+      }
+    }
+  )
 }
 
 export async function installCodacyCLI(repository?: Repository): Promise<void> {
