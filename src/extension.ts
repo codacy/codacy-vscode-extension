@@ -21,7 +21,7 @@ import { APIState, Repository as GitRepository } from './git/git'
 import {
   configureGuardrails,
   configureMCP,
-  createRules,
+  createOrUpdateRules,
   isMCPConfigured,
   updateMCPConfig,
   updateMCPState,
@@ -273,7 +273,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
 
     if (isMCPConfigured() && generateRules === 'enabled') {
-      await createRules(codacyCloud.repository)
+      await createOrUpdateRules(codacyCloud.repository)
     }
   }
 }

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import * as fs from 'fs'
 import { groupBy, startCase } from 'lodash'
 import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
@@ -188,14 +189,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
       // Check for the presence of the .codacy/codacy.yaml file to know if the CLI is initialized
       const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-      const codacyConfigPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
+      const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
 
-      const codacyConfigExists =
-        (await vscode.workspace.fs.stat(vscode.Uri.file(codacyConfigPath)).then(() => true)) || false
+      const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
 
       const isCliInstalled = await isCLIInstalled()
 
-      if (!isCliInstalled || !codacyConfigExists) return
+      if (!isCliInstalled || !codacyCLIConfigExists) return
 
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath

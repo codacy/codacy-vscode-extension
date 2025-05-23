@@ -22,8 +22,11 @@ import {
 } from './client'
 import { Config } from '../common/config'
 import { Tools } from '../codacy/Tools'
+import { detectEditor } from '../auth'
 
 export const initializeApi = () => {
+  const ide = detectEditor()
+
   // set up OpenAPI client
   OpenAPI.BASE = `${Config.baseUri}/api/v3`
   OpenAPI.HEADERS = async () => {
@@ -32,7 +35,7 @@ export const initializeApi = () => {
     return token
       ? {
           'api-token': token,
-          'X-Codacy-Origin': 'vscode',
+          'X-Codacy-Origin': ide,
         }
       : undefined
   }
