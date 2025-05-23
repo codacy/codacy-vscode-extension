@@ -44,31 +44,38 @@
     "views": {
       "codacy-main": [
         {
-          "id": "codacy:statuses",
+          "id": "codacy:status",
+          "name": "Status",
+          "icon": "$(library)",
+          "when": "!codacy:hasProject",
+          "collapsed": false
+        },
+        {
+          "id": "codacy:cloud-status",
           "name": "Codacy Cloud",
           "icon": "$(library)",
-          "when": "!codacy:hasProject || Codacy:RepositoryManagerStateContext == NeedsAuthentication ||Codacy:RepositoryManagerStateContext == NoRepository || Codacy:RepositoryManagerStateContext == NoRemote || Codacy:RepositoryManagerStateContext == Initializing || (Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest)",
+          "when": "codacy:hasProject",
           "initialSize": 1,
           "collapsed": false
         },
         {
           "id": "codacy:prSummary",
           "name": "Pull request",
-          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
+          "when": "codacy:hasProject && Codacy:CodacyCloudStateContext == Loaded && Codacy:PullRequestStateContext == Loaded",
           "icon": "$(git-pull-request)",
           "initialSize": 3
         },
         {
           "id": "codacy:pullRequests",
           "name": "Open pull requests",
-          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded",
+          "when": "codacy:hasProject && Codacy:CodacyCloudStateContext == Loaded",
           "icon": "$(git-pull-request)",
           "initialSize": 3
         },
         {
           "id": "codacy:branchIssues",
           "name": "Issue Browser",
-          "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
+          "when": "codacy:hasProject && Codacy:CodacyCloudStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
         },
@@ -78,7 +85,7 @@
           "when": "codacy:hasProject && codacy:supportsMCP",
           "icon": "$(gear)",
           "initialSize": 2
-        },        
+        },
         {
           "id": "codacy:cli",
           "name": "Local Analysis",
@@ -93,7 +100,6 @@
           "collapsed": false,
           "initialSize": 1
         }
-     
       ]
     },
     "viewsWelcome": [
@@ -102,39 +108,68 @@
         "contents": "Do you need help or do you have any questions?\n[Open support chat](https://start-chat.com/slack/codacy/kShTS8?utm_source=Company+website&utm_medium=direct)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
       },
       {
-        "view": "codacy:statuses",
-        "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.signIn)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
-        "when": "codacy:hasProject && Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+        "view": "codacy:status",
+        "contents": "No project is open. Open a project to use the Codacy extension."
       },
       {
-        "view": "codacy:statuses",
-        "contents": "No project is open. Open a project to use the Codacy extension.",
-        "when": "!codacy:hasProject"
+        "view": "codacy:cloud-status",
+        "contents": "Codacy Cloud is initializing...",
+        "when": "Codacy:CodacyCloudStateContext == Initializing"
       },
       {
-        "view": "codacy:statuses",
+        "view": "codacy:cloud-status",
+        "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.codacyAuth)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
+        "when": "Codacy:CodacyCloudStateContext == NeedsAuthentication"
+      },
+      {
+        "view": "codacy:cloud-status",
         "contents": "This project isn't a Git repository. To connect it to Codacy, initialize a Git repository first.",
-        "when": "!codacy:isGitRepository && codacy:hasProject && Codacy:RepositoryManagerStateContext != NeedsAuthentication"
+        "when": "Codacy:CodacyCloudStateContext == NoGitRepository"
       },
       {
-        "view": "codacy:statuses",
-        "contents": "Failed to find repository in Codacy.",
-        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == NoRepository"
+        "view": "codacy:cloud-status",
+        "contents": "We failed to connect this repository to Codacy. Please restart the IDE and try again.",
+        "when": "Codacy:CodacyCloudStateContext == NoRepository"
       },
       {
-        "view": "codacy:statuses",
-        "contents": "No remote repositories configured.",
-        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == NoRemote"
+        "view": "codacy:cloud-status",
+        "contents": "You are not part of this organization in Codacy.\n[Join organization](command:codacy.joinOrganization)",
+        "when": "Codacy:CodacyCloudStateContext == NeedsToJoinOrganization"
       },
       {
-        "view": "codacy:statuses",
-        "contents": "Codacy is initializing...",
-        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Initializing"
+        "view": "codacy:cloud-status",
+        "contents": "An admin must approve your request to join the organization on Codacy.",
+        "when": "Codacy:CodacyCloudStateContext == HasPendingJoinOrganization"
       },
       {
-        "view": "codacy:statuses",
+        "view": "codacy:cloud-status",
+        "contents": "This organization is not part of Codacy.\n[Add organization](command:codacy.codacyAuth)",
+        "when": "Codacy:CodacyCloudStateContext == NeedsToAddOrganization"
+      },
+      {
+        "view": "codacy:cloud-status",
+        "contents": "Ensure full protection by adding PR-level scans to this repo so that no security vulnerabilities are added.\n[Add repository to Codacy](command:codacy.addRepository)\nAdds this Git repository to Codacy with your organization default scanning rules. [Learn more](https://www.codacy.com/pricing) about plan benefits and what's included.",
+        "when": "Codacy:CodacyCloudStateContext == NeedsToAddRepository"
+      },
+      {
+        "view": "codacy:cloud-status",
+        "contents": "First analysis is still running...",
+        "when": "Codacy:CodacyCloudStateContext == IsAnalyzing"
+      },
+      {
+        "view": "codacy:cloud-status",
+        "contents": "Analysis failed. Check [Codacy Cloud](https://app.codacy.com/repositories) for more details.",
+        "when": "Codacy:CodacyCloudStateContext == AnalysisFailed"
+      },
+      {
+        "view": "codacy:cloud-status",
+        "contents": "Fine-tune your configuration to get the most out of Codacy.\n[Improve your Codacy Setup](command:codacy.onboarding.complete)",
+        "when": "Codacy:CodacyCloudStateContext == Loaded && codacy:onboardingSkipped"
+      },
+      {
+        "view": "codacy:cloud-status",
         "contents": "No open pull request found.\n[Try again](command:codacy.pr.load)",
-        "when": "codacy:hasProject && codacy:isGitRepository && Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+        "when": "Codacy:CodacyCloudStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "view": "codacy:mcp",
@@ -165,7 +200,7 @@
         "view": "codacy:mcp",
         "contents": "$(warning) MCP Server not found. [Install MCP Server](command:codacy.configureMCP)",
         "when": "codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled && !codacy:cliInstalling"
-      },       
+      },
       {
         "view": "codacy:mcp",
         "contents": "$(check) Codacy CLI is installed. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
@@ -175,7 +210,7 @@
         "view": "codacy:mcp",
         "contents": "$(warning) Codacy CLI not found. [Install CLI](command:codacy.installCLI)",
         "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
-      },    
+      },
       {
         "view": "codacy:cli",
         "contents": "Install Codacy CLI to analyze your code locally and get instant feedback as you type.\n[Install Codacy CLI](command:codacy.installCLI)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
@@ -194,23 +229,30 @@
     ],
     "commands": [
       {
-        "command": "codacy.signIn",
+        "command": "codacy.codacyAuth",
         "title": "Connect to Codacy",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == NeedsAuthentication"
+        "when": "Codacy:CodacyCloudStateContext == NeedsAuthentication"
       },
       {
         "command": "codacy.signOut",
         "title": "Sign out from Codacy",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext != NeedsAuthentication"
+        "when": "Codacy:CodacyCloudStateContext != NeedsAuthentication"
+      },
+      {
+        "command": "codacy.refresh",
+        "title": "Refresh",
+        "category": "Codacy commands",
+        "icon": "$(sync)",
+        "when": "Codacy:CodacyCloudStateContext != Initializing"
       },
       {
         "command": "codacy.pr.load",
         "title": "Look for Pull Request",
         "category": "Codacy commands",
         "icon": "$(sync)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+        "when": "Codacy:CodacyCloudStateContext == Loaded"
       },
       {
         "command": "codacy.pr.refresh",
@@ -224,14 +266,14 @@
         "title": "Refresh Pull Requests",
         "category": "Codacy commands",
         "icon": "$(refresh)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+        "when": "Codacy:CodacyCloudStateContext == Loaded"
       },
       {
         "command": "codacy.branchIssues.refresh",
         "title": "Refresh Branch Issues",
         "category": "Codacy commands",
         "icon": "$(refresh)",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+        "when": "Codacy:CodacyCloudStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "command": "codacy.pr.openSummary",
@@ -255,13 +297,13 @@
         "command": "codacy.pullRequests.open",
         "title": "Open Pull Requests",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded"
+        "when": "Codacy:CodacyCloudStateContext == Loaded"
       },
       {
         "command": "codacy.branchIssues.open",
         "title": "Open Issues",
         "category": "Codacy commands",
-        "when": "Codacy:RepositoryManagerStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
+        "when": "Codacy:CodacyCloudStateContext == Loaded && Codacy:PullRequestStateContext == NoPullRequest"
       },
       {
         "command": "codacy.issue.seeDetails",
@@ -290,8 +332,12 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "codacy.refresh",
+          "when": "Codacy:CodacyCloudStateContext != Initializing"
+        },
+        {
           "command": "codacy.pr.load",
-          "when": "Codacy:RepositoryManagerStateContext == Loaded"
+          "when": "Codacy:CodacyCloudStateContext == Loaded"
         },
         {
           "command": "codacy.pr.refresh",
@@ -316,8 +362,8 @@
       ],
       "view/title": [
         {
-          "command": "codacy.pr.load",
-          "when": "view == codacy:statuses",
+          "command": "codacy.refresh",
+          "when": "view == codacy:cloud-status",
           "group": "navigation"
         },
         {

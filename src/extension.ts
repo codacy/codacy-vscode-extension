@@ -4,12 +4,12 @@ import { CommandType, wrapExtensionCommand } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
 import { GitProvider } from './git/GitProvider'
-import { RepositoryManager } from './git/RepositoryManager'
+import { CodacyCloud } from './git/CodacyCloud'
 import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
 import { StatusBar } from './views/StatusBar'
 import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 import { Config } from './common/config'
-import { AuthUriHandler, signIn } from './auth'
+import { AuthUriHandler, codacyAuth } from './auth'
 import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
@@ -27,43 +27,54 @@ import {
   updateMCPState,
 } from './commands/configureMCP'
 import { installCLICommand, updateCLIState, updateCodacyCLI } from './commands/installAnalysisCLI'
-
+import { addRepository, joinOrganization } from './onboarding'
 /**
  * Helper function to register all extension commands
  * @param context
  */
-const registerCommands = async (context: vscode.ExtensionContext, repositoryManager: RepositoryManager) => {
+const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: CodacyCloud) => {
   const commands: Record<string, CommandType> = {
-    'codacy.signIn': signIn,
+    'codacy.codacyAuth': codacyAuth,
+    'codacy.joinOrganization': () => joinOrganization(codacyCloud),
+    'codacy.addRepository': () => addRepository(codacyCloud),
     'codacy.signOut': () => {
       Config.storeApiToken(undefined)
+      Config.updateOnboardingSkipped(undefined)
       Account.clear()
-      repositoryManager.clear()
+      codacyCloud.clear()
     },
-    'codacy.pr.load': () => repositoryManager.loadPullRequest(),
-    'codacy.pr.refresh': () => repositoryManager.pullRequest?.refresh(),
+    'codacy.refresh': () => codacyCloud.refresh(),
+    'codacy.pr.load': () => codacyCloud.loadPullRequest(),
+    'codacy.pr.refresh': () => codacyCloud.pullRequest?.refresh(),
     'codacy.pr.checkout': (node: PullRequestNode) => {
-      repositoryManager.checkout(node.pullRequest)
+      codacyCloud.checkout(node.pullRequest)
     },
-    'codacy.pullRequests.refresh': () => repositoryManager.refreshPullRequests(),
-    'codacy.branchIssues.refresh': () => repositoryManager.branchIssues.refresh(),
+    'codacy.pullRequests.refresh': () => codacyCloud.refreshPullRequests(),
+    'codacy.branchIssues.refresh': () => codacyCloud.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.installCLI': async () => {
-      await installCLICommand(repositoryManager.repository)
+      await installCLICommand(codacyCloud.repository)
     },
     'codacy.configureMCP': async () => {
-      await configureMCP(repositoryManager.repository)
+      await configureMCP(codacyCloud.repository)
       updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
-      await configureGuardrails(repositoryManager.repository)
+      await configureGuardrails(codacyCloud.repository)
       updateMCPState()
       await updateCLIState()
     },
     'codacy.configureMCP.reset': async () => {
-      await configureMCP(repositoryManager.repository, true)
+      await configureMCP(codacyCloud.repository, true)
       updateMCPState()
+    },
+    'codacy.onboarding.complete': () => {
+      const { provider, organization } = codacyCloud.params!
+      vscode.env.openExternal(
+        vscode.Uri.parse(`https://app.codacy.com/organizations/${provider}/${organization}/dashboard`)
+      )
+      Config.updateOnboardingSkipped(false)
     },
   }
 
@@ -76,21 +87,20 @@ const registerCommands = async (context: vscode.ExtensionContext, repositoryMana
  * Register built in git provider
  * @param context
  */
-const registerGitProvider = async (context: vscode.ExtensionContext, repositoryManager: RepositoryManager) => {
+const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud: CodacyCloud) => {
   const git = await GitProvider.init()
 
   if (git) {
     // register events
     git.onDidOpenRepository((repo: GitRepository) => {
-      repositoryManager.open(repo)
-      vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', true)
+      codacyCloud.open(repo)
     })
 
     git.onDidCloseRepository((repo: GitRepository) => {
-      repositoryManager.close(repo)
+      codacyCloud.close(repo)
       // Only set context to false if there are truly no repositories left
       if (git.repositories.length === 0) {
-        vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
+        vscode.commands.executeCommand('setContext', 'codacy:hasProject', false)
       }
     })
 
@@ -98,12 +108,10 @@ const registerGitProvider = async (context: vscode.ExtensionContext, repositoryM
       if (state === 'initialized') {
         // Only set the context after we know the final state
         if (git.repositories.length > 0) {
-          await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', true)
-          repositoryManager.open(git.repositories[0])
+          codacyCloud.open(git.repositories[0])
         } else {
           Logger.appendLine('No Git Repositories found')
-          await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
-          repositoryManager.clear()
+          codacyCloud.clear()
         }
       }
     })
@@ -165,10 +173,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
     initializeApi()
 
-    const repositoryManager = new RepositoryManager()
-    context.subscriptions.push(repositoryManager)
+    const codacyCloud = new CodacyCloud()
+    context.subscriptions.push(codacyCloud)
 
-    const gitProvider = await registerGitProvider(context, repositoryManager)
+    const gitProvider = await registerGitProvider(context, codacyCloud)
 
     if (!gitProvider) {
       Logger.error('Native Git VSCode extension not found')
@@ -177,16 +185,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(gitProvider)
 
-    await registerCommands(context, repositoryManager)
+    await registerCommands(context, codacyCloud)
 
     // initialize the problems diagnostic collection
-    context.subscriptions.push(new ProblemsDiagnosticCollection(repositoryManager))
+    context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud))
 
     // add views
-    context.subscriptions.push(new PullRequestSummaryTree(context, repositoryManager))
-    context.subscriptions.push(new StatusBar(context, repositoryManager))
-    context.subscriptions.push(new PullRequestsTree(context, repositoryManager))
-    context.subscriptions.push(new BranchIssuesTree(context, repositoryManager))
+    context.subscriptions.push(new PullRequestSummaryTree(context, codacyCloud))
+    context.subscriptions.push(new StatusBar(context, codacyCloud))
+    context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
+    context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
 
     context.subscriptions.push(AuthUriHandler.register())
 
@@ -206,25 +214,25 @@ export async function activate(context: vscode.ExtensionContext) {
         })
 
         if (gitProvider?.repositories.length) {
-          repositoryManager.open(gitProvider.repositories[0])
+          codacyCloud.open(gitProvider.repositories[0])
         }
 
         Logger.appendLine('Updating MCP config')
 
         // Update MCP config now that we have a token and perhaps a repository
-        updateMCPConfig(repositoryManager.repository)
+        updateMCPConfig(codacyCloud.repository)
       })
     )
 
     // check for open repository
     if (gitProvider.repositories.length > 0) {
-      repositoryManager.open(gitProvider.repositories[0])
+      codacyCloud.open(gitProvider.repositories[0])
     }
 
     // coverage decoration
     const triggerCoverageDecoration = (editor: vscode.TextEditor | undefined) => {
       if (editor) {
-        decorateWithCoverage(editor, editor.document.uri, repositoryManager.pullRequest)
+        decorateWithCoverage(editor, editor.document.uri, codacyCloud.pullRequest)
       }
     }
 
@@ -232,7 +240,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const activeEditor = vscode.window.activeTextEditor
     if (activeEditor) {
-      decorateWithCoverage(activeEditor, activeEditor?.document.uri, repositoryManager.pullRequest)
+      decorateWithCoverage(activeEditor, activeEditor?.document.uri, codacyCloud.pullRequest)
     }
 
     vscode.commands.registerCommand('codacy.pr.refreshCoverageDecoration', () => {
@@ -240,7 +248,7 @@ export async function activate(context: vscode.ExtensionContext) {
         decorateWithCoverage(
           vscode.window.activeTextEditor,
           vscode.window.activeTextEditor?.document.uri,
-          repositoryManager?.pullRequest
+          codacyCloud?.pullRequest
         )
       }
     })
@@ -255,7 +263,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     // When the user doesn't have a specific version, update the CLI to the latest version
     if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
-      await updateCodacyCLI(repositoryManager.repository)
+      await updateCodacyCLI(codacyCloud.repository)
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
@@ -265,7 +273,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
 
     if (isMCPConfigured() && generateRules === 'enabled') {
-      await createRules(repositoryManager.repository)
+      await createRules(codacyCloud.repository)
     }
   }
 }

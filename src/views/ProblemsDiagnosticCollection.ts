@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { groupBy, startCase } from 'lodash'
-import { RepositoryManager } from '../git/RepositoryManager'
+import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
@@ -92,15 +92,15 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _isAnalysisRunning: boolean = false
   private _analysisDebounceTimeout: NodeJS.Timeout | undefined
 
-  constructor(private readonly _repositoryManager: RepositoryManager) {
+  constructor(private readonly _codacyCloud: CodacyCloud) {
     // load all API issues when the pull request is updated
-    _repositoryManager.onDidUpdatePullRequest((pr) => {
+    _codacyCloud.onDidUpdatePullRequest((pr) => {
       const newIssues = pr?.issues.filter((issue) => issue.deltaType === 'Added') || []
       this.loadAPIIssues(newIssues)
     })
 
     // load all API issues when the branch is updated
-    _repositoryManager.branchIssues.onDidUpdateBranchIssues((issues) => {
+    _codacyCloud.branchIssues.onDidUpdateBranchIssues((issues) => {
       this.loadAPIIssues(issues)
     })
 
@@ -212,7 +212,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
           //const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
 
           // or ... .codacy/tmp directory -- doesn't work
-          // const tmpDir = path.join(this._repositoryManager.rootUri?.path || '', '.codacy', 'tmp')
+          // const tmpDir = path.join(this._codacyCloud.rootUri?.path || '', '.codacy', 'tmp')
 
           // create the temp directory if it doesn't exist
           // await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
@@ -252,7 +252,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   public loadAPIIssues(issues: PullRequestIssue[] | BranchIssue[]) {
-    const baseUri = this._repositoryManager.rootUri?.path
+    const baseUri = this._codacyCloud.rootUri?.path
     const issuesByFile = groupBy(issues, (issue) => issue.commitIssue.filePath)
 
     this._currentApiIssues = Object.fromEntries(

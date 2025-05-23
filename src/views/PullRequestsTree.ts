@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { RepositoryManager } from '../git/RepositoryManager'
+import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestNode } from './nodes/PullRequestNode'
 import { PullRequestSummaryNode } from './nodes'
 
@@ -12,7 +12,7 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
 
   constructor(
     private _context: vscode.ExtensionContext,
-    private _repositoryManager: RepositoryManager
+    private _codacyCloud: CodacyCloud
   ) {
     super(() => this.dispose())
 
@@ -32,7 +32,7 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
     )
 
     // subscribe to changes in the pull request
-    this._repositoryManager.onDidUpdatePullRequests(() => {
+    this._codacyCloud.onDidUpdatePullRequests(() => {
       this._onDidChangeTreeData.fire()
     })
   }
@@ -44,7 +44,7 @@ export class PullRequestsTree extends vscode.Disposable implements vscode.TreeDa
   async getChildren(element?: PullRequestTreeNodeType | undefined) {
     if (!element) {
       // root
-      return this._repositoryManager.pullRequests.map((pr) => {
+      return this._codacyCloud.pullRequests.map((pr) => {
         return new PullRequestNode(pr)
       })
     } else {
