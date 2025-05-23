@@ -120,6 +120,8 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
       enforce: [
         'When multiple files are affected, repeat the relevant steps for each file.',
         '"Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
+        'Do not run `codacy_cli_analyze` looking for changes in duplicated code or code complexity metrics.',
+        'Do not run `codacy_cli_analyze` looking for changes in code coverage.',
       ],
       scope: 'guardrails',
     },
