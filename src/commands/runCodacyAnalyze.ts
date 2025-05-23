@@ -54,7 +54,7 @@ export async function runCodacyAnalyze(filePath?: string) {
             return
           }
 
-          const jsonMatch = /(\{[\s\S]*\}|\[[\s\S]*\])/.exec(stdout)
+          const jsonMatch = /(\{[\s\S]*\})/.exec(stdout)
           const sarifResult = jsonMatch ? JSON.parse(jsonMatch[0]) : null
 
           const results: ProcessedSarifResult[] =
