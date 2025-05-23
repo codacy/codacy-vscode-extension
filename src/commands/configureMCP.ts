@@ -38,22 +38,24 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     })
   }
 
-  const enigmaRules: Rule[] = []
   const codacyCLISettingsPath = path.join(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
     '.codacy',
     'codacy.yaml'
   )
-  const codacyCLITools = fs.readFileSync(codacyCLISettingsPath, 'utf8')
-  if (codacyCLITools.includes('enigma')) {
-    enigmaRules.push({
-      when: 'user asks to create a rule',
-      scope: 'general',
-      enforce: [
-        'To add a new rule for code analysis, follow these steps:',
-        '- Create or edit a file named `enigma.yaml` in the root of the project.',
-        '- Each rule should be listed under the `rules:` key as an item in a YAML list.',
-        `- Example rule format:
+
+  const enigmaRules: Rule[] = []
+  if (fs.existsSync(codacyCLISettingsPath)) {
+    const codacyCLITools = fs.readFileSync(codacyCLISettingsPath, 'utf8')
+    if (codacyCLITools.includes('enigma')) {
+      enigmaRules.push({
+        when: 'user asks to create a rule',
+        scope: 'general',
+        enforce: [
+          'To add a new rule for code analysis, follow these steps:',
+          '- Create or edit a file named `enigma.yaml` in the root of the project.',
+          '- Each rule should be listed under the `rules:` key as an item in a YAML list.',
+          `- Example rule format:
   \`\`\`yaml
   rules:,
     - Id: python_hardcoded_password,
@@ -68,26 +70,27 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
       Languages:,
         - python,
   \`\`\``,
-        'Pattern Field',
-        '- The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
-        '- MetaTags must start with a `$` and be defined in the `MetaTags` section.',
-        'MetaTags',
-        '- Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
-        '- Each MetaTag must have an `Id` and a `Regex`.',
-        '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported.',
-        'Languages:  List the programming languages this rule applies to under `Languages`.',
-        'Testing Your Rule: After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
-        '- rootPath set to the project root',
-        '- no file',
-        '- tool set to "codacy-enigma-cli"',
-        'Check the output for any parsing errors and fix them if needed.',
-        'Summary - All rules must:',
-        '- Be in `enigma.yaml` at the project root',
-        '- Define all MetaTags used in the Pattern',
-        '- Use only supported regex features in MetaTags',
-        '- Be tested for parsing errors using the CLI',
-      ],
-    })
+          'Pattern Field',
+          '- The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
+          '- MetaTags must start with a `$` and be defined in the `MetaTags` section.',
+          'MetaTags',
+          '- Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
+          '- Each MetaTag must have an `Id` and a `Regex`.',
+          '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported.',
+          'Languages:  List the programming languages this rule applies to under `Languages`.',
+          'Testing Your Rule: After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
+          '- rootPath set to the project root',
+          '- no file',
+          '- tool set to "codacy-enigma-cli"',
+          'Check the output for any parsing errors and fix them if needed.',
+          'Summary - All rules must:',
+          '- Be in `enigma.yaml` at the project root',
+          '- Define all MetaTags used in the Pattern',
+          '- Use only supported regex features in MetaTags',
+          '- Be tested for parsing errors using the CLI',
+        ],
+      })
+    }
   }
 
   const commonRules: Rule[] = [
@@ -115,16 +118,16 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     },
     {
       enforce: [
-        '- When multiple files are affected, repeat the relevant steps for each file.',
-        '- "Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
+        'When multiple files are affected, repeat the relevant steps for each file.',
+        '"Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
       ],
       scope: 'guardrails',
     },
     {
       when: 'a call to a Codacy tool that uses `repository` or `organization` as a parameter returns a 404 error',
       enforce: [
-        '- run the `codacy_setup_repository` tool',
-        '- after setup, immediately retry the action that failed (only retry once)',
+        'Run the `codacy_setup_repository` tool',
+        'After setup, immediately retry the action that failed (only retry once)',
       ],
       scope: 'general',
     },
