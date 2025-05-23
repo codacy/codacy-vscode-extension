@@ -10,6 +10,7 @@ import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
 import Telemetry from '../common/telemetry'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
+import { GitProvider } from './GitProvider'
 
 export enum CodacyCloudState {
   Initializing = 'Initializing',
@@ -472,6 +473,32 @@ export class CodacyCloud implements vscode.Disposable {
       this.state = CodacyCloudState.NeedsAuthentication
     } else {
       this.state = CodacyCloudState.NoGitRepository
+    }
+  }
+
+  public refresh() {
+    if (!this._current) return
+
+    switch (this._state) {
+      case CodacyCloudState.Loaded:
+      case CodacyCloudState.IsAnalyzing:
+      case CodacyCloudState.AnalysisFailed:
+        this.refreshPullRequests()
+        break
+      case CodacyCloudState.NoRepository:
+      case CodacyCloudState.Initializing:
+      case CodacyCloudState.NeedsAuthentication:
+      case CodacyCloudState.NeedsToJoinOrganization:
+      case CodacyCloudState.HasPendingJoinOrganization:
+      case CodacyCloudState.NeedsToAddOrganization:
+      case CodacyCloudState.NeedsToAddRepository:
+        this.open(this._current)
+        break
+      case CodacyCloudState.NoGitRepository:
+        if (GitProvider.instance?.repositories.length) {
+          this.open(GitProvider.instance?.repositories[0])
+        }
+        break
     }
   }
 

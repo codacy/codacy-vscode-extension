@@ -241,6 +241,13 @@
         "when": "Codacy:CodacyCloudStateContext != NeedsAuthentication"
       },
       {
+        "command": "codacy.refresh",
+        "title": "Refresh",
+        "category": "Codacy commands",
+        "icon": "$(sync)",
+        "when": "Codacy:CodacyCloudStateContext != Initializing"
+      },
+      {
         "command": "codacy.pr.load",
         "title": "Look for Pull Request",
         "category": "Codacy commands",
@@ -325,6 +332,10 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "codacy.refresh",
+          "when": "Codacy:CodacyCloudStateContext != Initializing"
+        },
+        {
           "command": "codacy.pr.load",
           "when": "Codacy:CodacyCloudStateContext == Loaded"
         },
@@ -351,7 +362,7 @@
       ],
       "view/title": [
         {
-          "command": "codacy.pr.load",
+          "command": "codacy.refresh",
           "when": "view == codacy:cloud-status",
           "group": "navigation"
         },

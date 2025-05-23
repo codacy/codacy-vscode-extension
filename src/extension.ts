@@ -43,6 +43,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
       Account.clear()
       codacyCloud.clear()
     },
+    'codacy.refresh': () => codacyCloud.refresh(),
     'codacy.pr.load': () => codacyCloud.loadPullRequest(),
     'codacy.pr.refresh': () => codacyCloud.pullRequest?.refresh(),
     'codacy.pr.checkout': (node: PullRequestNode) => {
