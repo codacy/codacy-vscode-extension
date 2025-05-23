@@ -159,7 +159,7 @@ const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): st
 
   const existingRules = existingContent?.split('---')
 
-  return existingRules.map((content) => (content.indexOf(rules.name) > 0 ? newCodacyRules : content)).join('---')
+  return existingRules.map((content) => (content.indexOf(rules.name) >= 0 ? newCodacyRules : content)).join('---')
 }
 
 const rulesPrefixForMdc = `---
