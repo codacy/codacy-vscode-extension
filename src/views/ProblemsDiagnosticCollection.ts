@@ -192,7 +192,6 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
 
       const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
-      //(await vscode.workspace.fs.stat(vscode.Uri.file(codacyCLIConfigPath)).then(() => true)) || false
 
       const isCliInstalled = await isCLIInstalled()
 

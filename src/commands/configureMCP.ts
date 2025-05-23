@@ -146,7 +146,6 @@ const sanitizeJSON = (json: string): string => {
 }
 
 const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
-  // const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
   const newCodacyRules = `\n# ${rules.name}\n${rules.description}\n\n${rules.rules
     .map(
       (rule) =>
