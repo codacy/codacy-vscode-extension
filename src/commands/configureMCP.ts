@@ -10,7 +10,7 @@ import Logger from '../common/logger'
 import { CodacyError } from '../common/utils'
 
 interface Rule {
-  when: string
+  when?: string
   enforce: string[]
   scope: 'guardrails' | 'general'
 }
@@ -26,99 +26,114 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
   if (repository) {
     const { provider, owner: organization, name } = repository
     repositoryRules.push({
-      when: 'using any tool that has either one of the following arguments: provider, organization or repository',
+      when: 'using any tool that accepts the arguments: `provider`, `organization`, or `repository`',
       enforce: [
-        `use ${provider} for provider, ${organization} for organization and ${name} for repository, and avoid calling 'git remote -v' unless really necessary`,
+        'ALWAYS use:',
+        `- provider: ${provider}`,
+        `- organization: ${organization}`,
+        `- repository: ${name}`,
+        'Avoid calling `git remote -v` unless really necessary',
       ],
       scope: 'general',
     })
   }
 
-  const commonRules: Rule[] = [
-    {
-      when: 'after ANY successful edit_file or reapply tool call',
-      scope: 'guardrails',
-      enforce: [
-        'IMMEDIATELY run codacy_cli_analyze tool for each edited file with:',
-        '1. rootPath set to the workspace path',
-        '2. file set to the edited file path',
-        '3. no tool',
-        'AT THE END run codacy_cli_analyze tool for trivy for the entire project with:',
-        '1. rootPath set to the workspace path',
-        '2. no file',
-        '3. tool set to "trivy"',
-        'If issues are found, propose fixes for them',
-      ],
-    },
-    {
-      when: 'after adding new dependencies, libraries or packages',
-      scope: 'guardrails',
-      enforce: [
-        'IMMEDIATELY run codacy_cli_analyze tool for trivy for:',
-        '1. rootPath set to the workspace path',
-        '2. no file',
-        '3. tool set to "trivy"',
-        'If issues are found, propose fixes for them',
-      ],
-    },
-    {
-      when: 'a call to a Codacy tool that has repository or organization as parameter returns 404 error',
-      scope: 'general',
-      enforce: ['run codacy_setup_repository tool and then retry the action that failed'],
-    },
-    {
+  const enigmaRules: Rule[] = []
+  const codacyCLISettingsPath = path.join(
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+    '.codacy',
+    'codacy.yaml'
+  )
+  const codacyCLITools = fs.readFileSync(codacyCLISettingsPath, 'utf8')
+  if (codacyCLITools.includes('enigma')) {
+    enigmaRules.push({
       when: 'user asks to create a rule',
       scope: 'general',
       enforce: [
         'To add a new rule for code analysis, follow these steps:',
-        '1. **File Location & Name**',
-        '  - Create or edit a file named `enigma.yaml` in the root of the project.',
-        '2. **Rule Structure**',
-        'Each rule should be listed under the `rules:` key as an item in a YAML list.',
-        '- Example rule format:',
-        '```yaml',
-        'rules:',
-        '  - Id: python_hardcoded_password',
-        '    Pattern: $PASSWORD = $VALUE',
-        '    Description: Detects hardcoded passwords in string variable declarations',
-        '    Category: Security',
-        '    MetaTags:',
-        '      - Id: PASSWORD',
-        '        Regex: ...',
-        '      - Id: VALUE',
-        '        Regex: ...',
-        '    Languages:',
-        '      - python',
-        '```',
-        '3. **Pattern Field**',
-        '  - The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
-        '  - MetaTags must start with a `$` and be defined in the `MetaTags` section.',
-        '4. **MetaTags**',
-        '  - Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
-        '  - Each MetaTag must have an `Id` and a `Regex`.',
-        '  - The `Regex` must be Perl-compatible (PCRE), but **negative lookaheads are NOT supported**.',
-        '5. **Languages**',
-        '  - List the programming languages this rule applies to under `Languages`.',
-        '6. **Testing Your Rule**',
-        '  - After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
-        '    -- rootPath set to the project root',
-        '    -- no file',
-        '    -- tool set to "codacy-enigma-cli"',
-        '  - Check the output for any parsing errors and fix them if needed.',
-        '7. **Summary**',
-        '  - All rules must:',
-        '    -- Be in `enigma.yaml` at the project root',
-        '    -- Define all MetaTags used in the Pattern',
-        '    -- Use only supported regex features in MetaTags',
-        '    -- Be tested for parsing errors using the CLI',
-      ]
-    }
+        '- Create or edit a file named `enigma.yaml` in the root of the project.',
+        '- Each rule should be listed under the `rules:` key as an item in a YAML list.',
+        `- Example rule format:
+  \`\`\`yaml
+  rules:,
+    - Id: python_hardcoded_password,
+      Pattern: $PASSWORD = $VALUE,
+      Description: Detects hardcoded passwords in string variable declarations,
+      Category: Security,
+      MetaTags:,
+        - Id: PASSWORD,
+          Regex: ...,
+        - Id: VALUE,
+          Regex: ...,
+      Languages:,
+        - python,
+  \`\`\``,
+        'Pattern Field',
+        '- The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
+        '- MetaTags must start with a `$` and be defined in the `MetaTags` section.',
+        'MetaTags',
+        '- Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
+        '- Each MetaTag must have an `Id` and a `Regex`.',
+        '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported.',
+        'Languages:  List the programming languages this rule applies to under `Languages`.',
+        'Testing Your Rule: After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
+        '- rootPath set to the project root',
+        '- no file',
+        '- tool set to "codacy-enigma-cli"',
+        'Check the output for any parsing errors and fix them if needed.',
+        'Summary - All rules must:',
+        '- Be in `enigma.yaml` at the project root',
+        '- Define all MetaTags used in the Pattern',
+        '- Use only supported regex features in MetaTags',
+        '- Be tested for parsing errors using the CLI',
+      ],
+    })
+  }
+
+  const commonRules: Rule[] = [
+    {
+      when: 'after ANY successful `edit_file` or `reapply` operation',
+      enforce: [
+        'IMMEDIATELY run the `codacy_cli_analyze` tool for each file that was edited, with:',
+        '- `rootPath`: set to the workspace path',
+        '- `file`: set to the path of the edited file',
+        '- `tool`: leave empty or unset',
+        'If any issues are found in the new edits, propose and apply fixes for them.',
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'after adding new dependencies, libraries or packages (e.g., after editing dependency files or running a package manager)',
+      enforce: [
+        'IMMEDIATELY run the `codacy_cli_analyze` tool with:',
+        '- `rootPath`: set to the workspace path',
+        '- `tool`: set to "trivy"',
+        '- `file`: leave empty or unset',
+        'If any insecure dependencies are found among the newly added ones, propose and apply fixes for them.',
+      ],
+      scope: 'guardrails',
+    },
+    {
+      enforce: [
+        '- When multiple files are affected, repeat the relevant steps for each file.',
+        '- "Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'a call to a Codacy tool that uses `repository` or `organization` as a parameter returns a 404 error',
+      enforce: [
+        '- run the `codacy_setup_repository` tool',
+        '- after setup, immediately retry the action that failed (only retry once)',
+      ],
+      scope: 'general',
+    },
   ]
 
   return {
     name: 'Codacy Rules',
     description: 'Configuration for AI behavior when interacting with Codacy',
-    rules: [...repositoryRules, ...commonRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
+    rules: [...repositoryRules, ...commonRules, ...enigmaRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
   }
 }
 
@@ -128,17 +143,23 @@ const sanitizeJSON = (json: string): string => {
 }
 
 const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): string => {
-  const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
-  const newCodacyRules = `\n# ${rules.name}\n${rules.description}\n${rules.rules
-    .map((rule) => `## When ${rule.when}\n${rule.enforce.join('\n - ')}`)
+  // const codacyRules: string = existingContent?.split('---').filter((part) => part.includes(rules.name))[0] || ''
+  const newCodacyRules = `\n# ${rules.name}\n${rules.description}\n\n${rules.rules
+    .map(
+      (rule) =>
+        `${rule.when ? `## When ${rule.when}\n` : '## General\n'}${rule.enforce
+          .map((e) => (e.startsWith('-') ? ` ${e}` : `- ${e}`))
+          .join('\n')}`
+    )
     .join('\n\n')}\n`
 
   if (!existingContent) {
     return `---${newCodacyRules}---`
   }
-  return codacyRules
-    ? existingContent.replace(codacyRules, newCodacyRules)
-    : existingContent + `---${newCodacyRules}---`
+
+  const existingRules = existingContent?.split('---')
+
+  return existingRules.map((content) => (content.indexOf(rules.name) > 0 ? newCodacyRules : content)).join('---')
 }
 
 const rulesPrefixForMdc = `---
@@ -190,7 +211,7 @@ export function updateMCPState() {
   vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
 }
 
-export async function createRules(repository?: Repository) {
+export async function createOrUpdateRules(repository?: Repository) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
 
   const newRules = newRulesTemplate(repository, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
@@ -433,7 +454,7 @@ export async function configureMCP(repository?: Repository, isUpdate = false) {
     }
 
     if (generateRules === 'enabled') {
-      await createRules(repository)
+      await createOrUpdateRules(repository)
     }
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
