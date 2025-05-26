@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { Config } from './common/config'
 import { parseGitRemote } from './common/parseGitRemote'
 import Logger from './common/logger'
+import { updateMCPToken } from './commands/configureMCP'
 
 export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements vscode.UriHandler {
   public handleUri(uri: vscode.Uri): void {
@@ -12,6 +13,8 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
     const onboardingSkipped = query.get('onboardingSkipped')
 
     Config.updateOnboardingSkipped(onboardingSkipped === 'true')
+
+    updateMCPToken(token)
 
     if (!token) {
       return

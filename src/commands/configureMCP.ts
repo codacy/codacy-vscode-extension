@@ -427,6 +427,37 @@ type MCPServerConfiguration = {
   env?: Record<string, string>
 }
 
+export async function updateMCPToken(token: string | null) {
+  const ide = getCurrentIDE()
+
+  if (ide === 'vscode') {
+    const mcpConfig = vscode.workspace.getConfiguration('mcp')
+    if (mcpConfig.has('servers.codacy')) {
+      mcpConfig.update('servers.codacy.token', token, true)
+    }
+  } else if (ide === 'cursor' || ide === 'windsurf') {
+    const ideConfig = getCorrectMcpConfig()
+
+    if (fs.existsSync(ideConfig.fileDir)) {
+      const filePath = path.join(ideConfig.fileDir, ideConfig.fileName)
+      let config = {}
+      if (fs.existsSync(filePath)) {
+        try {
+          const rawContent = fs.readFileSync(filePath, 'utf8')
+          const cleanedContent = sanitizeJSON(rawContent)
+          config = JSON.parse(cleanedContent)
+        } catch (parseError) {
+          Logger.error(`Error parsing config: ${(parseError as Error).message}`)
+        }
+        if (config && get(config, `${ideConfig.configAccessor}.codacy`) !== undefined) {
+          const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy.env[CODACY_ACCOUNT_TOKEN]`, token)
+          fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
+        }
+      }
+    }
+  }
+}
+
 export async function configureMCP(repository?: Repository, isUpdate = false) {
   const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
   const ide = getCurrentIDE()
