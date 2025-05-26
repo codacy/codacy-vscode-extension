@@ -1,5 +1,7 @@
 # Codacy IDE Extension
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ce7a0f3329764b348bced84c55334a5d)](https://app.codacy.com?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/ce7a0f3329764b348bced84c55334a5d)](https://app.codacy.com?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
+
 <p align="center">
   <img src="https://github.com/codacy/codacy-vscode-extension/raw/HEAD/.readme/codacy-logo.png" alt="Codacy Logo" width="150"/>
 </p>
