@@ -97,7 +97,7 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     {
       when: 'after ANY successful `edit_file` or `reapply` operation',
       enforce: [
-        'IMMEDIATELY run the `codacy_cli_analyze` tool for each file that was edited, with:',
+        "IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
         '- `rootPath`: set to the workspace path',
         '- `file`: set to the path of the edited file',
         '- `tool`: leave empty or unset',
@@ -108,7 +108,7 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     {
       when: 'after adding new dependencies, libraries or packages (e.g., after editing dependency files or running a package manager)',
       enforce: [
-        'IMMEDIATELY run the `codacy_cli_analyze` tool with:',
+        "IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server with:",
         '- `rootPath`: set to the workspace path',
         '- `tool`: set to "trivy"',
         '- `file`: leave empty or unset',
@@ -122,6 +122,9 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
         '"Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
         'Do not run `codacy_cli_analyze` looking for changes in duplicated code or code complexity metrics.',
         'Do not run `codacy_cli_analyze` looking for changes in code coverage.',
+        'Do not try to manually install Codacy CLI using either brew, npm, npx, or any other package manager.',
+        "If the Codacy CLI is not installed, just run the `codacy_cli_analyze` tool from Codacy's MCP Server.",
+        'When calling `codacy_cli_analyze`, only send provider, organization and repository if the project is a git repository.',
       ],
       scope: 'guardrails',
     },
