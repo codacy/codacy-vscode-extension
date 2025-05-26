@@ -2,10 +2,9 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 import { exec } from 'child_process'
-import { Config } from '../common/config'
-import { Repository } from '../api/client'
+import { Config, CodacyError } from '../common'
 import Logger from '../common/logger'
-import { CodacyError } from '../common/utils'
+import { RepositoryParams } from '../git/CodacyCloud'
 
 const CLI_FILE_NAME = 'cli.sh'
 const CLI_FOLDER_NAME = '.codacy'
@@ -71,13 +70,13 @@ async function downloadCodacyCLI(): Promise<void> {
   }
 }
 
-async function initializeCLI(repository?: Repository): Promise<void> {
+async function initializeCLI(params?: RepositoryParams): Promise<void> {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
   const codacyYamlPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
 
   const tokenAndRepository =
-    Config.apiToken && repository
-      ? `--api-token ${Config.apiToken} --provider ${repository.provider} --organization ${repository.owner} --repository ${repository.name}`
+    Config.apiToken && params
+      ? `--api-token ${Config.apiToken} --provider ${params.provider} --organization ${params.organization} --repository ${params.repository}`
       : ''
 
   if (!fs.existsSync(codacyYamlPath)) {
@@ -105,7 +104,7 @@ export async function updateCLIState(): Promise<boolean> {
   return cliInstalled
 }
 
-export async function installCLICommand(repository?: Repository): Promise<void> {
+export async function installCLICommand(params?: RepositoryParams): Promise<void> {
   await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
 
   await vscode.window.withProgress(
@@ -116,7 +115,7 @@ export async function installCLICommand(repository?: Repository): Promise<void> 
     },
     async () => {
       try {
-        await installCodacyCLI(repository)
+        await installCodacyCLI(params)
         await updateCLIState()
         vscode.window.showInformationMessage('Codacy CLI installed successfully!')
       } catch (error) {
@@ -128,7 +127,7 @@ export async function installCLICommand(repository?: Repository): Promise<void> 
   )
 }
 
-export async function installCodacyCLI(repository?: Repository): Promise<void> {
+export async function installCodacyCLI(params?: RepositoryParams): Promise<void> {
   try {
     const isInstalled = await isCLIInstalled()
 
@@ -136,7 +135,7 @@ export async function installCodacyCLI(repository?: Repository): Promise<void> {
       await downloadCodacyCLI()
     }
 
-    await initializeCLI(repository)
+    await initializeCLI(params)
   } catch (error) {
     if (error instanceof Error) {
       Logger.error(`Failed to install Codacy CLI: ${error.message}`)
@@ -145,11 +144,11 @@ export async function installCodacyCLI(repository?: Repository): Promise<void> {
   }
 }
 
-export async function updateCodacyCLI(repository?: Repository): Promise<void> {
+export async function updateCodacyCLI(params?: RepositoryParams): Promise<void> {
   try {
     await execAsync(`${CLI_COMMAND} update`)
 
-    await initializeCLI(repository)
+    await initializeCLI(params)
   } catch (error) {
     if (error instanceof Error) {
       Logger.error(`Failed to update Codacy CLI: ${error.message}`)
