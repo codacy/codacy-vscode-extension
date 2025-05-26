@@ -432,8 +432,16 @@ export async function updateMCPToken(token: string | null) {
 
   if (ide === 'vscode') {
     const mcpConfig = vscode.workspace.getConfiguration('mcp')
-    if (mcpConfig.has('servers.codacy')) {
-      mcpConfig.update('servers.codacy.token', token, true)
+    const mcpServers = mcpConfig.has('servers') ? mcpConfig.get('servers') : mcpConfig.update('servers', {}, true)
+
+    if (
+      mcpServers !== undefined &&
+      typeof mcpServers === 'object' &&
+      mcpServers !== null &&
+      mcpConfig.has('servers.codacy')
+    ) {
+      const modifiedConfig = set(mcpServers, 'codacy.env.CODACY_ACCOUNT_TOKEN', token)
+      mcpConfig.update('servers', modifiedConfig, true)
     }
   } else if (ide === 'cursor' || ide === 'windsurf') {
     const ideConfig = getCorrectMcpConfig()
@@ -450,7 +458,7 @@ export async function updateMCPToken(token: string | null) {
           Logger.error(`Error parsing config: ${(parseError as Error).message}`)
         }
         if (config && get(config, `${ideConfig.configAccessor}.codacy`) !== undefined) {
-          const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy.env[CODACY_ACCOUNT_TOKEN]`, token)
+          const modifiedConfig = set(config, `${ideConfig.configAccessor}.codacy.env.CODACY_ACCOUNT_TOKEN`, token)
           fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
         }
       }
