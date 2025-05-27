@@ -18,14 +18,7 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
-import {
-  configureGuardrails,
-  configureMCP,
-  createOrUpdateRules,
-  isMCPConfigured,
-  updateMCPConfig,
-  updateMCPState,
-} from './commands/configureMCP'
+import { configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } from './commands/configureMCP'
 import { installCLICommand, updateCLIState, updateCodacyCLI } from './commands/installAnalysisCLI'
 import { addRepository, joinOrganization } from './onboarding'
 /**
@@ -54,19 +47,19 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.installCLI': async () => {
-      await installCLICommand(codacyCloud.repository)
+      await installCLICommand(codacyCloud.params)
     },
     'codacy.configureMCP': async () => {
-      await configureMCP(codacyCloud.repository)
+      await configureMCP(codacyCloud.params)
       updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
-      await configureGuardrails(codacyCloud.repository)
+      await configureGuardrails(codacyCloud.params)
       updateMCPState()
       await updateCLIState()
     },
     'codacy.configureMCP.reset': async () => {
-      await configureMCP(codacyCloud.repository, true)
+      await configureMCP(codacyCloud.params, true)
       updateMCPState()
     },
     'codacy.onboarding.complete': () => {
@@ -106,7 +99,6 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
 
     git.onDidChangeState(async (state: APIState) => {
       if (state === 'initialized') {
-        // Only set the context after we know the final state
         if (git.repositories.length > 0) {
           codacyCloud.open(git.repositories[0])
         } else {
@@ -220,7 +212,7 @@ export async function activate(context: vscode.ExtensionContext) {
         Logger.appendLine('Updating MCP config')
 
         // Update MCP config now that we have a token and perhaps a repository
-        updateMCPConfig(codacyCloud.repository)
+        updateMCPConfig(codacyCloud.params)
       })
     )
 
@@ -263,18 +255,12 @@ export async function activate(context: vscode.ExtensionContext) {
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     // When the user doesn't have a specific version, update the CLI to the latest version
     if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
-      await updateCodacyCLI(codacyCloud.repository)
+      await updateCodacyCLI(codacyCloud.params)
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
     // Update initially
     updateMCPState()
-
-    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
-
-    if (isMCPConfigured() && generateRules === 'enabled') {
-      await createOrUpdateRules(codacyCloud.repository)
-    }
   }
 }
 

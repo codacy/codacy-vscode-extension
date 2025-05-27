@@ -2,12 +2,11 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import { Config } from '../common/config'
 import { get, set } from 'lodash'
-import { Repository } from '../api/client'
 import { installCodacyCLI } from './installAnalysisCLI'
 import Logger from '../common/logger'
-import { CodacyError } from '../common/utils'
+import { CodacyError, Config } from '../common'
+import { RepositoryParams } from '../git/CodacyCloud'
 
 interface Rule {
   when?: string
@@ -21,17 +20,17 @@ interface RuleConfig {
   rules: Rule[]
 }
 
-const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails' | 'general')[]): RuleConfig => {
+const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrails' | 'general')[]): RuleConfig => {
   const repositoryRules: Rule[] = []
-  if (repository) {
-    const { provider, owner: organization, name } = repository
+  if (params) {
+    const { provider, organization, repository } = params
     repositoryRules.push({
       when: 'using any tool that accepts the arguments: `provider`, `organization`, or `repository`',
       enforce: [
         'ALWAYS use:',
         `- provider: ${provider}`,
         `- organization: ${organization}`,
-        `- repository: ${name}`,
+        `- repository: ${repository}`,
         'Avoid calling `git remote -v` unless really necessary',
       ],
       scope: 'general',
@@ -215,10 +214,13 @@ export function updateMCPState() {
   vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
 }
 
-export async function createOrUpdateRules(repository?: Repository) {
+export async function createOrUpdateRules(params?: RepositoryParams) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
 
-  const newRules = newRulesTemplate(repository, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
+  if (generateRules === 'disabled') return
+
+  const newRules = newRulesTemplate(params, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
 
   try {
     const { path: rulesPath, format } = getCorrectRulesInfo()
@@ -278,6 +280,7 @@ function getCurrentIDE(): string {
   if (isWindsurf) return 'windsurf'
   return 'vscode'
 }
+
 function getCorrectMcpConfig(): {
   fileDir: string
   fileName: string
@@ -368,9 +371,9 @@ export function isMCPConfigured(): boolean {
   }
 }
 
-export async function configureGuardrails(repository?: Repository) {
-  await installCodacyCLI(repository)
-  await configureMCP(repository)
+export async function configureGuardrails(params?: RepositoryParams) {
+  await installCodacyCLI(params)
+  await configureMCP(params)
 }
 
 function installMCPForVSCode(server: MCPServerConfiguration) {
@@ -427,8 +430,7 @@ type MCPServerConfiguration = {
   env?: Record<string, string>
 }
 
-export async function configureMCP(repository?: Repository, isUpdate = false) {
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+export async function configureMCP(params?: RepositoryParams, isUpdate = false) {
   const ide = getCurrentIDE()
 
   try {
@@ -457,16 +459,14 @@ export async function configureMCP(repository?: Repository, isUpdate = false) {
       vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
     }
 
-    if (generateRules === 'enabled') {
-      await createOrUpdateRules(repository)
-    }
+    await createOrUpdateRules(params)
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }
 }
 
-export async function updateMCPConfig(repository?: Repository) {
+export async function updateMCPConfig(params?: RepositoryParams) {
   if (isMCPConfigured()) {
-    await configureMCP(repository, true)
+    await configureMCP(params, true)
   }
 }
