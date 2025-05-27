@@ -97,7 +97,7 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     {
       when: 'After ANY successful `edit_file` or `reapply` operation',
       enforce: [
-        "YOU MUSTIMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
+        "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
         '- `rootPath`: set to the workspace path',
         '- `file`: set to the path of the edited file',
         '- `tool`: leave empty or unset',
