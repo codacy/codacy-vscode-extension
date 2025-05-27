@@ -106,14 +106,28 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
       scope: 'guardrails',
     },
     {
-      when: 'After adding new dependencies, libraries or packages (e.g., after editing dependency files or running a package manager)',
+      when: 'CRITICAL: Dependencies and Security Checks',
       enforce: [
-        "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server with:",
+        'IMMEDIATELY after ANY of these actions:',
+        '- Running npm/yarn/pnpm install',
+        '- Adding dependencies to package.json',
+        '- Adding requirements to requirements.txt',
+        '- Adding dependencies to pom.xml',
+        '- Adding dependencies to build.gradle',
+        '- Any other package manager operations',
+        'You MUST run the `codacy_cli_analyze` tool with:',
         '- `rootPath`: set to the workspace path',
         '- `tool`: set to "trivy"',
         '- `file`: leave empty or unset',
-        'If any insecure dependencies are found among the newly added ones, propose and apply fixes for them.',
-        '> NOTE: Failure to follow this rule is considered a critical error.',
+        'If any insecure dependencies are found because of the newly added ones:',
+        '- 1. Stop all other operations',
+        '- 2. Propose and apply fixes for the security issues',
+        '- 3. Only continue with the original task after security issues are resolved',
+        `
+## EXAMPLE:,
+  - After: npm install react-markdown
+  - Do: Run codacy_cli_analyze with trivy
+  - Before: Continuing with any other tasks`,
       ],
       scope: 'guardrails',
     },
