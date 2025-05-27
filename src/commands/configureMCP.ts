@@ -49,7 +49,7 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
     const codacyCLITools = fs.readFileSync(codacyCLISettingsPath, 'utf8')
     if (codacyCLITools.includes('enigma')) {
       enigmaRules.push({
-        when: 'user asks to create a rule',
+        when: 'When user asks to create a rule',
         scope: 'general',
         enforce: [
           'To add a new rule for code analysis, follow these steps:',
@@ -95,31 +95,34 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
 
   const commonRules: Rule[] = [
     {
-      when: 'after ANY successful `edit_file` or `reapply` operation',
+      when: 'After ANY successful `edit_file` or `reapply` operation',
       enforce: [
-        "IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
+        "YOU MUSTIMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
         '- `rootPath`: set to the workspace path',
         '- `file`: set to the path of the edited file',
         '- `tool`: leave empty or unset',
         'If any issues are found in the new edits, propose and apply fixes for them.',
+        '> NOTE: Failure to follow this rule is considered a critical error.',
       ],
       scope: 'guardrails',
     },
     {
-      when: 'after adding new dependencies, libraries or packages (e.g., after editing dependency files or running a package manager)',
+      when: 'After adding new dependencies, libraries or packages (e.g., after editing dependency files or running a package manager)',
       enforce: [
-        "IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server with:",
+        "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server with:",
         '- `rootPath`: set to the workspace path',
         '- `tool`: set to "trivy"',
         '- `file`: leave empty or unset',
         'If any insecure dependencies are found among the newly added ones, propose and apply fixes for them.',
+        '> NOTE: Failure to follow this rule is considered a critical error.',
       ],
       scope: 'guardrails',
     },
     {
       enforce: [
-        'When multiple files are affected, repeat the relevant steps for each file.',
+        'Repeat the relevant steps for each modified file.',
         '"Propose fixes" means to both suggest and, if possible, automatically apply the fixes.',
+        'You MUST NOT wait for the user to ask for analysis or remind you to run the tool.',
         'Do not run `codacy_cli_analyze` looking for changes in duplicated code or code complexity metrics.',
         'Do not run `codacy_cli_analyze` looking for changes in code coverage.',
         'Do not try to manually install Codacy CLI using either brew, npm, npx, or any other package manager.',
@@ -129,9 +132,11 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
       scope: 'guardrails',
     },
     {
-      when: 'a call to a Codacy tool that uses `repository` or `organization` as a parameter returns a 404 error',
+      when: 'Whenever a call to a Codacy tool that uses `repository` or `organization` as a parameter returns a 404 error',
       enforce: [
-        'Run the `codacy_setup_repository` tool',
+        'Offer to run the `codacy_setup_repository` tool to add the repository to Codacy',
+        'If the user accepts, run the `codacy_setup_repository` tool',
+        'Do not ever try to run the `codacy_setup_repository` tool on your own',
         'After setup, immediately retry the action that failed (only retry once)',
       ],
       scope: 'general',
@@ -140,7 +145,7 @@ const newRulesTemplate = (repository?: Repository, excludedScopes?: ('guardrails
 
   return {
     name: 'Codacy Rules',
-    description: 'Configuration for AI behavior when interacting with Codacy',
+    description: "Configuration for AI behavior when interacting with Codacy's MCP Server",
     rules: [...repositoryRules, ...commonRules, ...enigmaRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
   }
 }
@@ -154,7 +159,7 @@ const convertRulesToMarkdown = (rules: RuleConfig, existingContent?: string): st
   const newCodacyRules = `\n# ${rules.name}\n${rules.description}\n\n${rules.rules
     .map(
       (rule) =>
-        `${rule.when ? `## When ${rule.when}\n` : '## General\n'}${rule.enforce
+        `${rule.when ? `## ${rule.when}\n` : '## General\n'}${rule.enforce
           .map((e) => (e.startsWith('-') ? ` ${e}` : `- ${e}`))
           .join('\n')}`
     )
