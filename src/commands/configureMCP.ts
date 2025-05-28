@@ -119,15 +119,14 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
         '- `rootPath`: set to the workspace path',
         '- `tool`: set to "trivy"',
         '- `file`: leave empty or unset',
-        'If any insecure dependencies are found because of the newly added ones:',
-        '- 1. Stop all other operations',
-        '- 2. Propose and apply fixes for the security issues',
-        '- 3. Only continue with the original task after security issues are resolved',
-        `
-## EXAMPLE:,
-  - After: npm install react-markdown
-  - Do: Run codacy_cli_analyze with trivy
-  - Before: Continuing with any other tasks`,
+        'If any vulnerabilities are found because of the newly added packages:',
+        '- Stop all other operations',
+        '- Propose and apply fixes for the security issues',
+        '- Only continue with the original task after security issues are resolved',
+        'EXAMPLE:',
+        '- After: npm install react-markdown',
+        '- Do: Run codacy_cli_analyze with trivy',
+        '- Before: Continuing with any other tasks',
       ],
       scope: 'guardrails',
     },
