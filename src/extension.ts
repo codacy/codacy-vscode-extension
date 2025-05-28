@@ -19,13 +19,14 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } from './commands/configureMCP'
-import { installCLICommand, updateCLIState, updateCodacyCLI } from './commands/installAnalysisCLI'
 import { addRepository, joinOrganization } from './onboarding'
+import { Cli } from './cli'
+import { CodacyCli } from './cli/CodacyCli'
 /**
  * Helper function to register all extension commands
  * @param context
  */
-const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: CodacyCloud) => {
+const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: CodacyCloud, cli: CodacyCli) => {
   const commands: Record<string, CommandType> = {
     'codacy.codacyAuth': codacyAuth,
     'codacy.joinOrganization': () => joinOrganization(codacyCloud),
@@ -47,16 +48,15 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.installCLI': async () => {
-      await installCLICommand(codacyCloud.params)
+      await cli.install()
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
       updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
-      await configureGuardrails(codacyCloud.params)
+      await configureGuardrails(cli, codacyCloud.params)
       updateMCPState()
-      await updateCLIState()
     },
     'codacy.configureMCP.reset': async () => {
       await configureMCP(codacyCloud.params, true)
@@ -177,10 +177,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(gitProvider)
 
-    await registerCommands(context, codacyCloud)
+    const cli = await Cli.get(codacyCloud.params ? codacyCloud.params : {})
+    await registerCommands(context, codacyCloud, cli)
 
     // initialize the problems diagnostic collection
-    context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud))
+    context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud, cli))
 
     // add views
     context.subscriptions.push(new PullRequestSummaryTree(context, codacyCloud))
@@ -250,12 +251,11 @@ export async function activate(context: vscode.ExtensionContext) {
       item.onClick()
     })
 
-    const cliInstalled = await updateCLIState()
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     // When the user doesn't have a specific version, update the CLI to the latest version
-    if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
-      await updateCodacyCLI(codacyCloud.params)
+    if (!cliVersion && cli.getCliCommand() && analysisMode !== 'disabled') {
+      await cli.update()
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
