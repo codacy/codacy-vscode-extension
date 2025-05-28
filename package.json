@@ -13,7 +13,8 @@
     "vscode": "^1.81.0"
   },
   "categories": [
-    "Other"
+    "Linters",
+    "AI"
   ],
   "keywords": [
     "codacy",
