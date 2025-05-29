@@ -2,6 +2,8 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { get, set } from 'lodash'
 import { installCodacyCLI } from './installAnalysisCLI'
 import Logger from '../common/logger'
@@ -445,6 +447,15 @@ function installMCPForOthers(server: MCPServerConfiguration) {
   fs.writeFileSync(filePath, JSON.stringify(modifiedConfig, null, 2))
 }
 
+const checkForNode = async (): Promise<void> => {
+  try {
+    const execAsync = promisify(exec)
+    await execAsync('node --version')
+  } catch (error) {
+    throw new CodacyError('Node.js is not installed. Please install Node.js to use Codacy MCP.', error as Error, 'MCP')
+  }
+}
+
 type MCPServerConfiguration = {
   command: string
   args: string[]
@@ -455,6 +466,9 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
   const ide = getCurrentIDE()
 
   try {
+    // Check for Node.js installation first
+    await checkForNode()
+
     const apiToken = Config.apiToken
 
     // Prepare the Codacy server configuration
