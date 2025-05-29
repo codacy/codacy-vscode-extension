@@ -1,16 +1,15 @@
 import * as vscode from 'vscode'
 import { Repository as GitRepository } from './git'
 import Logger from '../common/logger'
-import { parseGitRemote } from '../common/parseGitRemote'
+import Telemetry from '../common/telemetry'
+import { Config, handleError, parseGitRemote } from '../common'
 import { Api } from '../api'
 import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
-import { handleError } from '../common/utils'
 import { PullRequest, PullRequestInfo } from './PullRequest'
-import { Config } from '../common/config'
 import { IssuesManager } from './IssuesManager'
-import Telemetry from '../common/telemetry'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
 import { GitProvider } from './GitProvider'
+import { isMCPConfigured, createOrUpdateRules } from '../commands/configureMCP'
 
 export enum CodacyCloudState {
   Initializing = 'Initializing',
@@ -45,19 +44,18 @@ const BR_STATE_CONTEXT_KEY = 'Codacy:BranchStateContext'
 const LOAD_RETRY_TIME = 2 * 60 * 1000 // 2 minutes
 const MAX_LOAD_ATTEMPTS = 5
 
+export interface RepositoryParams {
+  provider: 'bb' | 'gh' | 'gl'
+  organization: string
+  repository: string
+}
 export class CodacyCloud implements vscode.Disposable {
   private _current: GitRepository | undefined
   private _repository: RepositoryWithAnalysis | undefined
   private _organization: OrganizationWithMeta | undefined
   private _enabledBranches: Branch[] = []
   private _expectCoverage: boolean | undefined
-  private _params:
-    | {
-        provider: 'bb' | 'gh' | 'gl'
-        organization: string
-        repository: string
-      }
-    | undefined
+  private _params: RepositoryParams | undefined
   private _state: CodacyCloudState = CodacyCloudState.Initializing
 
   private _branch: string | undefined
@@ -116,6 +114,10 @@ export class CodacyCloud implements vscode.Disposable {
           while (this._repository === undefined && remoteIdx < remotesWithPushUrl.length) {
             const { provider, organization, repository } = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
             this._params = { provider, organization, repository }
+
+            if (isMCPConfigured()) {
+              await createOrUpdateRules({ provider, organization, repository })
+            }
 
             try {
               // load repository information
@@ -469,6 +471,8 @@ export class CodacyCloud implements vscode.Disposable {
 
   public clear() {
     this._current = undefined
+    // Clean up the rules file of repository information
+    if (isMCPConfigured()) createOrUpdateRules()
     if (!Config.apiToken) {
       this.state = CodacyCloudState.NeedsAuthentication
     } else {
