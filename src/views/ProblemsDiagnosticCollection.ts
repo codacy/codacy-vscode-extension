@@ -85,13 +85,15 @@ export class CliIssueDiagnostic extends vscode.Diagnostic {
 }
 
 export class ProblemsDiagnosticCollection implements vscode.Disposable {
-  private _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
+  private readonly _collection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection('codacy')
 
   private _currentApiIssues: { [key in string]: PullRequestIssue[] | BranchIssue[] } = {}
   private _currentCliIssues: { [key in string]: ProcessedSarifResult[] } = {}
 
   private _isAnalysisRunning: boolean = false
   private _analysisDebounceTimeout: NodeJS.Timeout | undefined
+
+  private readonly _subscriptions: vscode.Disposable[] = []
 
   constructor(private readonly _codacyCloud: CodacyCloud) {
     // load all API issues when the pull request is updated
@@ -105,11 +107,14 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       this.loadAPIIssues(issues)
     })
 
-    GitProvider.instance?.onDidChangeTextDocument(async (e) => {
+    const onDidChangeTextDocument = GitProvider.instance?.onDidChangeTextDocument(async (e) => {
       const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
 
       // avoid if the document is a .git file
       if (e.document.uri.fsPath.endsWith('.git')) return
+
+      // avoid it for codacy-cli.log
+      if (e.document.uri.fsPath.endsWith('codacy-cli.log')) return
 
       // update positions of remote issues in the document
       this.updateApiIssuesPositions(e.document)
@@ -118,6 +123,26 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       // run local analysis for available tools
       await this.runAnalysisAndUpdateDiagnostics(e.document)
     })
+
+    if (onDidChangeTextDocument) this._subscriptions.push(onDidChangeTextDocument)
+
+    // Listen for file deletions and clear diagnostics for deleted files
+    this._subscriptions.push(
+      vscode.workspace.onDidDeleteFiles((event) => {
+        for (const file of event.files) {
+          this.removeDiagnosticsForFile(file)
+        }
+      })
+    )
+
+    // Listen for file renames and clear diagnostics for renamed files
+    this._subscriptions.push(
+      vscode.workspace.onDidRenameFiles((event) => {
+        for (const file of event.files) {
+          this.renameDiagnosticsForFile(file.oldUri, file.newUri)
+        }
+      })
+    )
   }
 
   private updateDiagnostics() {
@@ -251,6 +276,20 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     }, 2000)
   }
 
+  private renameDiagnosticsForFile(oldUri: vscode.Uri, newUri: vscode.Uri) {
+    this._collection.delete(oldUri)
+
+    this._currentApiIssues[newUri.fsPath] = this._currentApiIssues[oldUri.fsPath]
+    delete this._currentApiIssues[oldUri.fsPath]
+    this._currentCliIssues[newUri.fsPath] = this._currentCliIssues[oldUri.fsPath]
+    delete this._currentCliIssues[oldUri.fsPath]
+
+    const document = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === newUri.fsPath)
+    if (document) {
+      this.updateDocumentDiagnostics(document)
+    }
+  }
+
   public loadAPIIssues(issues: PullRequestIssue[] | BranchIssue[]) {
     const baseUri = this._codacyCloud.rootUri?.path
     const issuesByFile = groupBy(issues, (issue) => issue.commitIssue.filePath)
@@ -284,7 +323,14 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   public dispose() {
+    this._subscriptions.forEach((subscription) => subscription.dispose())
     this.clear()
+  }
+
+  public removeDiagnosticsForFile(uri: vscode.Uri) {
+    this._collection.delete(uri)
+    delete this._currentApiIssues[uri.fsPath]
+    delete this._currentCliIssues[uri.fsPath]
   }
 }
 
