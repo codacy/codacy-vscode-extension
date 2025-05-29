@@ -149,7 +149,7 @@
       },
       {
         "view": "codacy:cloud-status",
-        "contents": "Ensure full protection by adding PR-level scans to this repo so that no security vulnerabilities are added.\n[Add repository to Codacy](command:codacy.addRepository)\nAdds this Git repository to Codacy with your organization default scanning rules. [Learn more](https://www.codacy.com/pricing) about plan benefits and what's included.",
+        "contents": "Ensure full protection by adding PR-level scans to this repo so that no security vulnerabilities are added.\n[Add repository to Codacy](command:codacy.addRepository)\nAdds this Git repository to Codacy with your organization default scanning rules.",
         "when": "Codacy:CodacyCloudStateContext == NeedsToAddRepository"
       },
       {
@@ -211,6 +211,10 @@
         "view": "codacy:mcp",
         "contents": "$(warning) Codacy CLI not found. [Install CLI](command:codacy.installCLI)",
         "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+      },
+      {
+        "view": "codacy:mcp",
+        "contents": "[Learn more](https://docs.codacy.com/codacy-guardrails/codacy-guardrails-getting-started/) about Codacy Guardrails in our documentation."
       },
       {
         "view": "codacy:cli",
