@@ -6,12 +6,11 @@ import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
-import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
+import { ProcessedSarifResult } from '../cli'
 import * as path from 'path'
-import { isCLIInstalled } from '../commands/installAnalysisCLI'
+import { CodacyCli } from '../cli/CodacyCli'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
-// import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -95,7 +94,12 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
   private readonly _subscriptions: vscode.Disposable[] = []
 
-  constructor(private readonly _codacyCloud: CodacyCloud) {
+  private cli: CodacyCli
+
+  constructor(
+    private readonly _codacyCloud: CodacyCloud,
+    _cli: CodacyCli
+  ) {
     // load all API issues when the pull request is updated
     _codacyCloud.onDidUpdatePullRequest((pr) => {
       const newIssues = pr?.issues.filter((issue) => issue.deltaType === 'Added') || []
@@ -143,6 +147,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         }
       })
     )
+
+    this.cli = _cli
   }
 
   private updateDiagnostics() {
@@ -200,9 +206,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
-    // TODO: check if Codacy CLI is available and initialized
-
-    // Clear any pending analysis
+    // ny pending analysis
     if (this._analysisDebounceTimeout) {
       clearTimeout(this._analysisDebounceTimeout)
     }
@@ -218,9 +222,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
       const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
 
-      const isCliInstalled = await isCLIInstalled()
-
-      if (!isCliInstalled || !codacyCLIConfigExists) return
+      if (!this.cli.getCliCommand() || !codacyCLIConfigExists) return
 
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath
@@ -252,7 +254,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         }
 
         // Run the local analysis
-        const results = await runCodacyAnalyze(pathToFile)
+        const results = await this.cli.analyze({ file: pathToFile })
 
         this._currentCliIssues[originalPath] = results
 
