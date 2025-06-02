@@ -77,7 +77,7 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
           'MetaTags',
           '- Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
           '- Each MetaTag must have an `Id` and a `Regex`.',
-          '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported.',
+          '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported. Please always wrap in double quotes.',
           'Languages:  List the programming languages this rule applies to under `Languages`.',
           'Testing Your Rule: After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
           '- rootPath set to the project root',
