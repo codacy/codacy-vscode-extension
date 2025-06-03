@@ -19,8 +19,8 @@ import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
 import { configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } from './commands/configureMCP'
-import { installCLICommand, updateCLIState, updateCodacyCLI } from './commands/installAnalysisCLI'
 import { addRepository, joinOrganization } from './onboarding'
+
 /**
  * Helper function to register all extension commands
  * @param context
@@ -47,16 +47,15 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.installCLI': async () => {
-      await installCLICommand(codacyCloud.params)
+      await codacyCloud.cli?.install()
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
       updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
-      await configureGuardrails(codacyCloud.params)
+      await configureGuardrails(codacyCloud.cli, codacyCloud.params)
       updateMCPState()
-      await updateCLIState()
     },
     'codacy.configureMCP.reset': async () => {
       await configureMCP(codacyCloud.params, true)
@@ -114,7 +113,6 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
   } else {
     // Only set context to false if Git is truly not available
     Logger.error('Native Git VSCode extension not found')
-    await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', false)
   }
 }
 
@@ -146,18 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
       (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
   )
 
-  await vscode.commands.executeCommand(
-    'setContext',
-    'codacy:canInstallCLI',
-    os.platform() === 'darwin' || os.platform() === 'linux'
-  )
-
   await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
-
-  // Set isGitRepository to null by default, will be properly set by git provider logic
-  // Using null instead of false prevents overriding the context when it shouldn't
-  // This will ensure we don't set it to false when a repository is actually available
-  await vscode.commands.executeCommand('setContext', 'codacy:isGitRepository', null)
 
   if (hasWorkspaceFolder) {
     Logger.appendLine('Codacy extension activated with workspace folder')
@@ -250,12 +237,11 @@ export async function activate(context: vscode.ExtensionContext) {
       item.onClick()
     })
 
-    const cliInstalled = await updateCLIState()
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
     // When the user doesn't have a specific version, update the CLI to the latest version
-    if (!cliVersion && cliInstalled && analysisMode !== 'disabled') {
-      await updateCodacyCLI(codacyCloud.params)
+    if (!cliVersion && codacyCloud.cli?.getCliCommand() && analysisMode !== 'disabled') {
+      await codacyCloud.cli.update()
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 

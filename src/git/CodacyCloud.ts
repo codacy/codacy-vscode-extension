@@ -10,6 +10,8 @@ import { IssuesManager } from './IssuesManager'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
 import { GitProvider } from './GitProvider'
 import { isMCPConfigured, createOrUpdateRules } from '../commands/configureMCP'
+import { Cli } from '../cli'
+import { CodacyCli } from '../cli/CodacyCli'
 
 export enum CodacyCloudState {
   Initializing = 'Initializing',
@@ -84,6 +86,8 @@ export class CodacyCloud implements vscode.Disposable {
   private _prsRefreshTimeout: NodeJS.Timeout | undefined
   private _analysisCheckTimeout: NodeJS.Timeout | undefined
 
+  private _cli: CodacyCli | undefined
+
   private _disposables: vscode.Disposable[] = []
 
   constructor() {
@@ -95,6 +99,7 @@ export class CodacyCloud implements vscode.Disposable {
   public async open(gitRepository: GitRepository) {
     const openRepository = async () => {
       this._current = gitRepository
+      this._cli = await Cli.get(this._params ?? {})
 
       try {
         if (gitRepository.state.HEAD === undefined) {
@@ -123,6 +128,9 @@ export class CodacyCloud implements vscode.Disposable {
               // load repository information
               const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, organization, repository)
 
+              this._repository = data
+              this._cli = await Cli.get(this._params ?? {})
+
               if (!data.lastAnalysedCommit) {
                 const status = await checkFirstAnalysisStatus(provider, organization, repository)
                 if (
@@ -139,7 +147,6 @@ export class CodacyCloud implements vscode.Disposable {
                   return
                 }
               }
-              this._repository = data
             } catch (error) {
               remoteIdx++
             }
@@ -469,7 +476,7 @@ export class CodacyCloud implements vscode.Disposable {
     }
   }
 
-  public clear() {
+  public async clear() {
     this._current = undefined
     // Clean up the rules file of repository information
     if (isMCPConfigured()) createOrUpdateRules()
@@ -478,6 +485,7 @@ export class CodacyCloud implements vscode.Disposable {
     } else {
       this.state = CodacyCloudState.NoGitRepository
     }
+    this._cli = await Cli.get({})
   }
 
   public refresh() {
@@ -536,6 +544,10 @@ export class CodacyCloud implements vscode.Disposable {
 
   get state() {
     return this._state
+  }
+
+  get cli() {
+    return this._cli
   }
 
   get head() {

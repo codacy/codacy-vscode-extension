@@ -6,12 +6,10 @@ import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
 import { CommitIssue } from '../api/client'
-import { ProcessedSarifResult, runCodacyAnalyze } from '../commands/runCodacyAnalyze'
+import { ProcessedSarifResult } from '../cli'
 import * as path from 'path'
-import { isCLIInstalled } from '../commands/installAnalysisCLI'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
-// import * as os from 'os'
 
 const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -116,6 +114,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       // avoid it for codacy-cli.log
       if (e.document.uri.fsPath.endsWith('codacy-cli.log')) return
 
+      // avoid it for cli.sh
+      if (e.document.uri.fsPath.endsWith('cli.sh')) return
+
       // update positions of remote issues in the document
       this.updateApiIssuesPositions(e.document)
 
@@ -200,8 +201,6 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
-    // TODO: check if Codacy CLI is available and initialized
-
     // Clear any pending analysis
     if (this._analysisDebounceTimeout) {
       clearTimeout(this._analysisDebounceTimeout)
@@ -218,9 +217,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
       const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
 
-      const isCliInstalled = await isCLIInstalled()
-
-      if (!isCliInstalled || !codacyCLIConfigExists) return
+      if (!this._codacyCloud.cli?.getCliCommand() || !codacyCLIConfigExists) return
 
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath
@@ -252,9 +249,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         }
 
         // Run the local analysis
-        const results = await runCodacyAnalyze(pathToFile)
+        const results = await this._codacyCloud.cli?.analyze({ file: pathToFile })
 
-        this._currentCliIssues[originalPath] = results
+        this._currentCliIssues[originalPath] = results || []
 
         this.updateDocumentDiagnostics(document)
       } catch (error) {
