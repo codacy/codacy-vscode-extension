@@ -90,7 +90,7 @@
         {
           "id": "codacy:cli",
           "name": "Local Analysis",
-          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || codacy:windowsDetected)",
+          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || (codacy:windowsDetected && !codacy:canInstallCLI))",
           "icon": "$(gear)",
           "initialSize": 2
         },
@@ -223,8 +223,8 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "Codacy CLI is only available on Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/install). Make sure you install the [WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) and start a WSL window.",
-        "when": "codacy:windowsDetected"
+        "contents": "Codacy CLI is only available on Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).",
+        "when": "codacy:windowsDetected && !codacy:canInstallCLI"
       },
       {
         "view": "codacy:cli",

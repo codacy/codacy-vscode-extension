@@ -5,7 +5,7 @@ import * as os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { get, set } from 'lodash'
-import { installCodacyCLI } from './installAnalysisCLI'
+import { CodacyCli } from '../cli/CodacyCli'
 import Logger from '../common/logger'
 import { CodacyError, Config } from '../common'
 import { RepositoryParams } from '../git/CodacyCloud'
@@ -394,8 +394,8 @@ export function isMCPConfigured(): boolean {
   }
 }
 
-export async function configureGuardrails(params?: RepositoryParams) {
-  await installCodacyCLI(params)
+export async function configureGuardrails(cli?: CodacyCli, params?: RepositoryParams) {
+  await cli?.install()
   await configureMCP(params)
 }
 
