@@ -106,7 +106,7 @@
     "viewsWelcome": [
       {
         "view": "codacy:support",
-        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://start-chat.com/slack/codacy/kShTS8?utm_source=Company+website&utm_medium=direct)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
+        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://codacy.zendesk.com/hc/en-us/requests/new)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
       },
       {
         "view": "codacy:status",
