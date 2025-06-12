@@ -51,12 +51,14 @@ export class GitProvider implements IGitProvider {
     this._disposables.push(this._gitAPI.onDidChangeState((e) => this._onDidChangeState.fire(e)))
     this._disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => {
-        if (e.document.uri.fsPath.startsWith('/')) this._onDidChangeTextDocument.fire(e)
+        const fsPath = e.document.uri.fsPath
+        if (fsPath.startsWith('/') || /^[A-Za-z]:\\/.test(fsPath)) this._onDidChangeTextDocument.fire(e)
       })
     )
     this._disposables.push(
       vscode.workspace.onDidOpenTextDocument((e) => {
-        if (e.uri.fsPath.startsWith('/'))
+        const fsPath = e.uri.fsPath
+        if (fsPath.startsWith('/') || /^[A-Za-z]:\\/.test(fsPath))
           this._onDidChangeTextDocument.fire({ document: e, contentChanges: [], reason: undefined })
       })
     )
