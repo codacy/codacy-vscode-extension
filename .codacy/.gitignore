@@ -1,7 +1,5 @@
-*.sh
-*.yaml
-
-# tools-config folder
+# Codacy CLI 
 tools-configs/
-logs/
-
+.gitignore
+cli-config.yaml
+*.sh
