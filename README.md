@@ -115,7 +115,7 @@ Don't worry - each step comes with clear guidance and actions to help you move f
 
 - If you're having trouble connecting to Codacy in Linux, make sure the protocol of the IDE you're using is registered. 
 
-  Steps to register ide protocol:
+  Steps to register IDE protocol:
 
   Run:
 
