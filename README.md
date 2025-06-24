@@ -113,6 +113,37 @@ Don't worry - each step comes with clear guidance and actions to help you move f
   - Analysis progress and results
   - Organization and repository setup information
 
+- If you're having trouble connecting to Codacy in Linux, make sure the protocol of the IDE you're using is registered. 
+
+  Steps to register IDE protocol:
+
+  Run:
+
+  ```
+  nano ~/.local/share/applications/<ide-name>.desktop
+  ```
+
+
+  In the file add the following:
+
+  ```
+  [Desktop Entry]
+  Name=<ide-name>
+  Exec=/path/to/ide/appImage --open-url %U
+  Type=Application
+  Terminal=false
+  MimeType=x-scheme-handler/<ide-name>;
+  Icon=utilities-terminal
+  Categories=Development;
+  ```
+
+  Run:
+
+  ```
+  update-desktop-database ~/.local/share/applications/
+
+  xdg-mime default <ide-name>.desktop x-scheme-handler/<ide-name>
+  ```
 
 ## 🤝 Community & Support
 
