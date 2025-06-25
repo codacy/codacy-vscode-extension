@@ -9,6 +9,7 @@ import { CodacyCli } from '../cli/CodacyCli'
 import Logger from '../common/logger'
 import { CodacyError, Config } from '../common'
 import { RepositoryParams } from '../git/CodacyCloud'
+import { createWindsurfWorkflows } from './createWorkflows'
 
 interface Rule {
   when?: string
@@ -495,6 +496,9 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     }
 
     await createOrUpdateRules(params)
+    if (ide === 'windsurf') {
+      createWindsurfWorkflows()
+    }
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }
