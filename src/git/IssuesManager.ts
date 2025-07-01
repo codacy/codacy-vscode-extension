@@ -42,10 +42,11 @@ export class IssuesManager implements vscode.Disposable {
             repo.provider,
             repo.owner,
             repo.name,
+            nextCursor,
+            100,
             {
               branchName: currentBranch,
-            },
-            nextCursor
+            }
           )
 
           this._allIssues.push(
