@@ -5,17 +5,19 @@ import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
-import { CommitIssue } from '../api/client'
+import { CommitIssue, SeverityLevel } from '../api/client'
 import { ProcessedSarifResult } from '../cli'
 import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 
-const patternSeverityToDiagnosticSeverity = (severity: 'Info' | 'Warning' | 'Error'): vscode.DiagnosticSeverity => {
+const patternSeverityToDiagnosticSeverity = (severity: SeverityLevel): vscode.DiagnosticSeverity => {
   switch (severity) {
     case 'Info':
       return vscode.DiagnosticSeverity.Information
     case 'Warning':
+      return vscode.DiagnosticSeverity.Warning
+    case 'High':
       return vscode.DiagnosticSeverity.Warning
     case 'Error':
       return vscode.DiagnosticSeverity.Error

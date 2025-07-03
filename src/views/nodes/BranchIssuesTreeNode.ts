@@ -99,7 +99,7 @@ export class BranchIssuesTreeGroupBySeverityNode extends BranchIssuesTreeNode {
     private readonly _allIssues: BranchIssue[],
     private readonly _baseUri: string = ''
   ) {
-    super('By severity', 'flame', vscode.TreeItemCollapsibleState.Collapsed)
+    super('By severity', 'eye', vscode.TreeItemCollapsibleState.Collapsed)
   }
 
   public async getChildren(): Promise<BranchIssuesTreeNode[]> {

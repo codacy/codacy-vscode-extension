@@ -11,16 +11,21 @@ export const SEVERITY_LEVEL_MAP: { [key in SeverityLevel]: TreeViewMeta } = {
   Info: {
     label: 'Minor',
     icon: 'info',
-    order: 3,
+    order: 4,
   },
   Warning: {
     label: 'Medium',
     icon: 'warning',
+    order: 3,
+  },
+  High: {
+    label: 'High',
+    icon: 'error',
     order: 2,
   },
   Error: {
     label: 'Critical',
-    icon: 'error',
+    icon: 'flame',
     order: 1,
   },
 }
