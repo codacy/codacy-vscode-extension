@@ -166,14 +166,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
     await registerCommands(context, codacyCloud)
 
-    // initialize the problems diagnostic collection
-    context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud))
-
     // add views
+    const statusBar = new StatusBar(context, codacyCloud)
     context.subscriptions.push(new PullRequestSummaryTree(context, codacyCloud))
-    context.subscriptions.push(new StatusBar(context, codacyCloud))
+    context.subscriptions.push(statusBar)
     context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
     context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
+
+    // initialize the problems diagnostic collection with status bar reference
+    context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud, statusBar))
 
     context.subscriptions.push(AuthUriHandler.register())
 
