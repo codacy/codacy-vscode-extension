@@ -10,6 +10,7 @@ import { ProcessedSarifResult } from '../cli'
 import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
+import { StatusBar } from './StatusBar'
 
 const patternSeverityToDiagnosticSeverity = (severity: SeverityLevel): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -95,7 +96,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
   private readonly _subscriptions: vscode.Disposable[] = []
 
-  constructor(private readonly _codacyCloud: CodacyCloud) {
+  constructor(
+    private readonly _codacyCloud: CodacyCloud,
+    private readonly _statusBar?: StatusBar
+  ) {
     // load all API issues when the pull request is updated
     _codacyCloud.onDidUpdatePullRequest((pr) => {
       const newIssues = pr?.issues.filter((issue) => issue.deltaType === 'Added') || []
@@ -227,6 +231,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       try {
         this._isAnalysisRunning = true
 
+        // Show scanning status in status bar
+        this._statusBar?.setCliScanning(true)
+
         // check if document is saved or not
         if (document.isDirty) {
           // use a temporary file instead for analysis
@@ -271,6 +278,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
             Logger.error('Failed to delete temporary file after all attempts:', pathToFile)
           }
         }
+
+        // Hide scanning status in status bar
+        this._statusBar?.setCliScanning(false)
       }
     }, 2000)
   }

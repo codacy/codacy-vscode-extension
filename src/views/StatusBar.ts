@@ -4,6 +4,7 @@ import { CodacyCloud } from '../git/CodacyCloud'
 export class StatusBar {
   private _disposables: vscode.Disposable[] = []
   private _statusBarItem: vscode.StatusBarItem
+  private _isCliScanning: boolean = false
 
   constructor(
     private _context: vscode.ExtensionContext,
@@ -28,8 +29,24 @@ export class StatusBar {
     })
   }
 
+  public setCliScanning(isScanning: boolean) {
+    this._isCliScanning = isScanning
+    this.update()
+  }
+
   private update() {
+    // Show CLI scanning status if active
+    if (this._isCliScanning) {
+      this._statusBarItem.text = `$(loading~spin) Codacy: Scanning...`
+      this._statusBarItem.color = new vscode.ThemeColor('statusBar.debuggingForeground')
+      this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBar.debuggingBackground')
+      this._statusBarItem.tooltip = 'Local analysis in progress'
+      this._statusBarItem.show()
+      return
+    }
+
     const pr = this._codacyCloud.pullRequest?.analysis
+
     if (pr) {
       if (pr.isAnalysing) {
         this._statusBarItem.text = `$(loading~spin) Analyzing ...`
