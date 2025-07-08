@@ -228,6 +228,11 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath
 
+      // Check if the file still exists before proceeding
+      if (!fs.existsSync(pathToFile)) {
+        return // File was deleted, skip analysis
+      }
+
       try {
         this._isAnalysisRunning = true
 
@@ -264,6 +269,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
         this.updateDocumentDiagnostics(document)
       } catch (error) {
+        // If the file no longer exists, silently ignore the error
+        if (!fs.existsSync(pathToFile)) {
+          return
+        }
         if (error instanceof CodacyError) handleError(error)
         else {
           handleError(new CodacyError('Error running analysis', error as Error, 'CLI'))
