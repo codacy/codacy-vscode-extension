@@ -300,8 +300,10 @@ export function isRunningInWsl(): boolean {
 function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
+  const isVSCodeInsiders = vscode.env.appName.toLowerCase().includes('insiders')
   if (isCursor) return 'cursor'
   if (isWindsurf) return 'windsurf'
+  if (isVSCodeInsiders) return 'insiders'
   return 'vscode'
 }
 
@@ -328,16 +330,18 @@ function getCorrectMcpConfig(): {
   // Get platform-specific VS Code settings directory
   let vsCodeSettingsPath: string
 
+  const correctVSCodeIde = currentIde === 'insiders' ? 'Code - Insiders' : 'Code'
+
   if (process.platform === 'win32') {
-    vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User')
+    vsCodeSettingsPath = path.join(os.homedir(), 'AppData', 'Roaming', correctVSCodeIde, 'User')
   } else if (process.platform === 'darwin') {
-    vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User')
+    vsCodeSettingsPath = path.join(os.homedir(), 'Library', 'Application Support', correctVSCodeIde, 'User')
   } /* Linux */ else {
     // Could be WSL, but no way of getting the exact path on Windows from WSL
     if (isRunningInWsl()) {
       throw new Error('Running in WSL is not supported for MCP configuration via file')
     }
-    vsCodeSettingsPath = path.join(os.homedir(), '.config', 'Code', 'User')
+    vsCodeSettingsPath = path.join(os.homedir(), '.config', correctVSCodeIde, 'User')
   }
 
   return {
@@ -354,7 +358,7 @@ export function isMCPConfigured(): boolean {
 
     // Use VS Code API if available
     try {
-      if (currentIde === 'vscode') {
+      if (currentIde === 'vscode' || currentIde === 'insiders') {
         const mcpServers = vscode.workspace.getConfiguration('mcp').get('servers')
 
         if (
@@ -478,12 +482,12 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
       args: ['-y', '@codacy/codacy-mcp@latest'],
       env: apiToken
         ? {
-            CODACY_ACCOUNT_TOKEN: apiToken,
-          }
+          CODACY_ACCOUNT_TOKEN: apiToken,
+        }
         : undefined,
     }
 
-    if (ide === 'vscode') {
+    if (ide === 'vscode' || ide === 'insiders') {
       installMCPForVSCode(codacyServer)
     } else if (ide === 'cursor' || ide === 'windsurf') {
       installMCPForOthers(codacyServer)
