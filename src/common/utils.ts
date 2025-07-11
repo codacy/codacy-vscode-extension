@@ -16,8 +16,9 @@ export class CodacyError extends Error {
   }
 }
 
-export const handleError = (e: Error): void => {
+export const handleError = (e: Error, showPopup: boolean = true): void => {
   const showErrorMessage = async (message: string) => {
+    if (!showPopup) return
     const choice = await vscode.window.showErrorMessage(message, 'Show Logs')
     if (choice === 'Show Logs') {
       await vscode.commands.executeCommand('codacy.showOutput')

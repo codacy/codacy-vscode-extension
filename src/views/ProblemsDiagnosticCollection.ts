@@ -38,8 +38,9 @@ export class ApiIssueDiagnostic extends vscode.Diagnostic {
     const startCol = commitIssue.lineText.match(/^(\s*)/)?.[1].length || 0
     const endCol = startCol + commitIssue.lineText.trim().length
 
-    const message = `[${startCase(commitIssue.patternInfo.category)}${commitIssue.patternInfo.subCategory ? ` - ${startCase(commitIssue.patternInfo.subCategory)}` : ''
-      }] ${commitIssue.message}`
+    const message = `[${startCase(commitIssue.patternInfo.category)}${
+      commitIssue.patternInfo.subCategory ? ` - ${startCase(commitIssue.patternInfo.subCategory)}` : ''
+    }] ${commitIssue.message}`
     const severity = patternSeverityToDiagnosticSeverity(commitIssue.patternInfo.severityLevel)
 
     const range = new vscode.Range(line, startCol, line, endCol)
@@ -49,9 +50,9 @@ export class ApiIssueDiagnostic extends vscode.Diagnostic {
     this.source = `Codacy [${commitIssue.toolInfo.name.replace('Codacy ', '')}]`
     this.code = uri
       ? {
-        value: commitIssue.patternInfo.id,
-        target: uri,
-      }
+          value: commitIssue.patternInfo.id,
+          target: uri,
+        }
       : undefined
   }
 }
@@ -62,8 +63,8 @@ export class CliIssueDiagnostic extends vscode.Diagnostic {
       result.level === 'error'
         ? vscode.DiagnosticSeverity.Error
         : result.level === 'warning'
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Information
+        ? vscode.DiagnosticSeverity.Warning
+        : vscode.DiagnosticSeverity.Information
 
     const range = new vscode.Range(
       (result.region?.startLine || 1) - 1,
@@ -77,9 +78,9 @@ export class CliIssueDiagnostic extends vscode.Diagnostic {
     this.source = `Codacy CLI [${result.tool}]`
     this.code = result.rule?.helpUri
       ? {
-        value: result.rule.id,
-        target: vscode.Uri.parse(result.rule.helpUri),
-      }
+          value: result.rule.id,
+          target: vscode.Uri.parse(result.rule.helpUri),
+        }
       : result.rule?.id
   }
 }
@@ -174,13 +175,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     // remove API issues found in the CLI issues
     const filteredApiIssues = documentCliIssues.length
       ? documentApiIssues.filter(
-        (apiIssue) =>
-          !documentCliIssues.some(
-            (cliIssue) =>
-              cliIssue.message === apiIssue.commitIssue.message &&
-              cliIssue.region?.startLine === apiIssue.commitIssue.lineNumber
-          )
-      )
+          (apiIssue) =>
+            !documentCliIssues.some(
+              (cliIssue) =>
+                cliIssue.message === apiIssue.commitIssue.message &&
+                cliIssue.region?.startLine === apiIssue.commitIssue.lineNumber
+            )
+        )
       : documentApiIssues
 
     const apiDiagnostics = filteredApiIssues.map(({ commitIssue, uri }) => new ApiIssueDiagnostic(commitIssue, uri))
@@ -272,7 +273,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         if (!fs.existsSync(pathToFile)) {
           return
         }
-        if (error instanceof CodacyError) handleError(error)
+        if (error instanceof CodacyError) handleError(error, false)
         else {
           handleError(new CodacyError('Error running analysis', error as Error, 'CLI'))
         }
