@@ -16,25 +16,14 @@ export type CliOptions = {
 
 async function execWindowsCmdAsync(command: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    exec(
-      command,
-      {
-        encoding: 'buffer',
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
-        if (stderr && !stdout) {
-          reject(new Error(stderr.toString('utf16le')))
-          return
-        }
-
-        resolve({ stdout: stdout.toString('utf16le'), stderr: stderr.toString('utf16le') })
+    exec(command, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        reject(error)
+        return
       }
-    )
+
+      resolve({ stdout, stderr })
+    })
   })
 }
 
