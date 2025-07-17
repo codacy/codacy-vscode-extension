@@ -127,6 +127,15 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)
 
+  // Track extension installation
+  const hasBeenActivatedBefore = context.globalState.get<boolean>('codacy.hasBeenActivated')
+  if (!hasBeenActivatedBefore) {
+    Telemetry.track('extension_installed', {
+      success: true,
+    })
+    context.globalState.update('codacy.hasBeenActivated', true)
+  }
+
   // Listen for workspace folder changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
