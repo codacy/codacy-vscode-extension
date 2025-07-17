@@ -258,5 +258,10 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   Logger.appendLine('Codacy extension deactivated')
 
+  // Send analytics before deactivation
+  Telemetry.track('extension_deactivated', {
+    success: true,
+  })
+
   return
 }
