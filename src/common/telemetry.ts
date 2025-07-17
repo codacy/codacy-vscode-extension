@@ -3,10 +3,12 @@ import { Analytics } from '@segment/analytics-node'
 import { EventProperties } from '@segment/analytics-core'
 import { User } from '../api/client'
 import { SEGMENT_WRITE_KEY } from '../env-secrets'
+import { v4 as uuidv4 } from 'uuid'
 
 class TelemetryClient {
   private analytics: Analytics | undefined
   private userId: string | undefined
+  private anonymousId: string | undefined
 
   constructor() {
     if (SEGMENT_WRITE_KEY) {
@@ -14,13 +16,23 @@ class TelemetryClient {
     }
   }
 
+  public init(context: vscode.ExtensionContext) {
+    // Get or create anonymous ID
+    this.anonymousId = context.globalState.get<string>('codacy.anonymousId')
+    if (!this.anonymousId) {
+      this.anonymousId = uuidv4()
+      context.globalState.update('codacy.anonymousId', this.anonymousId)
+    }
+  }
+
   public identify(user: User) {
-    if (!vscode.env.isTelemetryEnabled || !this.analytics) return
+    if (!vscode.env.isTelemetryEnabled || !this.analytics || !this.anonymousId) return
 
     this.userId = user.id.toString()
 
     this.analytics.identify({
       userId: this.userId,
+      anonymousId: this.anonymousId,
       traits: {
         createdAt: user.created,
       },
@@ -28,19 +40,18 @@ class TelemetryClient {
   }
 
   public track(event: string, properties: EventProperties) {
-    if (!vscode.env.isTelemetryEnabled || !this.analytics) return
+    if (!vscode.env.isTelemetryEnabled || !this.analytics || !this.anonymousId) return
 
-    if (this.userId) {
-      this.analytics.track({
-        userId: this.userId,
-        event,
-        properties: {
-          ide: vscode.env.appName.toLowerCase(),
-          os: process.platform,
-          ...properties,
-        },
-      })
-    }
+    this.analytics.track({
+      userId: this.userId,
+      anonymousId: this.anonymousId,
+      event,
+      properties: {
+        ide: vscode.env.appName.toLowerCase(),
+        os: process.platform,
+        ...properties,
+      },
+    })
   }
 }
 

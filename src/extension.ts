@@ -124,6 +124,9 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
 
+  // Initialize telemetry with anonymous ID
+  Telemetry.init(context)
+
   // Listen for workspace folder changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
