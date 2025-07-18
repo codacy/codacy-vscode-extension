@@ -124,6 +124,18 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
 
+  // Initialize telemetry with anonymous ID
+  Telemetry.init(context)
+
+  // Track extension installation
+  const hasBeenActivatedBefore = context.globalState.get<boolean>('codacy.hasBeenActivated')
+  if (!hasBeenActivatedBefore) {
+    Telemetry.track('extension_installed', {
+      success: true,
+    })
+    context.globalState.update('codacy.hasBeenActivated', true)
+  }
+
   // Listen for workspace folder changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -254,6 +266,11 @@ export async function activate(context: vscode.ExtensionContext) {
 // This method is called when your extension is deactivated
 export function deactivate() {
   Logger.appendLine('Codacy extension deactivated')
+
+  // Send analytics before deactivation
+  Telemetry.track('extension_deactivated', {
+    success: true,
+  })
 
   return
 }
