@@ -96,7 +96,7 @@
         },
         {
           "id": "codacy:support",
-          "name": "Chat with us",
+          "name": "Help and Feedback",
           "icon": "$(question)",
           "collapsed": false,
           "initialSize": 1
@@ -104,10 +104,6 @@
       ]
     },
     "viewsWelcome": [
-      {
-        "view": "codacy:support",
-        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://codacy.zendesk.com/hc/en-us/requests/new)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
-      },
       {
         "view": "codacy:status",
         "contents": "No project is open. Open a project to use the Codacy extension."

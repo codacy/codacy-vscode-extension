@@ -14,6 +14,7 @@ import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetai
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
+import { SupportTree } from './views/SupportTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
@@ -184,6 +185,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(statusBar)
     context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
     context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
+    context.subscriptions.push(new SupportTree(context))
 
     // initialize the problems diagnostic collection with status bar reference
     context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud, statusBar))
