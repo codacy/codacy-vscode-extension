@@ -124,6 +124,7 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+  context.subscriptions.push(new SupportTree(context))
 
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)
@@ -185,7 +186,6 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(statusBar)
     context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
     context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
-    context.subscriptions.push(new SupportTree(context))
 
     // initialize the problems diagnostic collection with status bar reference
     context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud, statusBar))
