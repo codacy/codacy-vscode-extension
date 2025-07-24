@@ -18,7 +18,7 @@ import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
 import { APIState, Repository as GitRepository } from './git/git'
-import { configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } from './commands/configureMCP'
+import { CodacyMcpProvider, configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } from './commands/configureMCP'
 import { addRepository, joinOrganization } from './onboarding'
 
 /**
@@ -175,6 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     context.subscriptions.push(gitProvider)
+    context.subscriptions.push(vscode.lm.registerMcpServerDefinitionProvider('codacyMcpProvider', new CodacyMcpProvider(context)))
 
     await registerCommands(context, codacyCloud)
 

@@ -356,23 +356,9 @@ export function isMCPConfigured(): boolean {
     const currentIde = getCurrentIDE()
     Logger.debug(`Checking if MCP is configured for ${currentIde}`, 'MCP')
 
-    // Use VS Code API if available
-    try {
-      if (currentIde === 'vscode' || currentIde === 'insiders') {
-        const mcpServers = vscode.workspace.getConfiguration('mcp').get('servers')
-
-        if (
-          mcpServers !== undefined &&
-          typeof mcpServers === 'object' &&
-          mcpServers !== null &&
-          (mcpServers as Record<string, unknown>).codacy !== undefined
-        ) {
-          Logger.debug('MCP configuration found through VS Code API', 'MCP')
-          return true
-        }
-      }
-    } catch (apiError) {
-      Logger.debug(`VS Code API check failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`, 'MCP')
+    if (currentIde === 'vscode' || currentIde === 'insiders') {
+      // MCP is always configured in VS Code
+      return true;
     }
 
     // Otherwise, check configuration files directly
@@ -402,19 +388,6 @@ export function isMCPConfigured(): boolean {
 export async function configureGuardrails(cli?: CodacyCli, params?: RepositoryParams) {
   await cli?.install()
   await configureMCP(params)
-}
-
-function installMCPForVSCode(server: MCPServerConfiguration) {
-  // Implement the logic for installing MCP for VSCode using native User Settings API
-  const mcpConfig = vscode.workspace.getConfiguration('mcp')
-  const mcpServers = mcpConfig.has('servers') ? mcpConfig.get('servers') : mcpConfig.update('servers', {}, true)
-
-  if (mcpServers !== undefined && typeof mcpServers === 'object' && mcpServers !== null) {
-    const modifiedConfig = set(mcpServers, 'codacy', server)
-    vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
-  } else {
-    Logger.error('MCP configuration not found in VS Code settings')
-  }
 }
 
 function installMCPForOthers(server: MCPServerConfiguration) {
@@ -469,6 +442,10 @@ type MCPServerConfiguration = {
 
 export async function configureMCP(params?: RepositoryParams, isUpdate = false) {
   const ide = getCurrentIDE()
+  if (ide === 'vscode' || ide === 'insiders') {
+    // MCP is always configured in VS Code
+    return;
+  } 
 
   try {
     // Check for Node.js installation first
@@ -487,9 +464,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
         : undefined,
     }
 
-    if (ide === 'vscode' || ide === 'insiders') {
-      installMCPForVSCode(codacyServer)
-    } else if (ide === 'cursor' || ide === 'windsurf') {
+    if (ide === 'cursor' || ide === 'windsurf') {
       installMCPForOthers(codacyServer)
     } else {
       throw new CodacyError('Unsupported IDE for MCP configuration', undefined, 'MCP')
@@ -511,5 +486,29 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
 export async function updateMCPConfig(params?: RepositoryParams) {
   if (isMCPConfigured()) {
     await configureMCP(params, true)
+  }
+}
+
+export class CodacyMcpProvider implements vscode.McpServerDefinitionProvider {
+
+  private readonly _onDidChangeMcpServerDefinitions = new vscode.EventEmitter<void>();
+  readonly onDidChangeMcpServerDefinitions = this._onDidChangeMcpServerDefinitions.event;
+
+  constructor(context: vscode.ExtensionContext) { 
+    context.subscriptions.push(this._onDidChangeMcpServerDefinitions);
+    context.subscriptions.push(Config.onDidConfigChange(() => this._onDidChangeMcpServerDefinitions.fire()));
+  }
+
+  provideMcpServerDefinitions(): vscode.McpServerDefinition[] {
+      return [new vscode.McpStdioServerDefinition(
+          vscode.l10n.t('Codacy MCP Server'),
+          'node',
+          [
+            path.join(__dirname, '..', 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js'),
+          ],
+          Config.apiToken ? {
+              CODACY_ACCOUNT_TOKEN: Config.apiToken,
+          } : undefined
+      )];
   }
 }

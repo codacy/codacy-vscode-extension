@@ -10,7 +10,7 @@
     "url": "https://github.com/codacy/codacy-vscode-extension"
   },
   "engines": {
-    "vscode": "^1.81.0"
+    "vscode": "^1.102.0"
   },
   "categories": [
     "Linters",
@@ -448,6 +448,12 @@
     },
     "permissions": [
       "git"
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "codacyMcpProvider",
+        "label": "Codacy MCP Server Provider"
+      }
     ]
   },
   "scripts": {
@@ -476,7 +482,7 @@
     "@types/sarif": "2.1.7",
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
-    "@types/vscode": "^1.81.0",
+    "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",
     "@vscode/test-electron": "^2.3.4",
@@ -496,6 +502,7 @@
     "webpack-cli": "^5.1.1"
   },
   "dependencies": {
+    "@codacy/codacy-mcp": "0.6.18",
     "@segment/analytics-node": "^1.1.3",
     "@types/uuid": "^10.0.0",
     "axios": "^1.7.4",
