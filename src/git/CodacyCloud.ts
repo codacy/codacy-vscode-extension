@@ -97,9 +97,9 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public async open(gitRepository: GitRepository) {
+    this._cli = await Cli.get(this._params ?? {})
     const openRepository = async () => {
       this._current = gitRepository
-      this._cli = await Cli.get(this._params ?? {})
 
       try {
         if (gitRepository.state.HEAD === undefined) {
