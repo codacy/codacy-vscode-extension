@@ -97,12 +97,7 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
 
   const commonRules: Rule[] = [
     {
-      when: 'Trying to call a tool that needs a rootPath as a parameter',
-      enforce: ['Always use the standard, non-URL-encoded file system path'],
-      scope: 'guardrails',
-    },
-    {
-      when: 'After ANY successful `edit_file` or `reapply` operation',
+      when: 'CRITICAL: After ANY successful `edit_file` or `reapply` operation',
       enforce: [
         "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
         '- `rootPath`: set to the workspace path',
@@ -111,6 +106,28 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
         'If any issues are found in the new edits, propose and apply fixes for them.',
         '> NOTE: Failure to follow this rule is considered a critical error.',
       ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'After every response',
+      enforce: [
+        "If you made any file edits in this conversation, verify you ran `codacy_cli_analyze` tool from Codacy's MCP Server ",
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'When there are no Codacy MCP Server tools available, or the MCP Server is not reachable',
+      enforce: [
+        'Suggest the user the following troubleshooting steps:',
+        '- Try to reset the MCP on the extension',
+        '- If the user is using VSCode, suggest them to review their Copilot > MCP settings in Github, under their organization or personal account. Refer them to Settings > Copilot > Enable MCP servers in Copilot. Suggested URL (https://github.com/settings/copilot/features) or https://github.com/organizations/{organization-name}/settings/copilot/features (This can only be done by their organization admins / owners)',
+        'If none of the above steps work, suggest the user to contact Codacy support',
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'Trying to call a tool that needs a rootPath as a parameter',
+      enforce: ['Always use the standard, non-URL-encoded file system path'],
       scope: 'guardrails',
     },
     {
