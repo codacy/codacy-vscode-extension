@@ -97,6 +97,11 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
 
   const commonRules: Rule[] = [
     {
+      when: 'Trying to call a tool that needs a rootPath as a parameter',
+      enforce: ['Always use the standard, non-URL-encoded file system path'],
+      scope: 'guardrails',
+    },
+    {
       when: 'After ANY successful `edit_file` or `reapply` operation',
       enforce: [
         "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
@@ -482,8 +487,8 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
       args: ['-y', '@codacy/codacy-mcp@latest'],
       env: apiToken
         ? {
-          CODACY_ACCOUNT_TOKEN: apiToken,
-        }
+            CODACY_ACCOUNT_TOKEN: apiToken,
+          }
         : undefined,
     }
 
