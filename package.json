@@ -55,7 +55,7 @@
           "id": "codacy:cloud-status",
           "name": "Codacy Cloud",
           "icon": "$(library)",
-          "when": "codacy:hasProject",
+          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest",
           "initialSize": 1,
           "collapsed": false
         },
