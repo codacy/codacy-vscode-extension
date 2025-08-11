@@ -525,6 +525,8 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     if (ide === 'windsurf') {
       createWindsurfWorkflows()
     }
+    // Update the MCP state in the context directly to fix vscode api timing issues
+    vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', true)
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }

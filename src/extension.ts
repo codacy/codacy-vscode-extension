@@ -52,15 +52,12 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
-      updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
       await configureGuardrails(codacyCloud.cli, codacyCloud.params)
-      updateMCPState()
     },
     'codacy.configureMCP.reset': async () => {
       await configureMCP(codacyCloud.params, true)
-      updateMCPState()
     },
     'codacy.onboarding.complete': () => {
       const { provider, organization } = codacyCloud.params!
