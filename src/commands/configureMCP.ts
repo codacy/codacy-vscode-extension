@@ -426,14 +426,18 @@ export async function configureGuardrails(cli?: CodacyCli, params?: RepositoryPa
   await configureMCP(params)
 }
 
-function installMCPForVSCode(server: MCPServerConfiguration) {
+async function installMCPForVSCode(server: MCPServerConfiguration): Promise<void> {
   // Implement the logic for installing MCP for VSCode using native User Settings API
   const mcpConfig = vscode.workspace.getConfiguration('mcp')
-  const mcpServers = mcpConfig.has('servers') ? mcpConfig.get('servers') : mcpConfig.update('servers', {}, true)
+  let mcpServers = mcpConfig.get('servers')
+
+  if (!mcpServers) {
+    mcpServers = {}
+  }
 
   if (mcpServers !== undefined && typeof mcpServers === 'object' && mcpServers !== null) {
     const modifiedConfig = set(mcpServers, 'codacy', server)
-    vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
+    await vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
   } else {
     Logger.error('MCP configuration not found in VS Code settings')
   }
@@ -510,7 +514,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     }
 
     if (ide === 'vscode' || ide === 'insiders') {
-      installMCPForVSCode(codacyServer)
+      await installMCPForVSCode(codacyServer)
     } else if (ide === 'cursor' || ide === 'windsurf') {
       installMCPForOthers(codacyServer)
     } else {
@@ -525,6 +529,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     if (ide === 'windsurf') {
       createWindsurfWorkflows()
     }
+    updateMCPState()
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }
