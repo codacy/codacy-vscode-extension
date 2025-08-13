@@ -97,7 +97,7 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
 
   const commonRules: Rule[] = [
     {
-      when: 'After ANY successful `edit_file` or `reapply` operation',
+      when: 'CRITICAL: After ANY successful `edit_file` or `reapply` operation',
       enforce: [
         "YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:",
         '- `rootPath`: set to the workspace path',
@@ -106,6 +106,28 @@ const newRulesTemplate = (params?: RepositoryParams, excludedScopes?: ('guardrai
         'If any issues are found in the new edits, propose and apply fixes for them.',
         '> NOTE: Failure to follow this rule is considered a critical error.',
       ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'After every response',
+      enforce: [
+        "If you made any file edits in this conversation, verify you ran `codacy_cli_analyze` tool from Codacy's MCP Server ",
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'When there are no Codacy MCP Server tools available, or the MCP Server is not reachable',
+      enforce: [
+        'Suggest the user the following troubleshooting steps:',
+        '- Try to reset the MCP on the extension',
+        '- If the user is using VSCode, suggest them to review their Copilot > MCP settings in Github, under their organization or personal account. Refer them to Settings > Copilot > Enable MCP servers in Copilot. Suggested URL (https://github.com/settings/copilot/features) or https://github.com/organizations/{organization-name}/settings/copilot/features (This can only be done by their organization admins / owners)',
+        'If none of the above steps work, suggest the user to contact Codacy support',
+      ],
+      scope: 'guardrails',
+    },
+    {
+      when: 'Trying to call a tool that needs a rootPath as a parameter',
+      enforce: ['Always use the standard, non-URL-encoded file system path'],
       scope: 'guardrails',
     },
     {
@@ -358,7 +380,7 @@ export function isMCPConfigured(): boolean {
 
     if (currentIde === 'vscode' || currentIde === 'insiders') {
       // MCP is always configured in VS Code
-      return true;
+      return true
     }
 
     // Otherwise, check configuration files directly
@@ -444,8 +466,8 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
   const ide = getCurrentIDE()
   if (ide === 'vscode' || ide === 'insiders') {
     // MCP is always configured in VS Code
-    return;
-  } 
+    return
+  }
 
   try {
     // Check for Node.js installation first
@@ -459,8 +481,8 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
       args: ['-y', '@codacy/codacy-mcp@latest'],
       env: apiToken
         ? {
-          CODACY_ACCOUNT_TOKEN: apiToken,
-        }
+            CODACY_ACCOUNT_TOKEN: apiToken,
+          }
         : undefined,
     }
 
@@ -478,6 +500,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     if (ide === 'windsurf') {
       createWindsurfWorkflows()
     }
+    updateMCPState()
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }
@@ -490,25 +513,26 @@ export async function updateMCPConfig(params?: RepositoryParams) {
 }
 
 export class CodacyMcpProvider implements vscode.McpServerDefinitionProvider {
+  private readonly _onDidChangeMcpServerDefinitions = new vscode.EventEmitter<void>()
+  readonly onDidChangeMcpServerDefinitions = this._onDidChangeMcpServerDefinitions.event
 
-  private readonly _onDidChangeMcpServerDefinitions = new vscode.EventEmitter<void>();
-  readonly onDidChangeMcpServerDefinitions = this._onDidChangeMcpServerDefinitions.event;
-
-  constructor(context: vscode.ExtensionContext) { 
-    context.subscriptions.push(this._onDidChangeMcpServerDefinitions);
-    context.subscriptions.push(Config.onDidConfigChange(() => this._onDidChangeMcpServerDefinitions.fire()));
+  constructor(context: vscode.ExtensionContext) {
+    context.subscriptions.push(this._onDidChangeMcpServerDefinitions)
+    context.subscriptions.push(Config.onDidConfigChange(() => this._onDidChangeMcpServerDefinitions.fire()))
   }
 
   provideMcpServerDefinitions(): vscode.McpServerDefinition[] {
-      return [new vscode.McpStdioServerDefinition(
-          vscode.l10n.t('Codacy MCP Server'),
-          'node',
-          [
-            path.join(__dirname, '..', 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js'),
-          ],
-          Config.apiToken ? {
+    return [
+      new vscode.McpStdioServerDefinition(
+        vscode.l10n.t('Codacy MCP Server'),
+        'node',
+        [path.join(__dirname, '..', 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js')],
+        Config.apiToken
+          ? {
               CODACY_ACCOUNT_TOKEN: Config.apiToken,
-          } : undefined
-      )];
+            }
+          : undefined
+      ),
+    ]
   }
 }

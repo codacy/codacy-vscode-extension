@@ -55,7 +55,7 @@
           "id": "codacy:cloud-status",
           "name": "Codacy Cloud",
           "icon": "$(library)",
-          "when": "codacy:hasProject",
+          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest",
           "initialSize": 1,
           "collapsed": false
         },
@@ -96,7 +96,7 @@
         },
         {
           "id": "codacy:support",
-          "name": "Chat with us",
+          "name": "Help and Feedback",
           "icon": "$(question)",
           "collapsed": false,
           "initialSize": 1
@@ -104,10 +104,6 @@
       ]
     },
     "viewsWelcome": [
-      {
-        "view": "codacy:support",
-        "contents": "Do you need help or do you have any questions?\n[Open support chat](https://codacy.zendesk.com/hc/en-us/requests/new)\nEnjoying the experience? Please consider [leaving a review](https://marketplace.visualstudio.com/items?itemName=codacy-app.codacy&ssr=false#review-details)"
-      },
       {
         "view": "codacy:status",
         "contents": "No project is open. Open a project to use the Codacy extension."
@@ -179,7 +175,7 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/), you need to be able to install the Codacy CLI (macOS, Linus, or Windows via WSL).",
+        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/), you need to be able to install the Codacy CLI (macOS, Linux, or Windows via WSL 2).",
         "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:canInstallCLI"
       },
       {
@@ -223,7 +219,7 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "Codacy CLI is only available on Windows via [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).",
+        "contents": "Codacy CLI is only available on Windows via [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install).",
         "when": "codacy:windowsDetected && !codacy:canInstallCLI"
       },
       {

@@ -14,6 +14,7 @@ import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetai
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
+import { SupportTree } from './views/SupportTree'
 import { Account } from './codacy/Account'
 import Telemetry from './common/telemetry'
 import { decorateWithCoverage } from './views/coverage'
@@ -51,15 +52,12 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
-      updateMCPState()
     },
     'codacy.configureGuardrails': async () => {
       await configureGuardrails(codacyCloud.cli, codacyCloud.params)
-      updateMCPState()
     },
     'codacy.configureMCP.reset': async () => {
       await configureMCP(codacyCloud.params, true)
-      updateMCPState()
     },
     'codacy.onboarding.complete': () => {
       const { provider, organization } = codacyCloud.params!
@@ -123,6 +121,7 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
 export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
+  context.subscriptions.push(new SupportTree(context))
 
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)

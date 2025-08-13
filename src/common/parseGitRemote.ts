@@ -30,7 +30,7 @@ const normalizeRepositoryName = (provider: 'gh' | 'gl' | 'bb', repository: strin
  * @returns GitRemoteInfo with normalized repository name and original if different
  */
 export const parseGitRemote = (remoteUrl: string): GitRemoteInfo => {
-  const pattern = /^.*(github|gitlab|bitbucket)\.(?:com|org)[:|/](.+?)\/(.+?)(\.git)?$/
+  const pattern = /^.*(github|gitlab|bitbucket)\.(?:com|org)[^:|/]*[:|/](.+?)\/(.+?)(\.git)?$/
   const match = remoteUrl.match(pattern)
 
   if (!match) {
