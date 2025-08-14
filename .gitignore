@@ -37,3 +37,7 @@ codacy-vscode-extension-CHANGELOG.txt
 
 #Ignore vscode AI rules
 .github/copilot-instructions.md
+
+
+#Ignore windsurf AI rules
+.windsurfrules
