@@ -9,9 +9,10 @@ import { PullRequest, PullRequestInfo } from './PullRequest'
 import { IssuesManager } from './IssuesManager'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
 import { GitProvider } from './GitProvider'
-import { isMCPConfigured, createOrUpdateRules } from '../commands/configureMCP'
+import { isMCPConfigured } from '../commands/configureMCP'
 import { Cli } from '../cli'
 import { CodacyCli } from '../cli/CodacyCli'
+import { createOrUpdateRules } from '../commands/createRules'
 
 export enum CodacyCloudState {
   Initializing = 'Initializing',
