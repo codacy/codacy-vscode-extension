@@ -319,7 +319,7 @@ export function isRunningInWsl(): boolean {
   }
 }
 
-function getCurrentIDE(): string {
+export function getCurrentIDE(): string {
   const isCursor = vscode.env.appName.toLowerCase().includes('cursor')
   const isWindsurf = vscode.env.appName.toLowerCase().includes('windsurf')
   const isVSCodeInsiders = vscode.env.appName.toLowerCase().includes('insiders')
