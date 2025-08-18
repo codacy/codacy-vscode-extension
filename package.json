@@ -10,7 +10,7 @@
     "url": "https://github.com/codacy/codacy-vscode-extension"
   },
   "engines": {
-    "vscode": "^1.81.0"
+    "vscode": "^1.102.0"
   },
   "categories": [
     "Linters",
