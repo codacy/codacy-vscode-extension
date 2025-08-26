@@ -105,26 +105,21 @@ export class CodacyCloud implements vscode.Disposable {
 
       try {
         // Check if repository state is fully populated
-        if (!gitRepository.state.HEAD && gitRepository.state.remotes?.length === 0) {
+        if (!gitRepository.state.HEAD && gitRepository.state.remotes?.length === 0 && !this._stateChangeDisposable) {
           Logger.debug('Repository state is not fully populated yet, waiting for state change...')
           this.state = CodacyCloudState.Initializing
-
-          // Clean up any existing state change listener
-          if (this._stateChangeDisposable) {
-            this._stateChangeDisposable.dispose()
-            this._stateChangeDisposable = undefined
-          }
 
           // Set up timeout to prevent memory leak
           const timeoutMs = 30000
           let hasRepositoryStateTimedOut = false
           const repositoryStateTimeout = setTimeout(() => {
             hasRepositoryStateTimedOut = true
-            Logger.appendLine(`Repository state change timeout after ${timeoutMs}ms, assuming repository is not valid`)
             if (this._stateChangeDisposable) {
               this._stateChangeDisposable.dispose()
               this._stateChangeDisposable = undefined
             }
+
+            Logger.appendLine(`Repository state change timeout after ${timeoutMs}ms, assuming repository is not valid`)
             this.state = CodacyCloudState.NoGitRepository
           }, timeoutMs)
 
