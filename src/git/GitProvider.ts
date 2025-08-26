@@ -67,10 +67,18 @@ export class GitProvider implements IGitProvider {
   static async init(): Promise<GitProvider | undefined> {
     const extension = vscode.extensions.getExtension<GitExtension>('vscode.git')
     if (extension) {
-      await extension.activate()
-      GitProvider._instance = new GitProvider(extension)
+      try {
+        await extension.activate()
+        GitProvider._instance = new GitProvider(extension)
+        Logger.appendLine(`GitProvider initialized successfully. Extension enabled: ${extension.exports?.enabled}`)
 
-      return GitProvider._instance
+        return GitProvider._instance
+      } catch (error) {
+        Logger.error(`Failed to initialize GitProvider: ${error}`)
+        return undefined
+      }
+    } else {
+      Logger.error('VS Code Git extension not found')
     }
     return undefined
   }

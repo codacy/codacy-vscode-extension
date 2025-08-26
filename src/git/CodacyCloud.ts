@@ -90,6 +90,7 @@ export class CodacyCloud implements vscode.Disposable {
   private _cli: CodacyCli | undefined
 
   private _disposables: vscode.Disposable[] = []
+  private _stateChangeDisposable: vscode.Disposable | undefined
 
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
@@ -103,7 +104,56 @@ export class CodacyCloud implements vscode.Disposable {
       this._current = gitRepository
 
       try {
+        // Check if repository state is fully populated
+        if (!gitRepository.state.HEAD && gitRepository.state.remotes?.length === 0) {
+          Logger.debug('Repository state is not fully populated yet, waiting for state change...')
+          this.state = CodacyCloudState.Initializing
+
+          // Clean up any existing state change listener
+          if (this._stateChangeDisposable) {
+            this._stateChangeDisposable.dispose()
+            this._stateChangeDisposable = undefined
+          }
+
+          // Set up timeout to prevent memory leak
+          const timeoutMs = 30000
+          let hasRepositoryStateTimedOut = false
+          const repositoryStateTimeout = setTimeout(() => {
+            hasRepositoryStateTimedOut = true
+            Logger.appendLine(`Repository state change timeout after ${timeoutMs}ms, assuming repository is not valid`)
+            if (this._stateChangeDisposable) {
+              this._stateChangeDisposable.dispose()
+              this._stateChangeDisposable = undefined
+            }
+            this.state = CodacyCloudState.NoGitRepository
+          }, timeoutMs)
+
+          // Listen for state changes to detect when repository is fully loaded
+          this._stateChangeDisposable = gitRepository.state.onDidChange(() => {
+            if (hasRepositoryStateTimedOut) return // Don't process if we've already timed out
+
+            Logger.appendLine(
+              `Repository state changed - HEAD: ${gitRepository.state.HEAD?.name || 'undefined'}, Remotes: ${
+                gitRepository.state.remotes?.length || 0
+              }`
+            )
+            if (gitRepository.state.HEAD || gitRepository.state.remotes?.length > 0) {
+              clearTimeout(repositoryStateTimeout)
+              if (this._stateChangeDisposable) {
+                this._stateChangeDisposable.dispose()
+                this._stateChangeDisposable = undefined
+              }
+              openRepository()
+            }
+          })
+
+          // Add to disposables for cleanup
+          this._disposables.push(this._stateChangeDisposable)
+          return
+        }
+
         if (gitRepository.state.HEAD === undefined) {
+          Logger.appendLine('Repository HEAD is undefined but remotes are available')
           this.state = CodacyCloudState.Initializing
         } else {
           const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
@@ -473,6 +523,14 @@ export class CodacyCloud implements vscode.Disposable {
 
   public close(repository: GitRepository) {
     if (this._current === repository) {
+      Logger.appendLine(`CodacyCloud close: ${repository.rootUri.fsPath}`)
+
+      // Clean up state change listener when repository is closed
+      if (this._stateChangeDisposable) {
+        this._stateChangeDisposable.dispose()
+        this._stateChangeDisposable = undefined
+      }
+
       this.clear()
     }
   }
@@ -491,7 +549,6 @@ export class CodacyCloud implements vscode.Disposable {
 
   public refresh() {
     if (!this._current) return
-
     switch (this._state) {
       case CodacyCloudState.Loaded:
       case CodacyCloudState.IsAnalyzing:
