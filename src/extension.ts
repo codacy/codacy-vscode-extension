@@ -95,11 +95,13 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
     })
 
     git.onDidChangeState(async (state: APIState) => {
+      Logger.debug(`Git API state changed to: ${state}`)
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
+          Logger.debug(`Git API initialized with ${git.repositories.length} repositories`)
           codacyCloud.open(git.repositories[0])
         } else {
-          Logger.appendLine('No Git Repositories found')
+          Logger.appendLine('Git API initialized but no repositories found')
           codacyCloud.clear()
         }
       }
@@ -216,8 +218,13 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // check for open repository
-    if (gitProvider.repositories.length > 0) {
+    if (gitProvider.state === 'initialized' && gitProvider.repositories.length > 0) {
+      Logger.debug(`Found ${gitProvider.repositories.length} repositories, opening first one`)
       codacyCloud.open(gitProvider.repositories[0])
+    } else if (gitProvider.state === 'uninitialized') {
+      Logger.debug('Git API is still initializing, will wait for state change event')
+    } else {
+      Logger.appendLine('No Git repositories found in workspace')
     }
 
     // coverage decoration
