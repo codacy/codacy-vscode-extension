@@ -10,6 +10,7 @@ import { CodacyCloud, CodacyCloudState } from './CodacyCloud'
 import { Api } from '../api'
 import { QualityStatusResponse, getQualityStatus } from '../common/commitStatusHelper'
 import { Reason } from '../common/types'
+import Logger from '../common/logger'
 
 const MAX_IN_MEMORY_ITEMS = 300
 
@@ -119,16 +120,20 @@ export class PullRequest extends PullRequestInfo {
   private async fetchCoverage() {
     const repo = this.ensureRepository()
 
-    const coverageResponse = await Api.Coverage.getRepositoryPullRequestFilesCoverage(
-      repo.provider,
-      repo.owner,
-      repo.name,
-      this._prWithAnalysis.pullRequest.number
-    )
+    try {
+      const coverageResponse = await Api.Coverage.getRepositoryPullRequestFilesCoverage(
+        repo.provider,
+        repo.owner,
+        repo.name,
+        this._prWithAnalysis.pullRequest.number
+      )
 
-    const coverageData = coverageResponse.data
-    for (let i = 0; i < coverageData.length; i++) {
-      this._diffCoverageLineHits.set(coverageData[i].fileName, coverageData[i].diffLineHits)
+      const coverageData = coverageResponse.data
+      for (let i = 0; i < coverageData.length; i++) {
+        this._diffCoverageLineHits.set(coverageData[i].fileName, coverageData[i].diffLineHits)
+      }
+    } catch (error) {
+      Logger.debug(`Failed to retrieve coverage`)
     }
   }
 
@@ -147,29 +152,32 @@ export class PullRequest extends PullRequestInfo {
     // load PR delta issues
     this._issues = []
     let nextCursor: string | undefined
+    try {
+      do {
+        const { data: issues, pagination } = await Api.Analysis.listCommitDeltaIssues(
+          repo.provider,
+          repo.owner,
+          repo.name,
+          this._headCommit,
+          this._baseCommit,
+          undefined,
+          undefined,
+          nextCursor
+        )
 
-    do {
-      const { data: issues, pagination } = await Api.Analysis.listCommitDeltaIssues(
-        repo.provider,
-        repo.owner,
-        repo.name,
-        this._headCommit,
-        this._baseCommit,
-        undefined,
-        undefined,
-        nextCursor
-      )
-
-      this._issues.push(
-        ...issues.map((issue) => ({
-          ...issue,
-          uri: vscode.Uri.parse(
-            `https://app.codacy.com/${repo.provider}/${repo.owner}/${repo.name}/pull-requests/${this.meta.number}/issues#issue-${issue.commitIssue.issueId}`
-          ),
-        }))
-      )
-      nextCursor = pagination?.cursor
-    } while (nextCursor && this._issues.length < MAX_IN_MEMORY_ITEMS)
+        this._issues.push(
+          ...issues.map((issue) => ({
+            ...issue,
+            uri: vscode.Uri.parse(
+              `https://app.codacy.com/${repo.provider}/${repo.owner}/${repo.name}/pull-requests/${this.meta.number}/issues#issue-${issue.commitIssue.issueId}`
+            ),
+          }))
+        )
+        nextCursor = pagination?.cursor
+      } while (nextCursor && this._issues.length < MAX_IN_MEMORY_ITEMS)
+    } catch (error) {
+      Logger.debug(`Failed to retrieve issues: ${error}`)
+    }
   }
 
   private async fetchFiles() {
@@ -233,31 +241,35 @@ export class PullRequest extends PullRequestInfo {
 
   public async refresh(avoidMetadataFetch = false) {
     const fetch = async () => {
-      const wasAnalysing = this.analysis.isAnalysing
+      try {
+        const wasAnalysing = this.analysis.isAnalysing
 
-      if (!avoidMetadataFetch) await this.fetchMetadata()
+        if (!avoidMetadataFetch) await this.fetchMetadata()
 
-      await this.fetchQualityGates()
-      await this.fetchIssues()
-      await this.fetchFiles()
-      vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration')
+        await this.fetchQualityGates()
+        await this.fetchIssues()
+        await this.fetchFiles()
+        vscode.commands.executeCommand('codacy.pr.refreshCoverageDecoration')
 
-      // all done, trigger the pull request update
-      this._onDidUpdatePullRequest.fire(this)
+        // all done, trigger the pull request update
+        this._onDidUpdatePullRequest.fire(this)
 
-      // if the PR is still analysing, or...
-      // if commit heads don't match, and everything was pushed, try again
-      if (
-        this.analysis.isAnalysing ||
-        (this._headCommit !== this._codacyCloud.head?.commit && this._codacyCloud.head?.ahead === 0)
-      ) {
-        this._refreshTimeout && clearTimeout(this._refreshTimeout)
-        this._refreshTimeout = setTimeout(() => {
-          this.refresh()
-        }, PR_REFRESH_TIME)
-      } else if (wasAnalysing) {
-        // PR has new results, show a notification depending on them
-        this.showAnalysisNotification()
+        // if the PR is still analysing, or...
+        // if commit heads don't match, and everything was pushed, try again
+        if (
+          this.analysis.isAnalysing ||
+          (this._headCommit !== this._codacyCloud.head?.commit && this._codacyCloud.head?.ahead === 0)
+        ) {
+          this._refreshTimeout && clearTimeout(this._refreshTimeout)
+          this._refreshTimeout = setTimeout(() => {
+            this.refresh()
+          }, PR_REFRESH_TIME)
+        } else if (wasAnalysing) {
+          // PR has new results, show a notification depending on them
+          this.showAnalysisNotification()
+        }
+      } catch (error) {
+        Logger.debug(`Failed to refresh pull request: ${error}`)
       }
     }
 
