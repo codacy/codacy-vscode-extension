@@ -5,6 +5,7 @@ export class Config {
   private _wsConfig: vscode.WorkspaceConfiguration | undefined
   private _apiToken: string | undefined
   private _onboardingSkipped: boolean | undefined
+  private _devMode: boolean | undefined
 
   private static _instance: Config | undefined
 
@@ -21,8 +22,14 @@ export class Config {
     const res = await Config._instance?._secretStorage.get('codacy.apiToken')
     Config._instance._apiToken = res
 
+    // Initialize dev mode from workspace configuration
+    Config._instance._devMode = Config._instance._wsConfig?.get('cli.devMode') === true
+
     if (Config._instance._apiToken) Logger.appendLine('Codacy API token found')
     if (Config._instance._onboardingSkipped) Logger.appendLine('No information about onboarding on Codacy found')
+
+    // Set dev mode context for views
+    await vscode.commands.executeCommand('setContext', 'codacy:devMode', Config._instance._devMode)
 
     this._onDidConfigChange.fire(Config._instance)
     return Config._instance
@@ -64,5 +71,25 @@ export class Config {
 
   public static get apiToken(): string | undefined {
     return Config._instance?._apiToken
+  }
+
+  public static get devMode(): boolean {
+    return Config._instance?._devMode === true
+  }
+
+  public static async updateDevMode() {
+    if (!Config._instance) return
+
+    Config._instance._wsConfig = vscode.workspace.getConfiguration('codacy')
+    const currentDevMode = Config._instance._wsConfig?.get('cli.devMode') === true
+    const hasChanged = Config._instance._devMode !== currentDevMode
+
+    Config._instance._devMode = currentDevMode
+
+    if (hasChanged) {
+      Logger.appendLine(`Dev mode ${currentDevMode ? 'enabled' : 'disabled'}`)
+      await vscode.commands.executeCommand('setContext', 'codacy:devMode', currentDevMode)
+      this._onDidConfigChange.fire(Config._instance)
+    }
   }
 }

@@ -6,6 +6,7 @@ import { CodacyError } from '../common/utils'
 import { CODACY_FOLDER_NAME, CodacyCli } from './CodacyCli'
 import Logger from '../common/logger'
 import { ProcessedSarifResult, processSarifResults } from '.'
+import { Config } from '../common/config'
 
 export class MacCodacyCli extends CodacyCli {
   constructor(rootPath: string, provider?: string, organization?: string, repository?: string) {
@@ -113,6 +114,8 @@ export class MacCodacyCli extends CodacyCli {
     const cliConfigFilePath = path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml')
     const toolsFolderPath = path.join(this.rootPath, CODACY_FOLDER_NAME, 'tools-configs')
 
+    const devMode = Config.devMode
+
     const initFilesOk =
       fs.existsSync(configFilePath) && fs.existsSync(cliConfigFilePath) && fs.existsSync(toolsFolderPath)
     let needsInitialization = !initFilesOk
@@ -121,9 +124,18 @@ export class MacCodacyCli extends CodacyCli {
       // Check if the mode matches the current properties
       const cliConfig = fs.readFileSync(path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml'), 'utf-8')
 
-      if ((cliConfig === 'mode: local' && this.repository) || (cliConfig === 'mode: remote' && !this.repository)) {
+      if (
+        ((cliConfig === 'mode: local' && this.repository) || (cliConfig === 'mode: remote' && !this.repository)) &&
+        !devMode
+      ) {
         needsInitialization = true
       }
+    }
+
+    if (!needsInitialization && devMode) {
+      // install dependencies
+      await this.installDependencies()
+      Logger.debug('Dev mode enabled. Skipping initialization.')
     }
 
     if (needsInitialization) {
