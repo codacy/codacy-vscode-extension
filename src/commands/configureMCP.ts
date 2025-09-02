@@ -378,9 +378,26 @@ export function isMCPConfigured(): boolean {
     const currentIde = getCurrentIDE()
     Logger.debug(`Checking if MCP is configured for ${currentIde}`, 'MCP')
 
-    if (currentIde === 'vscode' || currentIde === 'insiders') {
-      // MCP is always configured in VS Code
-      return true
+    try {
+      if (currentIde === 'vscode' || currentIde === 'insiders') {
+        if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
+          return true
+        } else {
+          const mcpServers = vscode.workspace.getConfiguration('mcp').get('servers')
+
+          if (
+            mcpServers !== undefined &&
+            typeof mcpServers === 'object' &&
+            mcpServers !== null &&
+            (mcpServers as Record<string, unknown>).codacy !== undefined
+          ) {
+            Logger.debug('MCP configuration found through VS Code API', 'MCP')
+            return true
+          }
+        }
+      }
+    } catch (apiError) {
+      Logger.debug(`VS Code API check failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`, 'MCP')
     }
 
     // Otherwise, check configuration files directly
@@ -410,6 +427,23 @@ export function isMCPConfigured(): boolean {
 export async function configureGuardrails(cli?: CodacyCli, params?: RepositoryParams) {
   await cli?.install()
   await configureMCP(params)
+}
+
+async function installMCPForVSCode(server: MCPServerConfiguration): Promise<void> {
+  // Implement the logic for installing MCP for VSCode using native User Settings API
+  const mcpConfig = vscode.workspace.getConfiguration('mcp')
+  let mcpServers = mcpConfig.get('servers')
+
+  if (!mcpServers) {
+    mcpServers = {}
+  }
+
+  if (mcpServers !== undefined && typeof mcpServers === 'object' && mcpServers !== null) {
+    const modifiedConfig = set(mcpServers, 'codacy', server)
+    await vscode.workspace.getConfiguration('mcp').update('servers', modifiedConfig, true)
+  } else {
+    Logger.error('MCP configuration not found in VS Code settings')
+  }
 }
 
 function installMCPForOthers(server: MCPServerConfiguration) {
@@ -464,10 +498,6 @@ type MCPServerConfiguration = {
 
 export async function configureMCP(params?: RepositoryParams, isUpdate = false) {
   const ide = getCurrentIDE()
-  if (ide === 'vscode' || ide === 'insiders') {
-    // MCP is always configured in VS Code
-    return
-  }
 
   try {
     // Check for Node.js installation first
@@ -485,8 +515,13 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
           }
         : undefined,
     }
-
-    if (ide === 'cursor' || ide === 'windsurf') {
+    if (ide === 'vscode' || ide === 'insiders') {
+      if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
+        return
+      } else {
+        await installMCPForVSCode(codacyServer)
+      }
+    } else if (ide === 'cursor' || ide === 'windsurf') {
       installMCPForOthers(codacyServer)
     } else {
       throw new CodacyError('Unsupported IDE for MCP configuration', undefined, 'MCP')
