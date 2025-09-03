@@ -96,9 +96,11 @@ export class MacCodacyCli extends CodacyCli {
   }
 
   public async update(): Promise<void> {
-    const command = `${this.getCliCommand()} update`
+    const updateCommand = `${this.getCliCommand()} update`
+    const resetCommand = `${this.getCliCommand()} config reset`
     try {
-      await this.execAsync(command)
+      await this.execAsync(updateCommand)
+      await this.execAsync(resetCommand)
 
       // Initialize codacy-cli after update
       await this.initialize()
