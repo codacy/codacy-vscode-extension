@@ -498,7 +498,7 @@
     "webpack-cli": "^5.1.1"
   },
   "dependencies": {
-    "@codacy/codacy-mcp": "0.6.18",
+    "@codacy/codacy-mcp": "^0.6.18",
     "@segment/analytics-node": "^1.1.3",
     "@types/uuid": "^10.0.0",
     "axios": "^1.7.4",

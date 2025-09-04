@@ -557,11 +557,17 @@ export class CodacyMcpProvider implements vscode.McpServerDefinitionProvider {
   }
 
   provideMcpServerDefinitions(): vscode.McpServerDefinition[] {
+    // In packaged extension, we need to find the extension's root directory
+    // __dirname points to the dist folder in packaged extension
+    // We need to go up to the extension root where node_modules will be
+    const extensionRoot = path.resolve(__dirname, '..')
+    const mcpPath = path.join(extensionRoot, 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js')
+
     return [
       new vscode.McpStdioServerDefinition(
         vscode.l10n.t('Codacy MCP Server'),
         'node',
-        [path.join(__dirname, '..', 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js')],
+        [mcpPath],
         Config.apiToken
           ? {
               CODACY_ACCOUNT_TOKEN: Config.apiToken,
