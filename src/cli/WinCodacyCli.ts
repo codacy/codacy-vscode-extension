@@ -31,4 +31,8 @@ export class WinCodacyCli extends CodacyCli {
   public analyze(_options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null> {
     throw new Error(NOT_SUPPORTED)
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public configDiscover(_filePath: string): Promise<void> {
+    throw new Error(NOT_SUPPORTED)
+  }
 }
