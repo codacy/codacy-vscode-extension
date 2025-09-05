@@ -220,4 +220,36 @@ export class MacCodacyCli extends CodacyCli {
       }
     }
   }
+
+  public async configDiscover(filePath: string): Promise<void> {
+    await this.preflightCodacyCli(true)
+
+    if (!this.getCliCommand()) {
+      throw new Error('CLI command not found. Please install the CLI first.')
+    }
+
+    Logger.debug(`Running Codacy CLI config discover for ${filePath}`)
+
+    try {
+      const { stdout, stderr } = await this.execAsync(
+        `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`
+      )
+
+      if (stderr) {
+        Logger.warn(`Codacy CLI config discover warnings: ${stderr}`)
+      }
+
+      if (stdout) {
+        Logger.debug(`Codacy CLI config discover output: ${stdout}`)
+      }
+
+      Logger.debug(`Codacy CLI config discover completed for ${filePath}`)
+    } catch (error: unknown) {
+      if (error instanceof CodacyError) {
+        throw error
+      } else {
+        throw new CodacyError('Failed to run Codacy config discover', error as Error, 'CLI')
+      }
+    }
+  }
 }
