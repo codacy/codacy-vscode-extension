@@ -23,6 +23,40 @@ import { configureGuardrails, configureMCP, updateMCPConfig, updateMCPState } fr
 import { addRepository, joinOrganization } from './onboarding'
 
 /**
+ * Handle file creation events by running Codacy CLI config discover
+ */
+const handleFileCreation = async (filePath: string, codacyCloud: CodacyCloud) => {
+  const ignorePaths = [
+    '.git/',
+    'node_modules/',
+    '.codacy/',
+    '.vscode/',
+    '.windsurf/',
+    '.cursor/',
+    '.github/',
+    'readme/',
+  ]
+  try {
+    if (ignorePaths.some((path) => filePath.includes(path))) {
+      return
+    }
+
+    // Skip if it's not a regular file
+    const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath))
+    if (stat.type !== vscode.FileType.File) {
+      return
+    }
+
+    Logger.debug(`File created: ${filePath}, running config discover...`)
+
+    // Run config discover for the new file
+    await codacyCloud.cli?.configDiscover(filePath)
+  } catch (error) {
+    Logger.warn(`Failed to run config discover for ${filePath}: ${error}`)
+  }
+}
+
+/**
  * Helper function to register all extension commands
  * @param context
  */
@@ -267,6 +301,15 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
       item.onClick()
     })
+
+    // Listen for file creation and run config discover
+    context.subscriptions.push(
+      vscode.workspace.onDidCreateFiles(async (event) => {
+        for (const file of event.files) {
+          await handleFileCreation(file.fsPath, codacyCloud)
+        }
+      })
+    )
 
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')

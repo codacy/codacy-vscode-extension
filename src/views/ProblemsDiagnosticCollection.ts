@@ -63,8 +63,8 @@ export class CliIssueDiagnostic extends vscode.Diagnostic {
       result.level === 'error'
         ? vscode.DiagnosticSeverity.Error
         : result.level === 'warning'
-        ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Information
+          ? vscode.DiagnosticSeverity.Warning
+          : vscode.DiagnosticSeverity.Information
 
     const range = new vscode.Range(
       (result.region?.startLine || 1) - 1,
