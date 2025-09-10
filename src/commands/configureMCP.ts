@@ -517,6 +517,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     }
     if (ide === 'vscode' || ide === 'insiders') {
       if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
+        await createOrUpdateRules(params)
         return
       } else {
         await installMCPForVSCode(codacyServer)
