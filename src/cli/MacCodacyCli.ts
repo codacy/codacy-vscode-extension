@@ -6,6 +6,7 @@ import { CodacyError } from '../common/utils'
 import { CODACY_FOLDER_NAME, CodacyCli } from './CodacyCli'
 import Logger from '../common/logger'
 import { ProcessedSarifResult, processSarifResults } from '.'
+import { Config } from '../common/config'
 
 export class MacCodacyCli extends CodacyCli {
   constructor(rootPath: string, provider?: string, organization?: string, repository?: string) {
@@ -95,9 +96,21 @@ export class MacCodacyCli extends CodacyCli {
   }
 
   public async update(): Promise<void> {
-    const command = `${this.getCliCommand()} update`
+    const resetParams = (
+      this._accountToken && this.repository && this.provider && this.organization
+        ? {
+            provider: this.provider,
+            organization: this.organization,
+            repository: this.repository,
+            'api-token': this._accountToken,
+          }
+        : {}
+    ) as Record<string, string>
+    const updateCommand = `${this.getCliCommand()} update`
+    const resetCommand = `${this.getCliCommand()} config reset`
     try {
-      await this.execAsync(command)
+      await this.execAsync(updateCommand)
+      await this.execAsync(resetCommand, resetParams)
 
       // Initialize codacy-cli after update
       await this.initialize()
@@ -113,6 +126,8 @@ export class MacCodacyCli extends CodacyCli {
     const cliConfigFilePath = path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml')
     const toolsFolderPath = path.join(this.rootPath, CODACY_FOLDER_NAME, 'tools-configs')
 
+    const devMode = Config.devMode
+
     const initFilesOk =
       fs.existsSync(configFilePath) && fs.existsSync(cliConfigFilePath) && fs.existsSync(toolsFolderPath)
     let needsInitialization = !initFilesOk
@@ -121,9 +136,18 @@ export class MacCodacyCli extends CodacyCli {
       // Check if the mode matches the current properties
       const cliConfig = fs.readFileSync(path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml'), 'utf-8')
 
-      if ((cliConfig === 'mode: local' && this.repository) || (cliConfig === 'mode: remote' && !this.repository)) {
+      if (
+        ((cliConfig === 'mode: local' && this.repository) || (cliConfig === 'mode: remote' && !this.repository)) &&
+        !devMode
+      ) {
         needsInitialization = true
       }
+    }
+
+    if (!needsInitialization && devMode) {
+      // install dependencies
+      await this.installDependencies()
+      Logger.debug('Dev mode enabled. Skipping initialization.')
     }
 
     if (needsInitialization) {
@@ -193,6 +217,38 @@ export class MacCodacyCli extends CodacyCli {
         throw error
       } else {
         throw new CodacyError('Failed to run Codacy analysis', error as Error, 'CLI')
+      }
+    }
+  }
+
+  public async configDiscover(filePath: string): Promise<void> {
+    await this.preflightCodacyCli(true)
+
+    if (!this.getCliCommand()) {
+      throw new Error('CLI command not found. Please install the CLI first.')
+    }
+
+    Logger.debug(`Running Codacy CLI config discover for ${filePath}`)
+
+    try {
+      const { stdout, stderr } = await this.execAsync(
+        `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`
+      )
+
+      if (stderr) {
+        Logger.warn(`Codacy CLI config discover warnings: ${stderr}`)
+      }
+
+      if (stdout) {
+        Logger.debug(`Codacy CLI config discover output: ${stdout}`)
+      }
+
+      Logger.debug(`Codacy CLI config discover completed for ${filePath}`)
+    } catch (error: unknown) {
+      if (error instanceof CodacyError) {
+        throw error
+      } else {
+        throw new CodacyError('Failed to run Codacy config discover', error as Error, 'CLI')
       }
     }
   }

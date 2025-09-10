@@ -30,6 +30,40 @@ import {
 import { addRepository, joinOrganization } from './onboarding'
 
 /**
+ * Handle file creation events by running Codacy CLI config discover
+ */
+const handleFileCreation = async (filePath: string, codacyCloud: CodacyCloud) => {
+  const ignorePaths = [
+    '.git/',
+    'node_modules/',
+    '.codacy/',
+    '.vscode/',
+    '.windsurf/',
+    '.cursor/',
+    '.github/',
+    'readme/',
+  ]
+  try {
+    if (ignorePaths.some((path) => filePath.includes(path))) {
+      return
+    }
+
+    // Skip if it's not a regular file
+    const stat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath))
+    if (stat.type !== vscode.FileType.File) {
+      return
+    }
+
+    Logger.debug(`File created: ${filePath}, running config discover...`)
+
+    // Run config discover for the new file
+    await codacyCloud.cli?.configDiscover(filePath)
+  } catch (error) {
+    Logger.warn(`Failed to run config discover for ${filePath}: ${error}`)
+  }
+}
+
+/**
  * Helper function to register all extension commands
  * @param context
  */
@@ -56,6 +90,9 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.installCLI': async () => {
       await codacyCloud.cli?.install()
+    },
+    'codacy.installCLIDependencies': async () => {
+      await codacyCloud.cli?.installDependencies()
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
@@ -102,11 +139,13 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
     })
 
     git.onDidChangeState(async (state: APIState) => {
+      Logger.debug(`Git API state changed to: ${state}`)
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
+          Logger.debug(`Git API initialized with ${git.repositories.length} repositories`)
           codacyCloud.open(git.repositories[0])
         } else {
-          Logger.appendLine('No Git Repositories found')
+          Logger.appendLine('Git API initialized but no repositories found')
           codacyCloud.clear()
         }
       }
@@ -230,9 +269,23 @@ export async function activate(context: vscode.ExtensionContext) {
       })
     )
 
+    // listen for workspace configuration changes to handle dev mode changes
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('codacy.cli.devMode')) {
+          Config.updateDevMode()
+        }
+      })
+    )
+
     // check for open repository
-    if (gitProvider.repositories.length > 0) {
+    if (gitProvider.state === 'initialized' && gitProvider.repositories.length > 0) {
+      Logger.debug(`Found ${gitProvider.repositories.length} repositories, opening first one`)
       codacyCloud.open(gitProvider.repositories[0])
+    } else if (gitProvider.state === 'uninitialized') {
+      Logger.debug('Git API is still initializing, will wait for state change event')
+    } else {
+      Logger.appendLine('No Git repositories found in workspace')
     }
 
     // coverage decoration
@@ -263,6 +316,15 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('codacy.pr.toggleCoverage', (item: { onClick: () => void }) => {
       item.onClick()
     })
+
+    // Listen for file creation and run config discover
+    context.subscriptions.push(
+      vscode.workspace.onDidCreateFiles(async (event) => {
+        for (const file of event.files) {
+          await handleFileCreation(file.fsPath, codacyCloud)
+        }
+      })
+    )
 
     const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
     const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')

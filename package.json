@@ -205,6 +205,11 @@
       },
       {
         "view": "codacy:mcp",
+        "contents": "$(warning) Development mode is enabled. [Reinstall dependencies](command:codacy.installCLIDependencies).",
+        "when": "codacy:canInstallCLI && codacy:cliInstalled && codacy:devMode"
+      },
+      {
+        "view": "codacy:mcp",
         "contents": "$(warning) Codacy CLI not found. [Install CLI](command:codacy.installCLI)",
         "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
       },
@@ -439,6 +444,12 @@
             "disabled"
           ],
           "default": "enabled"
+        },
+        "codacy.cli.devMode": {
+          "type": "boolean",
+          "title": "Enable development mode",
+          "description": "When enabled, the extension will no longer initialize the Codacy CLI automatically. Enabling this option may result in a degraded user experience.",
+          "default": false
         }
       }
     },
@@ -503,7 +514,7 @@
     "@types/uuid": "^10.0.0",
     "axios": "^1.7.4",
     "date-fns": "^2.30.0",
-    "form-data": "^4.0.0",
+    "form-data": "^4.0.4",
     "lodash": "^4.17.21",
     "uuid": "^11.1.0"
   }
