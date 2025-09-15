@@ -10,7 +10,7 @@ import { StatusBar } from './views/StatusBar'
 import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 import { Config } from './common/config'
 import { AuthUriHandler, codacyAuth } from './auth'
-import { IssueDetailsProvider, seeIssueDetailsCommand } from './views/IssueDetailsProvider'
+import { IssueDetailsProvider, seeIssueDetailsCommand, seeCliIssueDetailsCommand } from './views/IssueDetailsProvider'
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
@@ -81,6 +81,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.branchIssues.refresh': () => codacyCloud.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
+    'codacy.cliIssue.seeDetails': seeCliIssueDetailsCommand,
     'codacy.installCLI': async () => {
       await codacyCloud.cli?.install()
     },

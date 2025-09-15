@@ -68,3 +68,14 @@ export const seeIssueDetailsCommand = async (issue?: CommitIssue) => {
 
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
 }
+
+export const seeCliIssueDetailsCommand = async (issue?: import('../cli').ProcessedSarifResult) => {
+  const tools = await Api.Tools.listTools()
+  const toolUuid = tools.data.find((tool) => tool.name === issue?.tool)?.uuid
+
+  if (!issue || !issue.rule || !toolUuid) return
+
+  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue?.rule.id}`)
+
+  vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
+}

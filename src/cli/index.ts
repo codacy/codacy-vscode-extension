@@ -122,7 +122,9 @@ export const processSarifResults = (runs: Run[]) => {
                       helpUri: rule.helpUri,
                       shortDescription: rule.shortDescription?.text,
                     }
-                  : undefined,
+                  : result.ruleId
+                    ? { id: result.ruleId }
+                    : undefined,
                 level,
                 message,
                 filePath,
