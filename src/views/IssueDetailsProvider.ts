@@ -2,6 +2,8 @@ import * as vscode from 'vscode'
 import { Api } from '../api'
 import { Tools } from '../codacy/Tools'
 import { CommitIssue } from '../api/client'
+import Logger from '../common/logger'
+import { ProcessedSarifResult } from '../cli'
 
 export class IssueDetailsProvider {
   async provideTextDocumentContent(uri: vscode.Uri) {
@@ -65,6 +67,21 @@ Source: [${tool?.name}](${tool?.documentationUrl})
 
 export const seeIssueDetailsCommand = async (issue?: CommitIssue) => {
   const uri = vscode.Uri.parse(`codacyIssue://${issue?.toolInfo.uuid}/${issue?.patternInfo.id}`)
+
+  vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
+}
+
+export const seeCliIssueDetailsCommand = async (issue?: ProcessedSarifResult) => {
+  const tools = await Api.Tools.listTools()
+  const toolUuid = tools.data.find((tool) => tool.name === issue?.tool)?.uuid
+
+  if (!issue || !issue.rule || !toolUuid) {
+    vscode.window.showErrorMessage('Unable to show issue details: missing tool or rule information.')
+    Logger.error('Unable to show issue details: missing tool or rule information.')
+    return
+  }
+
+  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue?.rule.id}`)
 
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
 }

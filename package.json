@@ -317,6 +317,11 @@
         "category": "Codacy commands"
       },
       {
+        "command": "codacy.cliIssue.seeDetails",
+        "title": "See CLI issue details",
+        "category": "Codacy commands"
+      },
+      {
         "command": "codacy.configureMCP",
         "title": "Configure Codacy MCP Server",
         "category": "Codacy commands",

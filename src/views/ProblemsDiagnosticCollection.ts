@@ -363,30 +363,46 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
   ): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
     const diagnostics = context.diagnostics.filter(
       (diagnostic) => diagnostic.source?.startsWith('Codacy') && diagnostic.range.contains(range)
-    ) as ApiIssueDiagnostic[]
+    ) as (ApiIssueDiagnostic | CliIssueDiagnostic)[]
 
     return diagnostics.flatMap((diagnostic) => {
       const actions: vscode.CodeAction[] = []
 
-      // add fix for the issue if suggestion is present
-      if (diagnostic.commitIssue.suggestion) {
-        const action = new vscode.CodeAction('Apply Codacy suggested fix', vscode.CodeActionKind.QuickFix)
-        action.edit = new vscode.WorkspaceEdit()
-        action.edit.replace(document.uri, diagnostic.range, diagnostic.commitIssue.suggestion.trim())
-        action.diagnostics = [diagnostic]
-        action.isPreferred = true
-        actions.push(action)
+      // Handle API diagnostics
+      if (diagnostic instanceof ApiIssueDiagnostic) {
+        // add fix for the issue if suggestion is present
+        if (diagnostic.commitIssue.suggestion) {
+          const action = new vscode.CodeAction('Apply Codacy suggested fix', vscode.CodeActionKind.QuickFix)
+          action.edit = new vscode.WorkspaceEdit()
+          action.edit.replace(document.uri, diagnostic.range, diagnostic.commitIssue.suggestion.trim())
+          action.diagnostics = [diagnostic]
+          action.isPreferred = true
+          actions.push(action)
+        }
+
+        // add see issue details actions for API issues
+        const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
+        seeIssueDetailsAction.diagnostics = [diagnostic]
+        seeIssueDetailsAction.command = {
+          command: 'codacy.issue.seeDetails',
+          title: 'See issue details',
+          arguments: [diagnostic.commitIssue],
+        }
+        actions.push(seeIssueDetailsAction)
       }
 
-      // add see issue details actions
-      const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
-      seeIssueDetailsAction.diagnostics = [diagnostic]
-      seeIssueDetailsAction.command = {
-        command: 'codacy.issue.seeDetails',
-        title: 'See issue details',
-        arguments: [diagnostic.commitIssue],
+      // Handle CLI diagnostics
+      else if (diagnostic instanceof CliIssueDiagnostic) {
+        // add see issue details actions for CLI issues
+        const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
+        seeIssueDetailsAction.diagnostics = [diagnostic]
+        seeIssueDetailsAction.command = {
+          command: 'codacy.cliIssue.seeDetails',
+          title: 'See issue details',
+          arguments: [diagnostic.result],
+        }
+        actions.push(seeIssueDetailsAction)
       }
-      actions.push(seeIssueDetailsAction)
 
       return actions
     })
