@@ -3,7 +3,8 @@
 .readme/**
 api-v3/**
 coverage/**
-node_modules/**
+# Include entire node_modules to support MCP Server Provider installation
+# node_modules/**
 out/**
 releases/**
 src/**
