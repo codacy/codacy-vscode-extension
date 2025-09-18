@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import * as fs from 'fs'
-import { groupBy, startCase } from 'lodash'
+import { groupBy, startCase, uniqBy } from 'lodash'
 import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
@@ -156,7 +156,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     this._collection.clear()
     const filesWithApiIssues = Object.keys(this._currentApiIssues).map((key) => ({ file: key, isCliIssue: false }))
     const filesWithCliIssues = Object.keys(this._currentCliIssues).map((key) => ({ file: key, isCliIssue: true }))
-    const allFiles = [...new Set([...filesWithApiIssues, ...filesWithCliIssues])]
+    const allFiles = uniqBy([...filesWithApiIssues, ...filesWithCliIssues], 'file')
     allFiles.forEach(({ file, isCliIssue }) => {
       const document = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === file)
       if (document) {
