@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import * as fs from 'fs'
-import { groupBy, startCase } from 'lodash'
+import { groupBy, startCase, uniqBy } from 'lodash'
 import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
@@ -154,13 +154,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
   private updateDiagnostics() {
     this._collection.clear()
-    const filesWithApiIssues = Object.keys(this._currentApiIssues)
-    const filesWithCliIssues = Object.keys(this._currentCliIssues)
-    const allFiles = [...new Set([...filesWithApiIssues, ...filesWithCliIssues])]
-    allFiles.forEach((file) => {
+    const filesWithApiIssues = Object.keys(this._currentApiIssues).map((key) => ({ file: key, isCliIssue: false }))
+    const filesWithCliIssues = Object.keys(this._currentCliIssues).map((key) => ({ file: key, isCliIssue: true }))
+    const allFiles = uniqBy([...filesWithApiIssues, ...filesWithCliIssues], 'file')
+    allFiles.forEach(({ file, isCliIssue }) => {
       const document = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === file)
       if (document) {
-        this.updateDocumentDiagnostics(document)
+        isCliIssue ? this.updateDocumentDiagnostics(document) : this.updateApiIssuesPositions(document)
       }
     })
   }
@@ -322,16 +322,29 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     const documentIssues = this._currentApiIssues[document.uri.fsPath] || []
 
     const documentLines = document.getText().split('\n')
+    const validIssues: (PullRequestIssue | BranchIssue)[] = []
 
-    documentIssues.forEach(({ commitIssue }) => {
-      if (documentLines[commitIssue.lineNumber - 1].trim() !== commitIssue.lineText.trim()) {
+    documentIssues.forEach((issue) => {
+      const { commitIssue } = issue
+
+      if (documentLines[commitIssue.lineNumber - 1]?.trim() !== commitIssue.lineText.trim()) {
         const foundInLine = documentLines.findIndex((line) => line.trim() === commitIssue.lineText.trim())
-
         if (foundInLine >= 0) {
           commitIssue.lineNumber = foundInLine + 1
+          validIssues.push(issue)
+        } else {
+          Logger.appendLine(
+            `Removing diagnostic for issue no longer found in document: "${commitIssue.lineText.trim()}" in ${document.uri.fsPath}`
+          )
+          // Issue is no longer found in the document, so we don't add it to validIssues
         }
+      } else {
+        validIssues.push(issue)
       }
     })
+
+    // Update the current API issues to only include valid issues
+    this._currentApiIssues[document.uri.fsPath] = validIssues
 
     this.updateDocumentDiagnostics(document)
   }
