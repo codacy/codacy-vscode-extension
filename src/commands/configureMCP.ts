@@ -257,10 +257,10 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     }
     if (ide === 'vscode' || ide === 'insiders') {
       if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
-        await notifyMCPInstallation()
         if (generateRules === 'automatic') {
           await createOrUpdateRules(params)
         }
+        await notifyMCPInstallation()
         return
       } else {
         await installMCPForVSCode(codacyServer)
@@ -271,12 +271,11 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
       throw new CodacyError('Unsupported IDE for MCP configuration', undefined, 'MCP')
     }
 
-    if (!isUpdate) {
-      await notifyMCPInstallation()
-    }
-
     if (generateRules === 'automatic') {
       await createOrUpdateRules(params)
+    }
+    if (!isUpdate) {
+      await notifyMCPInstallation()
     }
     if (ide === 'windsurf') {
       createWindsurfWorkflows()
