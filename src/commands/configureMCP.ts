@@ -219,12 +219,13 @@ type MCPServerConfiguration = {
 }
 
 export const notifyMCPInstallation = async (params?: RepositoryParams) => {
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
+  const hasInstructionsFile = await checkRulesFile()
   vscode.window
     .showInformationMessage(
-      `Codacy Guardrails configured. ${generateRules === 'automatic' ? 'Instructions file created and MCP ready to use' : 'Generate an instructions file to leverage the full capabilities of Guardrails'}`,
+      `Codacy Guardrails configured. ${generateRules === 'automatic' ? 'Instructions file created and MCP ready to use' : !hasInstructionsFile ? 'Generate an instructions file to leverage the full capabilities of Guardrails' : ''}`,
       'OK',
-      generateRules === 'automatic' ? 'Settings' : 'Generate instructions file'
+      generateRules === 'automatic' ? 'Settings' : !hasInstructionsFile ? 'Generate instructions file' : ''
     )
     .then((result) => {
       if (result === 'Generate instructions file') {
@@ -237,7 +238,7 @@ export const notifyMCPInstallation = async (params?: RepositoryParams) => {
 
 export async function configureMCP(params?: RepositoryParams, isUpdate = false) {
   const ide = getCurrentIDE()
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
 
   try {
     // Check for Node.js installation first

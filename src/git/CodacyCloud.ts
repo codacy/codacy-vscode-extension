@@ -100,7 +100,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public async open(gitRepository: GitRepository) {
     this._cli = await Cli.get(this._params ?? {})
-    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
+    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
     const openRepository = async () => {
       this._current = gitRepository
 

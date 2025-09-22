@@ -276,8 +276,10 @@ export async function checkRulesFile() {
   try {
     if (fs.existsSync(rulesPath)) {
       await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', true)
+      return true
     } else {
       await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', false)
+      return false
     }
   } catch (error) {
     Logger.error(`Error checking if rules file exists: ${error}`)
