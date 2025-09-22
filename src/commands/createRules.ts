@@ -261,11 +261,22 @@ const addRulesToGitignore = (rulesPath: string) => {
   }
 }
 
+export async function checkRulesFile() {
+  const { path: rulesPath } = getCorrectRulesInfo()
+  try {
+    if (fs.existsSync(rulesPath)) {
+      await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', true)
+    } else {
+      await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', false)
+    }
+  } catch (error) {
+    Logger.error(`Error checking if rules file exists: ${error}`)
+    return false
+  }
+}
+
 export async function createOrUpdateRules(params?: RepositoryParams) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
-
-  if (generateRules === 'disabled') return
 
   const newRules = newRulesTemplate(params, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
 
@@ -285,6 +296,7 @@ export async function createOrUpdateRules(params?: RepositoryParams) {
         `${getPrefixForMarkdown(currentIDE, newRules.description)}${convertRulesToMarkdown(newRules)}`
       )
       Logger.appendLine(`Created new rules file at ${rulesPath}`)
+      checkRulesFile()
       addRulesToGitignore(rulesPath)
     } else {
       try {

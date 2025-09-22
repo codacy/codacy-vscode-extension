@@ -24,10 +24,12 @@ import {
   configureGuardrails,
   configureMCP,
   getCurrentIDE,
+  isMCPConfigured,
   updateMCPConfig,
   updateMCPState,
 } from './commands/configureMCP'
 import { addRepository, joinOrganization } from './onboarding'
+import { createOrUpdateRules } from './commands/createRules'
 
 /**
  * Handle file creation events by running Codacy CLI config discover
@@ -103,6 +105,9 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     },
     'codacy.configureMCP.reset': async () => {
       await configureMCP(codacyCloud.params, true)
+    },
+    'codacy.configureMCP.generateRulesFile': async () => {
+      await createOrUpdateRules(codacyCloud.params)
     },
     'codacy.onboarding.complete': () => {
       const { provider, organization } = codacyCloud.params!
@@ -201,6 +206,11 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.env.appName.toLowerCase().includes('windsurf') ||
       (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
   )
+  await vscode.commands.executeCommand(
+    'setContext',
+    'codacy:automaticMcpInstallation',
+    vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot')
+  )
 
   await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
 
@@ -229,6 +239,9 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.lm.registerMcpServerDefinitionProvider('codacyMcpProvider', new CodacyMcpProvider(context))
       )
     }
+
+    // Configure MCP automatically
+    await configureMCP(codacyCloud.params, isMCPConfigured())
 
     await registerCommands(context, codacyCloud)
 
@@ -336,7 +349,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Update initially
-    updateMCPState()
+    await updateMCPState()
   }
 }
 
