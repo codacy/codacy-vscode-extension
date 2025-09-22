@@ -196,7 +196,7 @@
       {
         "view": "codacy:mcp",
         "contents": "$(check) Codacy MCP Server is set up.",
-        "when": "codacy:supportsMCP && codacy:mcpConfigured && codacy:automaticMcpInstallation"
+        "when": "codacy:supportsMCP && codacy:mcpConfigured && codacy:automaticMcpInstallation && codacy:guardrailsRulesFile"
       },
       {
         "view": "codacy:mcp",
