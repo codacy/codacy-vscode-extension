@@ -10,16 +10,17 @@ import Logger from '../common/logger'
 import { CodacyError, Config } from '../common'
 import { RepositoryParams } from '../git/CodacyCloud'
 import { createWindsurfWorkflows } from './createWorkflows'
-import { createOrUpdateRules } from './createRules'
+import { checkRulesFile, createOrUpdateRules } from './createRules'
 
 // Function to sanitize the JSON content to avoid trailing commas
 const sanitizeJSON = (json: string): string => {
   return json.replace(/,([\s\r\n]*[}\]])/g, '$1')
 }
 
-export function updateMCPState() {
+export async function updateMCPState() {
   const isConfigured = isMCPConfigured()
-  vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
+  await vscode.commands.executeCommand('setContext', 'codacy:mcpConfigured', isConfigured)
+  await checkRulesFile()
 }
 
 /**
@@ -217,8 +218,27 @@ type MCPServerConfiguration = {
   env?: Record<string, string>
 }
 
+export const notifyMCPInstallation = async (params?: RepositoryParams) => {
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
+  const hasInstructionsFile = await checkRulesFile()
+  vscode.window
+    .showInformationMessage(
+      `Codacy Guardrails configured. ${generateRules === 'automatic' ? 'Instructions file created and MCP ready to use' : !hasInstructionsFile ? 'Generate an instructions file to leverage the full capabilities of Guardrails' : ''}`,
+      'OK',
+      generateRules === 'automatic' ? 'Settings' : !hasInstructionsFile ? 'Generate instructions file' : ''
+    )
+    .then((result) => {
+      if (result === 'Generate instructions file') {
+        createOrUpdateRules(params)
+      } else if (result === 'Settings') {
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:codacy-app.codacy')
+      }
+    })
+}
+
 export async function configureMCP(params?: RepositoryParams, isUpdate = false) {
   const ide = getCurrentIDE()
+  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
 
   try {
     // Check for Node.js installation first
@@ -238,7 +258,10 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     }
     if (ide === 'vscode' || ide === 'insiders') {
       if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
-        await createOrUpdateRules(params)
+        if (generateRules === 'automatic') {
+          await createOrUpdateRules(params)
+        }
+        await notifyMCPInstallation()
         return
       } else {
         await installMCPForVSCode(codacyServer)
@@ -249,15 +272,16 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
       throw new CodacyError('Unsupported IDE for MCP configuration', undefined, 'MCP')
     }
 
-    if (!isUpdate) {
-      vscode.window.showInformationMessage('Codacy MCP server added successfully. Please restart the IDE.')
+    if (generateRules === 'automatic') {
+      await createOrUpdateRules(params)
     }
-
-    await createOrUpdateRules(params)
+    if (!isUpdate) {
+      await notifyMCPInstallation()
+    }
     if (ide === 'windsurf') {
       createWindsurfWorkflows()
     }
-    updateMCPState()
+    await updateMCPState()
   } catch (error) {
     throw new CodacyError('Failed to configure MCP server', error as Error, 'MCP')
   }

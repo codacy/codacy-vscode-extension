@@ -100,6 +100,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public async open(gitRepository: GitRepository) {
     this._cli = await Cli.get(this._params ?? {})
+    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
     const openRepository = async () => {
       this._current = gitRepository
 
@@ -166,7 +167,7 @@ export class CodacyCloud implements vscode.Disposable {
             const { provider, organization, repository } = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
             this._params = { provider, organization, repository }
 
-            if (isMCPConfigured()) {
+            if (isMCPConfigured() && generateRules === 'automatic') {
               await createOrUpdateRules({ provider, organization, repository })
             }
 

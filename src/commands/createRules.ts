@@ -112,6 +112,16 @@ export const newRulesTemplate = (
       scope: 'guardrails',
     },
     {
+      when: 'When you tried to run the `codacy_cli_analyze` tool and the Codacy CLI is not installed',
+      enforce: [
+        "Ask the user 'Codacy CLI is not installed. Would you like me to install it now?'",
+        'If the user responds with "yes", run the `codacy_cli_install` tool and then continue with the original task',
+        'If the user responds with "no", instruct the user that they can disable automatic analysis in the extension settings',
+        'Wait for the user to respond before proceeding with any other actions',
+      ],
+      scope: 'guardrails',
+    },
+    {
       when: 'After every response',
       enforce: [
         "If you made any file edits in this conversation, verify you ran `codacy_cli_analyze` tool from Codacy's MCP Server ",
@@ -261,11 +271,24 @@ const addRulesToGitignore = (rulesPath: string) => {
   }
 }
 
+export async function checkRulesFile() {
+  const { path: rulesPath } = getCorrectRulesInfo()
+  try {
+    if (fs.existsSync(rulesPath)) {
+      await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', true)
+      return true
+    } else {
+      await vscode.commands.executeCommand('setContext', 'codacy:guardrailsRulesFile', false)
+      return false
+    }
+  } catch (error) {
+    Logger.error(`Error checking if rules file exists: ${error}`)
+    return false
+  }
+}
+
 export async function createOrUpdateRules(params?: RepositoryParams) {
   const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
-  const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
-
-  if (generateRules === 'disabled') return
 
   const newRules = newRulesTemplate(params, analyzeGeneratedCode === 'disabled' ? ['guardrails'] : [])
 
@@ -285,6 +308,7 @@ export async function createOrUpdateRules(params?: RepositoryParams) {
         `${getPrefixForMarkdown(currentIDE, newRules.description)}${convertRulesToMarkdown(newRules)}`
       )
       Logger.appendLine(`Created new rules file at ${rulesPath}`)
+      checkRulesFile()
       addRulesToGitignore(rulesPath)
     } else {
       try {
