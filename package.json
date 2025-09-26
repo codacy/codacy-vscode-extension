@@ -200,7 +200,7 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "$(warning) Codacy MCP Server is set up but the rules file is not generated. [Generate rules file](command:codacy.configureMCP.generateRulesFile)",
+        "contents": "$(warning) Codacy MCP Server is set up but the rules file is not generated. [Generate instructions file](command:codacy.configureMCP.generateRulesFile)",
         "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:guardrailsRulesFile"
       },
       {
