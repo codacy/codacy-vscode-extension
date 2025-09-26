@@ -269,7 +269,7 @@ export async function activate(context: vscode.ExtensionContext) {
         initializeApi()
 
         Account.current().then((user) => {
-          if (user) Telemetry.identify(user, codacyCloud.params)
+          if (user) Telemetry.identify(user, codacyCloud.organization)
         })
 
         if (gitProvider?.repositories.length) {
