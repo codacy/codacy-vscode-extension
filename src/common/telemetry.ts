@@ -4,11 +4,14 @@ import { EventProperties } from '@segment/analytics-core'
 import { User } from '../api/client'
 import { SEGMENT_WRITE_KEY } from '../env-secrets'
 import { v4 as uuidv4 } from 'uuid'
+import { RepositoryParams } from '../git/CodacyCloud'
 
 class TelemetryClient {
   private analytics: Analytics | undefined
   private userId: string | undefined
   private anonymousId: string | undefined
+  private organization: string | undefined
+  private provider: string | undefined
 
   constructor() {
     if (SEGMENT_WRITE_KEY) {
@@ -25,10 +28,12 @@ class TelemetryClient {
     }
   }
 
-  public identify(user: User) {
+  public identify(user: User, params?: RepositoryParams) {
     if (!vscode.env.isTelemetryEnabled || !this.analytics || !this.anonymousId) return
 
     this.userId = user.id.toString()
+    this.organization = params?.organization
+    this.provider = params?.provider
 
     this.analytics.identify({
       userId: this.userId,
@@ -49,6 +54,8 @@ class TelemetryClient {
       properties: {
         ide: vscode.env.appName.toLowerCase(),
         os: process.platform,
+        organization: this.organization,
+        provider: this.provider,
         ...properties,
       },
     })
