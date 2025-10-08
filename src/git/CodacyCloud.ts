@@ -10,7 +10,7 @@ import { IssuesManager } from './IssuesManager'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
 import { GitProvider } from './GitProvider'
 import { isMCPConfigured } from '../commands/configureMCP'
-import { createOrUpdateRules } from '../commands/createRules'
+import { checkRulesFile, createOrUpdateRules } from '../commands/createRules'
 import { Cli } from '../cli'
 import { CodacyCli } from '../cli/CodacyCli'
 
@@ -629,6 +629,17 @@ export class CodacyCloud implements vscode.Disposable {
       Telemetry.track('Repository State Change', {
         state,
         organization_id: this._organization?.organization.identifier,
+      })
+
+      const isCliInstalled = this._cli !== undefined && this._cli.getCliCommand() !== ''
+      const isMcpConfigured = isMCPConfigured()
+
+      checkRulesFile().then((hasInstructionsFile) => {
+        Telemetry.track('Guardrails State on Repository Load', {
+          hasCli: isCliInstalled,
+          hasMcp: isMcpConfigured,
+          hasInstructionsFile,
+        })
       })
     }
   }
