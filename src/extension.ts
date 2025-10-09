@@ -348,6 +348,18 @@ export async function activate(context: vscode.ExtensionContext) {
       // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
     }
 
+    // Identify user if already authenticated
+    if (Config.apiToken) {
+      try {
+        const user = await Account.current()
+        if (user) {
+          Telemetry.identify(user, codacyCloud.organization)
+        }
+      } catch (error) {
+        Logger.debug(`Failed to identify user during activation: ${error}`)
+      }
+    }
+
     // Update initially
     await updateMCPState()
   }
