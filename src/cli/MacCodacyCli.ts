@@ -23,6 +23,12 @@ export class MacCodacyCli extends CodacyCli {
 
     if (fs.existsSync(fullPath)) {
       this.setCliCommand(this._cliVersion ? `CODACY_CLI_V2_VERSION=${this._cliVersion} ${localPath}` : localPath)
+
+      // CLI found, update it if necessary
+      if (!this._cliVersion) {
+        await this.update()
+      }
+
       return
     }
 
