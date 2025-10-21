@@ -23,6 +23,12 @@ export class MacCodacyCli extends CodacyCli {
 
     if (fs.existsSync(fullPath)) {
       this.setCliCommand(this._cliVersion ? `CODACY_CLI_V2_VERSION=${this._cliVersion} ${localPath}` : localPath)
+
+      // CLI found, update it if necessary
+      if (!this._cliVersion) {
+        await this.update()
+      }
+
       return
     }
 
@@ -96,16 +102,7 @@ export class MacCodacyCli extends CodacyCli {
   }
 
   public async update(): Promise<void> {
-    const resetParams = (
-      this._accountToken && this.repository && this.provider && this.organization
-        ? {
-            provider: this.provider,
-            organization: this.organization,
-            repository: this.repository,
-            'api-token': this._accountToken,
-          }
-        : {}
-    ) as Record<string, string>
+    const resetParams = this.getIdentificationParameters()
     const updateCommand = `${this.getCliCommand()} update`
     const resetCommand = `${this.getCliCommand()} config reset`
     try {
@@ -148,19 +145,11 @@ export class MacCodacyCli extends CodacyCli {
       // install dependencies
       await this.installDependencies()
       Logger.debug('Dev mode enabled. Skipping initialization.')
+      return
     }
 
     if (needsInitialization) {
-      const initParams = (
-        this._accountToken && this.repository && this.provider && this.organization
-          ? {
-              provider: this.provider,
-              organization: this.organization,
-              repository: this.repository,
-              'api-token': this._accountToken,
-            }
-          : {}
-      ) as Record<string, string>
+      const initParams = this.getIdentificationParameters()
 
       try {
         // initialize codacy-cli
@@ -230,9 +219,12 @@ export class MacCodacyCli extends CodacyCli {
 
     Logger.debug(`Running Codacy CLI config discover for ${filePath}`)
 
+    const discoverParams = this.getIdentificationParameters()
+
     try {
       const { stdout, stderr } = await this.execAsync(
-        `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`
+        `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`,
+        discoverParams
       )
 
       if (stderr) {

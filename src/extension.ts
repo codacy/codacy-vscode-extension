@@ -340,14 +340,6 @@ export async function activate(context: vscode.ExtensionContext) {
       })
     )
 
-    const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
-    const cliVersion = vscode.workspace.getConfiguration().get('codacy.cli.cliVersion')
-    // When the user doesn't have a specific version, update the CLI to the latest version
-    if (!cliVersion && codacyCloud.cli?.getCliCommand() && analysisMode !== 'disabled') {
-      await codacyCloud.cli.update()
-      // If it is not installed, don't do anything. On the next usage of the CLI it will be installed with the most recent version
-    }
-
     // Identify user if already authenticated
     if (Config.apiToken) {
       try {
