@@ -51,6 +51,19 @@ export abstract class CodacyCli {
     return path
   }
 
+  protected getIdentificationParameters(): Record<string, string> {
+    return (
+      this._accountToken && this.repository && this.provider && this.organization
+        ? {
+            provider: this.provider,
+            organization: this.organization,
+            repository: this.repository,
+            'api-token': this._accountToken,
+          }
+        : {}
+    ) as Record<string, string>
+  }
+
   protected execAsync(command: string, args?: Record<string, string>): Promise<{ stdout: string; stderr: string }> {
     // stringyfy the args
     const argsString = Object.entries(args || {})
