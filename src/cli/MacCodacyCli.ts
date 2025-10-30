@@ -24,6 +24,11 @@ export class MacCodacyCli extends CodacyCli {
     if (fs.existsSync(fullPath)) {
       this.setCliCommand(this._cliVersion ? `CODACY_CLI_V2_VERSION=${this._cliVersion} ${localPath}` : localPath)
 
+      // CLI found, update it if necessary
+      if (!this._cliVersion) {
+        await this.update()
+      }
+
       return
     }
 
@@ -32,17 +37,21 @@ export class MacCodacyCli extends CodacyCli {
     return
   }
 
+  protected async checkCLIMode(): Promise<string> {
+    try {
+      const cliConfig = fs.readFileSync(path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml'), 'utf-8')
+      return cliConfig === 'mode: local' ? 'local' : 'remote'
+    } catch (error) {
+      throw new Error(`Failed to check CLI mode: ${error}`)
+    }
+  }
+
   public async preflightCodacyCli(autoInstall: boolean): Promise<void> {
     // is there a command?
     if (!this.getCliCommand()) {
       await this.findCliCommand(autoInstall)
     } else {
-      // CLI found, update it if necessary
-      if (!this._cliVersion) {
-        await this.update()
-      } else {
-        await this.initialize()
-      }
+      await this.initialize()
     }
   }
 
@@ -107,6 +116,11 @@ export class MacCodacyCli extends CodacyCli {
     const resetCommand = `${this.getCliCommand()} config reset`
     try {
       await this.execAsync(updateCommand)
+      const cliMode = await this.checkCLIMode()
+      if (cliMode === 'remote' && Object.keys(resetParams).length === 0) {
+        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config reset.')
+        return
+      }
       await this.execAsync(resetCommand, resetParams)
 
       // Initialize codacy-cli after update
@@ -222,6 +236,11 @@ export class MacCodacyCli extends CodacyCli {
     const discoverParams = this.getIdentificationParameters()
 
     try {
+      const cliMode = await this.checkCLIMode()
+      if (cliMode === 'remote' && Object.keys(discoverParams).length === 0) {
+        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config discover.')
+        return
+      }
       const { stdout, stderr } = await this.execAsync(
         `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`,
         discoverParams
