@@ -40,7 +40,7 @@ export class MacCodacyCli extends CodacyCli {
   protected async checkCLIMode(): Promise<string> {
     try {
       const cliConfig = fs.readFileSync(path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml'), 'utf-8')
-      return cliConfig === 'mode: local' ? 'local' : 'remote'
+      return cliConfig.includes('mode: local') ? 'local' : 'remote'
     } catch (error) {
       throw new Error(`Failed to check CLI mode: ${error}`)
     }
