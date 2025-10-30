@@ -46,6 +46,19 @@ export class MacCodacyCli extends CodacyCli {
     }
   }
 
+  protected async hasIdentificationParams(params: Record<string, string> = {}): Promise<boolean> {
+    try {
+      const cliMode = await this.checkCLIMode()
+      if (cliMode === 'remote' && Object.keys(params).length === 0) {
+        return false
+      }
+      return true
+    } catch (error) {
+      Logger.error(`Failed to check identification parameters: ${error}`)
+      return false
+    }
+  }
+
   public async preflightCodacyCli(autoInstall: boolean): Promise<void> {
     // is there a command?
     if (!this.getCliCommand()) {
@@ -115,12 +128,12 @@ export class MacCodacyCli extends CodacyCli {
     const updateCommand = `${this.getCliCommand()} update`
     const resetCommand = `${this.getCliCommand()} config reset`
     try {
-      await this.execAsync(updateCommand)
-      const cliMode = await this.checkCLIMode()
-      if (cliMode === 'remote' && Object.keys(resetParams).length === 0) {
-        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config reset.')
+      const hasIdentificationParams = await this.hasIdentificationParams(resetParams)
+      if (!hasIdentificationParams) {
+        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping update and config reset.')
         return
       }
+      await this.execAsync(updateCommand)
       await this.execAsync(resetCommand, resetParams)
 
       // Initialize codacy-cli after update
@@ -236,8 +249,8 @@ export class MacCodacyCli extends CodacyCli {
     const discoverParams = this.getIdentificationParameters()
 
     try {
-      const cliMode = await this.checkCLIMode()
-      if (cliMode === 'remote' && Object.keys(discoverParams).length === 0) {
+      const hasIdentificationParams = await this.hasIdentificationParams(discoverParams)
+      if (!hasIdentificationParams) {
         Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config discover.')
         return
       }
