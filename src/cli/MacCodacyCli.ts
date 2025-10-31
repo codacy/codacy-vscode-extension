@@ -46,7 +46,7 @@ export class MacCodacyCli extends CodacyCli {
     }
   }
 
-  protected async hasIdentificationParams(params: Record<string, string> = {}): Promise<boolean> {
+  protected async validateIdentificationParameters(params: Record<string, string> = {}): Promise<boolean> {
     try {
       const cliMode = await this.checkCLIMode()
       if (cliMode === 'remote' && Object.keys(params).length === 0) {
@@ -128,7 +128,7 @@ export class MacCodacyCli extends CodacyCli {
     const updateCommand = `${this.getCliCommand()} update`
     const resetCommand = `${this.getCliCommand()} config reset`
     try {
-      const hasIdentificationParams = await this.hasIdentificationParams(resetParams)
+      const hasIdentificationParams = await this.validateIdentificationParameters(resetParams)
       if (!hasIdentificationParams) {
         Logger.debug('CLI mode is remote and no identification parameters provided. Skipping update and config reset.')
         return
@@ -249,7 +249,7 @@ export class MacCodacyCli extends CodacyCli {
     const discoverParams = this.getIdentificationParameters()
 
     try {
-      const hasIdentificationParams = await this.hasIdentificationParams(discoverParams)
+      const hasIdentificationParams = await this.validateIdentificationParameters(discoverParams)
       if (!hasIdentificationParams) {
         Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config discover.')
         return
