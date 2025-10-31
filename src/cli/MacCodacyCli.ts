@@ -37,6 +37,28 @@ export class MacCodacyCli extends CodacyCli {
     return
   }
 
+  protected async checkCLIMode(): Promise<string> {
+    try {
+      const cliConfig = fs.readFileSync(path.join(this.rootPath, CODACY_FOLDER_NAME, 'cli-config.yaml'), 'utf-8')
+      return cliConfig.includes('mode: local') ? 'local' : 'remote'
+    } catch (error) {
+      throw new Error(`Failed to check CLI mode: ${error}`)
+    }
+  }
+
+  protected async validateIdentificationParameters(params: Record<string, string> = {}): Promise<boolean> {
+    try {
+      const cliMode = await this.checkCLIMode()
+      if (cliMode === 'remote' && Object.keys(params).length === 0) {
+        return false
+      }
+      return true
+    } catch (error) {
+      Logger.error(`Failed to check identification parameters: ${error}`)
+      return false
+    }
+  }
+
   public async preflightCodacyCli(autoInstall: boolean): Promise<void> {
     // is there a command?
     if (!this.getCliCommand()) {
@@ -106,6 +128,11 @@ export class MacCodacyCli extends CodacyCli {
     const updateCommand = `${this.getCliCommand()} update`
     const resetCommand = `${this.getCliCommand()} config reset`
     try {
+      const hasIdentificationParams = await this.validateIdentificationParameters(resetParams)
+      if (!hasIdentificationParams) {
+        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping update and config reset.')
+        return
+      }
       await this.execAsync(updateCommand)
       await this.execAsync(resetCommand, resetParams)
 
@@ -222,6 +249,11 @@ export class MacCodacyCli extends CodacyCli {
     const discoverParams = this.getIdentificationParameters()
 
     try {
+      const hasIdentificationParams = await this.validateIdentificationParameters(discoverParams)
+      if (!hasIdentificationParams) {
+        Logger.debug('CLI mode is remote and no identification parameters provided. Skipping config discover.')
+        return
+      }
       const { stdout, stderr } = await this.execAsync(
         `${this.getCliCommand()} config discover ${this.preparePathForExec(filePath)}`,
         discoverParams
