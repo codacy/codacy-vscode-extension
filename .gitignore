@@ -41,3 +41,7 @@ codacy-vscode-extension-CHANGELOG.txt
 
 #Ignore windsurf AI rules
 .windsurfrules
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
