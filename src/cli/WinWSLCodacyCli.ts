@@ -30,7 +30,7 @@ export class WinWSLCodacyCli extends MacCodacyCli {
   protected preparePathForExec(path: string): string {
     // Convert the path to WSL format and wrap in quotes to handle spaces
     const wslPath = WinWSLCodacyCli.toWSLPath(path)
-    return `'${wslPath}'`
+    return wslPath.includes(' ') ? `"${wslPath}"` : wslPath;
   }
 
   protected async execAsync(
