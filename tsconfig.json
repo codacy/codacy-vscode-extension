@@ -10,7 +10,8 @@
 		"sourceMap": true,
 		"rootDir": "src",
 		"strict": true,
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"skipLibCheck": true
 	},
 	"include": [
 		"src/**/*"
