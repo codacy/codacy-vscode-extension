@@ -46,6 +46,7 @@ const BR_STATE_CONTEXT_KEY = 'Codacy:BranchStateContext'
 
 const LOAD_RETRY_TIME = 2 * 60 * 1000 // 2 minutes
 const MAX_LOAD_ATTEMPTS = 5
+const MAX_HEAD_INIT_ATTEMPTS = 5
 
 export interface RepositoryParams {
   provider: 'bb' | 'gh' | 'gl'
@@ -88,6 +89,8 @@ export class CodacyCloud implements vscode.Disposable {
   private _analysisCheckTimeout: NodeJS.Timeout | undefined
   private _headInitTimeout: NodeJS.Timeout | undefined
   private _headInitListener: vscode.Disposable | undefined
+  private _headInitRetryCount = 0
+  private _stateChangeListener: vscode.Disposable | undefined
 
   private _cli: CodacyCli | undefined
 
@@ -101,8 +104,11 @@ export class CodacyCloud implements vscode.Disposable {
 
   public async open(gitRepository: GitRepository) {
     // Clean up any existing HEAD initialization listeners/timeouts when switching repositories
-    if (this._current !== gitRepository) {
+    const isSwitchingRepository = this._current !== gitRepository
+    if (isSwitchingRepository) {
       this._cleanupHeadInit()
+      // Reset retry counter when switching repositories
+      this._headInitRetryCount = 0
     }
 
     if (!Config.apiToken) {
@@ -110,10 +116,16 @@ export class CodacyCloud implements vscode.Disposable {
       return
     }
 
+    // Set current repository immediately to prevent race conditions from concurrent calls
+    // This ensures that if open() is called rapidly, subsequent calls will see the repository is already being opened
+    if (isSwitchingRepository) {
+      this._current = gitRepository
+    }
+
     // Always call openRepository, but only show progress if it's a different repository
-    if (this._current !== gitRepository) {
+    if (isSwitchingRepository) {
       vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, () =>
-        this._openRepository(gitRepository)
+        this._openRepository(gitRepository).catch((error) => this._handleOpenRepositoryError(error, gitRepository))
       )
     } else {
       // If same repository, still try to open (e.g., retry after HEAD becomes available)
@@ -266,10 +278,14 @@ export class CodacyCloud implements vscode.Disposable {
     this._enabledBranches = enabledBranches
 
     // Clean up HEAD init listener since we've successfully loaded
+    // This will also reset the retry counter
     this._cleanupHeadInit()
 
+    // Clean up existing state change listener before adding a new one
+    this._cleanupStateChangeListener()
+
     // Set up state change listener
-    this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
+    this._stateChangeListener = this._current.state.onDidChange(this.handleStateChange.bind(this))
 
     // Update state and notify listeners
     this.state = CodacyCloudState.Loaded
@@ -298,17 +314,47 @@ export class CodacyCloud implements vscode.Disposable {
       this._headInitListener.dispose()
       this._headInitListener = undefined
     }
+    // Reset retry counter when cleaning up
+    this._headInitRetryCount = 0
+  }
+
+  private _cleanupStateChangeListener() {
+    if (this._stateChangeListener) {
+      this._stateChangeListener.dispose()
+      this._stateChangeListener = undefined
+    }
   }
 
   private _setupHeadInitListener(gitRepository: GitRepository): void {
-    // Clean up any existing listener first
-    this._cleanupHeadInit()
+    // Check if we've exceeded maximum retry attempts
+    if (this._headInitRetryCount >= MAX_HEAD_INIT_ATTEMPTS) {
+      Logger.appendLine(
+        `Maximum HEAD initialization retry attempts (${MAX_HEAD_INIT_ATTEMPTS}) reached. Stopping retries.`
+      )
+      this.state = CodacyCloudState.NoGitRepository
+      return
+    }
+
+    // Increment retry counter
+    this._headInitRetryCount++
+
+    // Clean up any existing listener first (but preserve retry count)
+    if (this._headInitTimeout) {
+      clearTimeout(this._headInitTimeout)
+      this._headInitTimeout = undefined
+    }
+    if (this._headInitListener) {
+      this._headInitListener.dispose()
+      this._headInitListener = undefined
+    }
 
     // Set up a timeout to retry after a reasonable delay
     const HEAD_INIT_TIMEOUT = 5000 // 5 seconds
     this._headInitTimeout = setTimeout(() => {
       if (this._shouldRetryHeadInit(gitRepository)) {
-        Logger.appendLine('HEAD still not available after timeout, retrying initialization...')
+        Logger.appendLine(
+          `HEAD still not available after timeout (attempt ${this._headInitRetryCount}/${MAX_HEAD_INIT_ATTEMPTS}), retrying initialization...`
+        )
         this.open(gitRepository)
       }
     }, HEAD_INIT_TIMEOUT)
@@ -322,6 +368,8 @@ export class CodacyCloud implements vscode.Disposable {
         gitRepository.state.HEAD !== undefined
       ) {
         Logger.appendLine('HEAD became available, retrying initialization...')
+        // Reset retry counter when HEAD becomes available
+        this._headInitRetryCount = 0
         this._cleanupHeadInit()
         this.open(gitRepository)
       }
@@ -597,6 +645,8 @@ export class CodacyCloud implements vscode.Disposable {
 
       // Clean up HEAD init listener when repository is closed
       this._cleanupHeadInit()
+      // Clean up state change listener when repository is closed
+      this._cleanupStateChangeListener()
 
       this.clear()
     }
@@ -604,6 +654,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public async clear() {
     this._cleanupHeadInit()
+    this._cleanupStateChangeListener()
     this._current = undefined
     // Clean up the rules file of repository information
     if (isMCPConfigured()) createOrUpdateRules()
@@ -742,6 +793,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public dispose() {
     this._cleanupHeadInit()
+    this._cleanupStateChangeListener()
     this._loadTimeout && clearTimeout(this._loadTimeout)
     this._refreshTimeout && clearTimeout(this._refreshTimeout)
     this._prsRefreshTimeout && clearTimeout(this._prsRefreshTimeout)
