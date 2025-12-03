@@ -2,4 +2,5 @@
 tools-configs/
 .gitignore
 cli-config.yaml
+*.sh
 logs/

@@ -86,11 +86,12 @@ export class CodacyCloud implements vscode.Disposable {
   private _refreshTimeout: NodeJS.Timeout | undefined
   private _prsRefreshTimeout: NodeJS.Timeout | undefined
   private _analysisCheckTimeout: NodeJS.Timeout | undefined
+  private _headInitTimeout: NodeJS.Timeout | undefined
+  private _headInitListener: vscode.Disposable | undefined
 
   private _cli: CodacyCli | undefined
 
   private _disposables: vscode.Disposable[] = []
-  private _stateChangeDisposable: vscode.Disposable | undefined
 
   constructor() {
     vscode.commands.executeCommand('setContext', RM_STATE_CONTEXT_KEY, this._state)
@@ -99,157 +100,9 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public async open(gitRepository: GitRepository) {
-    this._cli = await Cli.get(this._params ?? {})
-    const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
-    const openRepository = async () => {
-      this._current = gitRepository
-
-      try {
-        // Check if repository state is fully populated
-        if (!gitRepository.state.HEAD && gitRepository.state.remotes?.length === 0 && !this._stateChangeDisposable) {
-          Logger.debug('Repository state is not fully populated yet, waiting for state change...')
-          this.state = CodacyCloudState.Initializing
-
-          // Set up timeout to prevent memory leak
-          const timeoutMs = 30000
-          let hasRepositoryStateTimedOut = false
-          const repositoryStateTimeout = setTimeout(() => {
-            hasRepositoryStateTimedOut = true
-            if (this._stateChangeDisposable) {
-              this._stateChangeDisposable.dispose()
-              this._stateChangeDisposable = undefined
-            }
-
-            Logger.appendLine(`Repository state change timeout after ${timeoutMs}ms, assuming repository is not valid`)
-            this.state = CodacyCloudState.NoGitRepository
-          }, timeoutMs)
-
-          // Listen for state changes to detect when repository is fully loaded
-          this._stateChangeDisposable = gitRepository.state.onDidChange(() => {
-            if (hasRepositoryStateTimedOut) return // Don't process if we've already timed out
-
-            Logger.appendLine(
-              `Repository state changed - HEAD: ${gitRepository.state.HEAD?.name || 'undefined'}, Remotes: ${
-                gitRepository.state.remotes?.length || 0
-              }`
-            )
-            if (gitRepository.state.HEAD || gitRepository.state.remotes?.length > 0) {
-              clearTimeout(repositoryStateTimeout)
-              if (this._stateChangeDisposable) {
-                this._stateChangeDisposable.dispose()
-                this._stateChangeDisposable = undefined
-              }
-              openRepository()
-            }
-          })
-
-          // Add to disposables for cleanup
-          this._disposables.push(this._stateChangeDisposable)
-          return
-        }
-
-        if (gitRepository.state.HEAD === undefined) {
-          Logger.appendLine('Repository HEAD is undefined but remotes are available')
-          this.state = CodacyCloudState.Initializing
-        } else {
-          const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
-
-          if (remotesWithPushUrl.length === 0) {
-            this.state = CodacyCloudState.NoGitRepository
-            Logger.error('No remote found')
-            return
-          }
-
-          let remoteIdx = 0
-          this._repository = undefined
-
-          while (this._repository === undefined && remoteIdx < remotesWithPushUrl.length) {
-            const { provider, organization, repository } = parseGitRemote(remotesWithPushUrl[remoteIdx].pushUrl!)
-            this._params = { provider, organization, repository }
-
-            if (isMCPConfigured() && generateRules === 'automatic') {
-              await createOrUpdateRules({ provider, organization, repository })
-            }
-
-            try {
-              // load repository information
-              const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, organization, repository)
-
-              this._repository = data
-              this._cli = await Cli.get(this._params ?? {})
-
-              if (!data.lastAnalysedCommit) {
-                const status = await checkFirstAnalysisStatus(provider, organization, repository)
-                if (
-                  (status && status.length === 0) ||
-                  data.repository.problems.some((problem) =>
-                    ['no_supported_languages', 'empty_repository'].includes(problem.code)
-                  )
-                ) {
-                  this.state = CodacyCloudState.AnalysisFailed
-                  return
-                } else {
-                  this.state = CodacyCloudState.IsAnalyzing
-                  this.checkRepositoryAnalysisStatus()
-                  return
-                }
-              }
-            } catch (error) {
-              remoteIdx++
-            }
-          }
-
-          if (this._repository === undefined) {
-            // repository not found, check for codacy cloud status
-            if (this._params) {
-              const status = await getRepositoryCodacyCloudStatus(this._params.provider, this._params.organization)
-              this.state = status
-            } else {
-              this.state = CodacyCloudState.NoRepository
-            }
-
-            Logger.error('No repository found')
-            return
-          }
-
-          const { name: repository, owner, provider } = this._repository.repository
-
-          const { data: organization } = await Api.Organization.getOrganization(provider, owner)
-          this._organization = organization
-
-          // does the repository have coverage data?
-          const {
-            data: { hasCoverageOverview },
-          } = await Api.Repository.listCoverageReports(provider, owner, repository)
-
-          // get all branches
-          const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(
-            provider,
-            owner,
-            repository,
-            true
-          )
-
-          this._expectCoverage = hasCoverageOverview
-          this._enabledBranches = enabledBranches
-
-          this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
-
-          this.state = CodacyCloudState.Loaded
-
-          this._onDidLoadRepository.fire(this._repository)
-
-          await this.handleBranchChange()
-        }
-      } catch (e) {
-        if (e instanceof OpenAPIError && !Config.apiToken) {
-          console.error(e)
-          this.state = CodacyCloudState.NeedsAuthentication
-        } else {
-          handleError(e as Error)
-          this.state = CodacyCloudState.NoRepository
-        }
-      }
+    // Clean up any existing HEAD initialization listeners/timeouts when switching repositories
+    if (this._current !== gitRepository) {
+      this._cleanupHeadInit()
     }
 
     if (!Config.apiToken) {
@@ -257,9 +110,230 @@ export class CodacyCloud implements vscode.Disposable {
       return
     }
 
+    // Always call openRepository, but only show progress if it's a different repository
     if (this._current !== gitRepository) {
-      vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, openRepository)
+      vscode.window.withProgress({ location: { viewId: 'codacy:cloud-status' } }, () =>
+        this._openRepository(gitRepository)
+      )
+    } else {
+      // If same repository, still try to open (e.g., retry after HEAD becomes available)
+      this._openRepository(gitRepository).catch((error) => this._handleOpenRepositoryError(error, gitRepository))
     }
+  }
+
+  private async _openRepository(gitRepository: GitRepository): Promise<void> {
+    this._current = gitRepository
+    this._cli = await Cli.get(this._params ?? {})
+
+    try {
+      if (gitRepository.state.HEAD === undefined) {
+        this._handleHeadUndefined(gitRepository)
+        return
+      }
+
+      const remotesWithPushUrl = gitRepository.state.remotes.filter((remote) => remote.pushUrl)
+      if (remotesWithPushUrl.length === 0) {
+        this.state = CodacyCloudState.NoGitRepository
+        Logger.error('No remote found')
+        return
+      }
+
+      const repositoryLoaded = await this._tryLoadRepositoryFromRemotes(remotesWithPushUrl)
+      if (!repositoryLoaded) {
+        await this._handleRepositoryNotFound()
+        return
+      }
+
+      await this._finalizeRepositoryLoad()
+    } catch (e) {
+      this._handleInitializationError(e)
+    }
+  }
+
+  private _handleOpenRepositoryError(error: unknown, gitRepository: GitRepository): void {
+    Logger.error(`Error opening repository: ${error}`)
+    handleError(error as Error)
+
+    if (this._state === CodacyCloudState.Initializing) {
+      if (!Config.apiToken) {
+        this.state = CodacyCloudState.NeedsAuthentication
+      } else if (!gitRepository.state.HEAD) {
+        // HEAD still not available, keep trying
+        this._setupHeadInitListener(gitRepository)
+      } else {
+        // HEAD is now available, retry
+        this.open(gitRepository)
+      }
+    }
+  }
+
+  private _handleHeadUndefined(gitRepository: GitRepository) {
+    this.state = CodacyCloudState.Initializing
+    this._setupHeadInitListener(gitRepository)
+  }
+
+  private async _tryLoadRepositoryFromRemotes(remotesWithPushUrl: Array<{ pushUrl?: string }>): Promise<boolean> {
+    this._repository = undefined
+
+    for (const remote of remotesWithPushUrl) {
+      if (!remote.pushUrl) continue
+
+      const { provider, organization, repository } = parseGitRemote(remote.pushUrl)
+      this._params = { provider, organization, repository }
+
+      if (isMCPConfigured()) {
+        await createOrUpdateRules({ provider, organization, repository })
+      }
+
+      const loaded = await this._tryLoadRepositoryFromRemote(provider, organization, repository)
+      if (loaded) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private async _tryLoadRepositoryFromRemote(
+    provider: 'bb' | 'gh' | 'gl',
+    organization: string,
+    repository: string
+  ): Promise<boolean> {
+    try {
+      const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, organization, repository)
+      this._repository = data
+      this._cli = await Cli.get(this._params ?? {})
+
+      if (!data.lastAnalysedCommit) {
+        return this._handleRepositoryWithoutAnalysis(provider, organization, repository, data)
+      }
+
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  private async _handleRepositoryWithoutAnalysis(
+    provider: 'bb' | 'gh' | 'gl',
+    organization: string,
+    repository: string,
+    data: RepositoryWithAnalysis
+  ): Promise<boolean> {
+    const status = await checkFirstAnalysisStatus(provider, organization, repository)
+    const hasAnalysisProblems = data.repository.problems.some((problem) =>
+      ['no_supported_languages', 'empty_repository'].includes(problem.code)
+    )
+
+    const hasNoAnalysisStatus = status && status.length === 0
+    if (hasNoAnalysisStatus || hasAnalysisProblems) {
+      this.state = CodacyCloudState.AnalysisFailed
+      return false
+    }
+
+    // Repository is being analyzed, start monitoring
+    this.state = CodacyCloudState.IsAnalyzing
+    this.checkRepositoryAnalysisStatus()
+    return false
+  }
+
+  private async _handleRepositoryNotFound() {
+    if (this._params) {
+      const status = await getRepositoryCodacyCloudStatus(this._params.provider, this._params.organization)
+      this.state = status
+    } else {
+      this.state = CodacyCloudState.NoRepository
+    }
+    Logger.error('No repository found')
+  }
+
+  private async _finalizeRepositoryLoad(): Promise<void> {
+    if (!this._repository || !this._current) return
+
+    const { name: repository, owner, provider } = this._repository.repository
+
+    // Load organization and repository metadata
+    const { data: organization } = await Api.Organization.getOrganization(provider, owner)
+    this._organization = organization
+
+    const {
+      data: { hasCoverageOverview },
+    } = await Api.Repository.listCoverageReports(provider, owner, repository)
+
+    const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(provider, owner, repository, true)
+
+    this._expectCoverage = hasCoverageOverview
+    this._enabledBranches = enabledBranches
+
+    // Clean up HEAD init listener since we've successfully loaded
+    this._cleanupHeadInit()
+
+    // Set up state change listener
+    this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
+
+    // Update state and notify listeners
+    this.state = CodacyCloudState.Loaded
+    this._onDidLoadRepository.fire(this._repository)
+
+    // Handle branch-specific logic
+    await this.handleBranchChange()
+  }
+
+  private _handleInitializationError(e: unknown) {
+    if (e instanceof OpenAPIError && !Config.apiToken) {
+      console.error(e)
+      this.state = CodacyCloudState.NeedsAuthentication
+    } else {
+      handleError(e as Error)
+      this.state = CodacyCloudState.NoRepository
+    }
+  }
+
+  private _cleanupHeadInit() {
+    if (this._headInitTimeout) {
+      clearTimeout(this._headInitTimeout)
+      this._headInitTimeout = undefined
+    }
+    if (this._headInitListener) {
+      this._headInitListener.dispose()
+      this._headInitListener = undefined
+    }
+  }
+
+  private _setupHeadInitListener(gitRepository: GitRepository): void {
+    // Clean up any existing listener first
+    this._cleanupHeadInit()
+
+    // Set up a timeout to retry after a reasonable delay
+    const HEAD_INIT_TIMEOUT = 5000 // 5 seconds
+    this._headInitTimeout = setTimeout(() => {
+      if (this._shouldRetryHeadInit(gitRepository)) {
+        Logger.appendLine('HEAD still not available after timeout, retrying initialization...')
+        this.open(gitRepository)
+      }
+    }, HEAD_INIT_TIMEOUT)
+
+    // Listen for state changes to detect when HEAD becomes available
+    this._headInitListener = gitRepository.state.onDidChange(() => {
+      // Check if we're still waiting for HEAD and it just became available
+      if (
+        this._state === CodacyCloudState.Initializing &&
+        this._current === gitRepository &&
+        gitRepository.state.HEAD !== undefined
+      ) {
+        Logger.appendLine('HEAD became available, retrying initialization...')
+        this._cleanupHeadInit()
+        this.open(gitRepository)
+      }
+    })
+  }
+
+  private _shouldRetryHeadInit(gitRepository: GitRepository): boolean {
+    return (
+      this._state === CodacyCloudState.Initializing &&
+      this._current === gitRepository &&
+      gitRepository.state.HEAD === undefined
+    )
   }
 
   public async checkRepositoryAnalysisStatus() {
@@ -521,17 +595,15 @@ export class CodacyCloud implements vscode.Disposable {
     if (this._current === repository) {
       Logger.appendLine(`CodacyCloud close: ${repository.rootUri.fsPath}`)
 
-      // Clean up state change listener when repository is closed
-      if (this._stateChangeDisposable) {
-        this._stateChangeDisposable.dispose()
-        this._stateChangeDisposable = undefined
-      }
+      // Clean up HEAD init listener when repository is closed
+      this._cleanupHeadInit()
 
       this.clear()
     }
   }
 
   public async clear() {
+    this._cleanupHeadInit()
     this._current = undefined
     // Clean up the rules file of repository information
     if (isMCPConfigured()) createOrUpdateRules()
@@ -669,6 +741,11 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public dispose() {
+    this._cleanupHeadInit()
+    this._loadTimeout && clearTimeout(this._loadTimeout)
+    this._refreshTimeout && clearTimeout(this._refreshTimeout)
+    this._prsRefreshTimeout && clearTimeout(this._prsRefreshTimeout)
+    this._analysisCheckTimeout && clearTimeout(this._analysisCheckTimeout)
     this.clear()
     this._disposables.forEach((d) => {
       d.dispose()
