@@ -204,12 +204,14 @@ export async function activate(context: vscode.ExtensionContext) {
     'codacy:supportsMCP',
     vscode.env.appName.toLowerCase().includes('cursor') ||
       vscode.env.appName.toLowerCase().includes('windsurf') ||
-      (vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot'))
+      (vscode.env.appName.toLowerCase().includes('code') &&
+        !!(vscode.extensions.getExtension('github.copilot-chat') || vscode.extensions.getExtension('Github.copilot')))
   )
   await vscode.commands.executeCommand(
     'setContext',
     'codacy:automaticMcpInstallation',
-    vscode.env.appName.toLowerCase().includes('code') && !!vscode.extensions.getExtension('GitHub.copilot')
+    vscode.env.appName.toLowerCase().includes('code') &&
+      !!(vscode.extensions.getExtension('github.copilot-chat') || vscode.extensions.getExtension('Github.copilot'))
   )
 
   await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
