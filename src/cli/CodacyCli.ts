@@ -48,10 +48,11 @@ export abstract class CodacyCli {
   }
 
   protected preparePathForExec(path: string): string {
-    // Escape shell special characters to prevent command injection and handle special chars in file paths
-    // Characters that need escaping in shell: space, (, ), [, ], {, }, *, ?, &, $, `, !, #, ;, |, <, >, ", ', \
-    // We use backslash escaping for each special character
-    return path.replace(/([\\()[\]{}*?&$`!#;|<>"'\s])/g, '\\$1')
+    // Wrap path in double quotes and escape characters that are special inside double quotes
+    // Special characters inside double quotes: $, `, \, ", and newline
+    // This approach works both when the path is used directly and when wrapped in additional quotes
+    const escaped = path.replace(/([\\$"`])/g, '\\$1')
+    return `"${escaped}"`
   }
 
   protected getIdentificationParameters(): Record<string, string> {
