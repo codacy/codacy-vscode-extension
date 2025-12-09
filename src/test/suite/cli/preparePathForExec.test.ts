@@ -1,5 +1,6 @@
 import * as assert from 'assert'
 import { CodacyCli } from '../../../cli/CodacyCli'
+import { ProcessedSarifResult } from '../../../cli'
 
 // Test implementation of CodacyCli to access protected method
 class TestCodacyCli extends CodacyCli {
@@ -31,7 +32,7 @@ class TestCodacyCli extends CodacyCli {
     // Not needed for testing
   }
 
-  public async analyze(): Promise<any> {
+  public async analyze(): Promise<ProcessedSarifResult[] | null> {
     // Not needed for testing
     return null
   }

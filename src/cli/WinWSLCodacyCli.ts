@@ -16,7 +16,8 @@ export class WinWSLCodacyCli extends MacCodacyCli {
     cleanPath = cleanPath.replace(/\\ /g, ' ')
     // Convert backslashes to slashes and add /mnt/ prefix
     // Note: We don't escape spaces here - the parent preparePathForExec will handle all escaping
-    const wslPath = cleanPath.replace(/\\/g, '/').replace(/^'?([a-zA-Z]):/, '/mnt/$1')
+    // The regex [a-zA-Z] matches both uppercase and lowercase drive letters (A-Z, a-z)
+    const wslPath = cleanPath.replace(/\\/g, '/').replace(/^'?([a-zA-Z]):/, (_, letter) => `/mnt/${letter.toLowerCase()}`)
     return wslPath
   }
 
