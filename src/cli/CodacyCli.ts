@@ -48,7 +48,10 @@ export abstract class CodacyCli {
   }
 
   protected preparePathForExec(path: string): string {
-    return path
+    // Escape shell special characters to prevent command injection and handle special chars in file paths
+    // Characters that need escaping in shell: space, (, ), [, ], {, }, *, ?, &, $, `, !, #, ;, |, <, >, ", ', \
+    // We use backslash escaping for each special character
+    return path.replace(/([\\()[\]{}*?&$`!#;|<>"'\s])/g, '\\$1')
   }
 
   protected getIdentificationParameters(): Record<string, string> {
