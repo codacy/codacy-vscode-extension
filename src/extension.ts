@@ -30,6 +30,7 @@ import {
 } from './commands/configureMCP'
 import { addRepository, joinOrganization } from './onboarding'
 import { createOrUpdateRules } from './commands/createRules'
+import { activateWebview } from './views/SetupView'
 
 /**
  * Handle file creation events by running Codacy CLI config discover
@@ -174,6 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
   context.subscriptions.push(new SupportTree(context))
+  activateWebview(context)
 
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)

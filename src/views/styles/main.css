@@ -1,0 +1,29 @@
+body {
+	background-color: transparent;
+}
+
+.setup-list {
+	list-style: none;
+	padding: 0;
+}
+
+.setup-item {
+	width: 100%;
+	padding: 12px;
+	border: 1px solid var(--vscode-input-border);
+}
+
+.upgrade-box {
+  margin-top: 16px;
+}
+
+.setup-item-title {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 510;
+}
+
+.setup-item button {
+  margin-top: 8px;
+}
