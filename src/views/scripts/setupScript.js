@@ -52,20 +52,36 @@
    * @param {HTMLElement} element - The element to update
    * @param {{type: 'organization' | 'repository' | 'user', params: {organization?: string, provider?: string, repository?: string, user?: string}}} context - The context to use
    */
-  function setCloudDescription(element, {type, params}) {
+  function setCloudDescription(element, { type, params }) {
     element.textContent = ''
     const textNode = document.createTextNode('Connected to ')
     const linkNode = document.createElement('a')
+    const loadingHtml = `<div id="cloud-loading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Connecting to Codacy...</p>
+          </div>`
     switch (type) {
       case 'organization':
+        if (!params.provider || !params.organization) {
+          element.innerHTML = loadingHtml
+          return
+        }
         linkNode.textContent = `${params.provider}/${params.organization}`
         linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}`
         break
       case 'repository':
+        if (!params.provider || !params.organization || !params.repository) {
+          element.innerHTML = loadingHtml
+          return
+        }
         linkNode.textContent = `${params.provider}/${params.organization}/${params.repository}`
         linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}/${params.repository}`
         break
       case 'user':
+        if (!params.user) {
+          element.innerHTML = loadingHtml
+          return
+        }
         linkNode.textContent = params.user ?? ''
         linkNode.href = `https://app.codacy.com/organizations`
         break
@@ -173,7 +189,7 @@
       const organizationProvider = escapeHtml(organizationInfo?.provider)
 
       if (upgradeBox) {
-      upgradeBox.style.display = 'none'
+        upgradeBox.style.display = 'none'
       }
       if (
         cloudIcon &&
@@ -190,22 +206,36 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          setCloudDescription(cloudDescription, {type: 'repository', params: {organization: organizationName, provider: organizationProvider, repository: repositoryName}})
+          setCloudDescription(cloudDescription, {
+            type: 'repository',
+            params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
+          })
         } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          setCloudDescription(cloudDescription, {type: 'organization', params: {organization: organizationName, provider: organizationProvider}})
+          setCloudDescription(cloudDescription, {
+            type: 'organization',
+            params: { organization: organizationName, provider: organizationProvider },
+          })
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          setCloudDescription(cloudDescription, {type: 'user', params: {user: userName}})
+          setCloudDescription(cloudDescription, { type: 'user', params: { user: userName } })
         }
       }
     } else {
-      if (addOrgButton && addRepoButton && noOrgDescription && upgradeBox && cloudIcon && cloudDescription && connectToCodacyButton) {
+      if (
+        addOrgButton &&
+        addRepoButton &&
+        noOrgDescription &&
+        upgradeBox &&
+        cloudIcon &&
+        cloudDescription &&
+        connectToCodacyButton
+      ) {
         upgradeBox.style.display = 'block'
         cloudIcon.src = iconUris.unfinished
         cloudDescription.textContent = 'Customize local analysis and keep your PRs up to standards in the IDE.'

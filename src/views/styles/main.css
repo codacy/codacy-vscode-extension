@@ -83,3 +83,32 @@ body {
   background: var(--vscode-toolbar-hoverBackground);
   color: var(--vscode-foreground);
 }
+
+/* Loading state styles */
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--vscode-input-border);
+  border-top-color: var(--vscode-focusBorder);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}
