@@ -62,18 +62,30 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     // Send initial login state to webview
     this.updateLoginState()
 
+    // Track disposables for cleanup
+    const disposables: vscode.Disposable[] = []
+
     // Listen for config changes to update login state
-    Config.onDidConfigChange(() => {
-      this.updateLoginState()
-    })
+    disposables.push(
+      Config.onDidConfigChange(() => {
+        this.updateLoginState()
+      })
+    )
 
     // Listen for CodacyCloud state changes to update login state
     if (this._codacyCloud) {
-      this._codacyCloud.onDidChangeState(() => {
-        this.updateLoginState()
-        this.updateCLIStatus()
-      })
+      disposables.push(
+        this._codacyCloud.onDidChangeState(() => {
+          this.updateLoginState()
+          this.updateCLIStatus()
+        })
+      )
     }
+
+    // Clean up listeners when webview is disposed
+    webviewView.onDidDispose(() => {
+      disposables.forEach((d) => d.dispose())
+    })
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message) => {
