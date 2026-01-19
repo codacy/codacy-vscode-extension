@@ -151,18 +151,18 @@
     const addOrgButton = document.getElementById('add-org-button')
     const addRepoButton = document.getElementById('add-repo-button')
     const noOrgDescription = document.getElementById('cloud-no-org-description')
-    /** @type {IconUris | undefined} */
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
 
-    if (!upgradeBox) return
     if (loggedIn) {
       const organizationName = escapeHtml(organizationInfo?.name)
       const repositoryName = escapeHtml(repositoryInfo?.name)
       const userName = escapeHtml(userInfo?.name)
       const organizationProvider = escapeHtml(organizationInfo?.provider)
 
+      if (upgradeBox) {
       upgradeBox.style.display = 'none'
+      }
       if (
         cloudIcon &&
         iconUris &&
@@ -193,9 +193,14 @@
         }
       }
     } else {
-      upgradeBox.style.display = 'block'
-      if (cloudIcon && iconUris) {
+      if (addOrgButton && addRepoButton && noOrgDescription && upgradeBox && cloudIcon && cloudDescription && connectToCodacyButton) {
+        upgradeBox.style.display = 'block'
         cloudIcon.src = iconUris.unfinished
+        cloudDescription.textContent = 'Customize local analysis and keep your PRs up to standards in the IDE.'
+        addOrgButton.style.display = 'none'
+        addRepoButton.style.display = 'none'
+        noOrgDescription.style.display = 'none'
+        connectToCodacyButton.style.display = 'inline-block'
       }
     }
   }
@@ -255,6 +260,14 @@
     if (generateInstructionsButton) {
       generateInstructionsButton.addEventListener('click', function () {
         vscode.postMessage({ type: 'generateInstructionsFile' })
+      })
+    }
+
+    // Connect to Codacy button
+    const connectToCodacyButton = document.getElementById('connect-to-codacy-button')
+    if (connectToCodacyButton) {
+      connectToCodacyButton.addEventListener('click', function () {
+        vscode.postMessage({ type: 'connectToCodacy' })
       })
     }
 

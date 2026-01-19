@@ -32,6 +32,13 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView
   private _codacyCloud?: CodacyCloud
 
+  // Track setup completion status
+  private _isCloudComplete = false
+  private _isCLIComplete = false
+  private _isMCPComplete = false
+
+  private static readonly TOTAL_SETUP_ITEMS = 3
+
   constructor(
     private readonly _extensionUri: vscode.Uri,
     codacyCloud?: CodacyCloud
@@ -59,8 +66,10 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview)
 
-    // Send initial login state to webview
+    // Send initial status to webview and update badge
     this.updateLoginState()
+    this.updateMCPStatus()
+    this.updateCLIStatus()
 
     // Track disposables for cleanup
     const disposables: vscode.Disposable[] = []
@@ -137,6 +146,19 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     await codacyAuth()
   }
 
+  private updateBadge() {
+    if (!this._view) return
+
+    const completedCount = [this._isCloudComplete, this._isCLIComplete, this._isMCPComplete].filter(Boolean).length
+    const pendingCount = SetupViewProvider.TOTAL_SETUP_ITEMS - completedCount
+
+    if (pendingCount > 0) {
+      this._view.title = `SETUP (${pendingCount} left)`
+    } else {
+      this._view.title = 'SETUP'
+    }
+  }
+
   private async updateLoginState() {
     if (this._view) {
       const isLoggedIn = !!Config.apiToken
@@ -145,6 +167,11 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       const userInfo = isLoggedIn ? await Account.current() : undefined
       const organizationInfo = this._codacyCloud?.organization
       const repositoryInfo = this._codacyCloud?.repository
+
+      // Cloud is complete when logged in with org and repo in Codacy
+      this._isCloudComplete = isLoggedIn && isOrgInCodacy && isRepoInCodacy
+      this.updateBadge()
+
       this._view.webview.postMessage({
         type: 'loginStateChanged',
         isLoggedIn,
@@ -161,6 +188,10 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     if (this._view) {
       const isMCPInstalled = isMCPConfigured()
       checkRulesFile().then((hasInstructionFile) => {
+        // MCP is complete when installed and has instructions file
+        this._isMCPComplete = isMCPInstalled && hasInstructionFile
+        this.updateBadge()
+
         this._view?.webview.postMessage({
           type: 'mcpStatusChanged',
           isMCPInstalled,
@@ -175,6 +206,11 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       const isCLIInstalled = !!Cli.cliInstance?.getCliCommand()
       const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
       const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
+
+      // CLI is complete when installed
+      this._isCLIComplete = isCLIInstalled
+      this.updateBadge()
+
       this._view.webview.postMessage({
         type: 'cliStatusChanged',
         isCLIInstalled,
@@ -330,9 +366,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         <div class="setup-item-content">
           <h2>Cloud sync</h2>
           <p id="cloud-description">Customize local analysis and keep your PRs up to standards in the IDE.</p>
-          <a href="https://www.codacy.com/pricing" target="_blank">
-            <button id="connect-to-codacy-button">Connect to Codacy</button>
-          </a>
+          <button id="connect-to-codacy-button">Connect to Codacy</button>
           <p id="cloud-no-org-description" style="display: none;">Keep your project up to standards and customize rules.</p>
           <button id="add-org-button" style="display: none;">Add organization to Codacy</button>
           <button id="add-repo-button" style="display: none;">Add repository to Codacy</button>
