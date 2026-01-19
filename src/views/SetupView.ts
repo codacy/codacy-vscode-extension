@@ -304,90 +304,82 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     const script = escapeHtml(scriptUri.toString())
 
     return `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!--
+    Use a content security policy to only allow loading styles from our extension directory,
+    and only allow scripts that have a specific nonce.
+    (See the 'webview-sample' extension sample for img-src content security policy examples)
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}'; img-src ${cspSource};">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <!--
-          Use a content security policy to only allow loading styles from our extension directory,
-          and only allow scripts that have a specific nonce.
-          (See the 'webview-sample' extension sample for img-src content security policy examples)
-        -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}'; img-src ${cspSource};">
+  <link href="${styleReset}" rel="stylesheet">
+  <link href="${styleVSCode}" rel="stylesheet">
+  <link href="${styleMain}" rel="stylesheet">
 
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-        <link href="${styleReset}" rel="stylesheet">
-        <link href="${styleVSCode}" rel="stylesheet">
-        <link href="${styleMain}" rel="stylesheet">
-
-        <title>Codacy Setup</title>
-        <script nonce="${nonce}">
-          window.iconUris = {
-            finished: "${finishedStepIconUri}",
-            unfinished: "${unfinishedStepIconUri}",
-            warning: "${warningStepIconUri}"
-          };
-        </script>
-        <script nonce="${nonce}" src="${script}"></script>
-      </head>
-      <body>
-        <ul class="setup-list">
-       <li> 
-       <div class="setup-item flex" id="cloud-item">
-          <img src="${unfinishedStepIconUri}" alt="Cloud Icon" class="setup-item-icon" id="cloud-icon">
-          <div class="setup-item-content">
-          <h2>Cloud sync </h2>
+  <title>Codacy Setup</title>
+  <script nonce="${nonce}">
+    window.iconUris = {
+      finished: "${finishedStepIconUri}",
+      unfinished: "${unfinishedStepIconUri}",
+      warning: "${warningStepIconUri}"
+    };
+  </script>
+  <script nonce="${nonce}" src="${script}"></script>
+</head>
+<body>
+  <ul class="setup-list">
+    <li>
+      <div class="setup-item flex" id="cloud-item">
+        <img src="${unfinishedStepIconUri}" alt="Cloud Icon" class="setup-item-icon" id="cloud-icon">
+        <div class="setup-item-content">
+          <h2>Cloud sync</h2>
           <p id="cloud-description">Customize local analysis and keep your PRs up to standards in the IDE.</p>
-            <a href="https://www.codacy.com/pricing" target="_blank"> 
-              <button id="connect-to-codacy-button">Connect to Codacy</button> 
-            </a>
-            <p id="cloud-no-org-description" style="display: none;">Keep your project up to standards and customize rules.</p>
-             <button id="add-org-button" style="display: none;">Add organization to Codacy</button>
-             <button id="add-repo-button" style="display: none;">Add repository to Codacy</button>
-          </div>
-        </div>
-        </li>
-
-         <li> 
-         <div class="setup-item flex" id="cli-item">
-          <img src="${unfinishedStepIconUri}" alt="Cloud Icon" class="setup-item-icon" id="cli-icon">
-          <div class="setup-item-content">
-          <h2>Local analysis </h2>
-          <p id="cli-description">Get instant feedback as you type by analyzing your code locally.</p>
-          
-              <button id="install-cli-button">Install Codacy CLI</button> 
-              <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
-              <p id="add-repository-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-repository-button">Add this repository to Codacy</button></p>
-            </div>
-        </div>
-        </li>
-
-        <li> 
-        <div class="setup-item flex" id="local-analysis-item">
-         <img src="${unfinishedStepIconUri}" alt="Cloud Icon" class="setup-item-icon" id="mcp-icon">
-          <div class="setup-item-content">
-          <h2>AI Guardrails </h2>
-          <p id="mcp-description">Control your AI generated code with Codacy Guardrails.</p>
-          
-              <button id="install-mcp-button">Install Codacy MCP</button>
-              <button class="link-btn" id="generate-instructions-button" style="display: none;">Generate Instructions File</button>
-            </div>
-            
-        </div>
-        </li>
-
-        </ul>
-
-        
-
-        <div class="setup-item upgrade-box" id="upgrade-box">
-          <p>Strengthen security and quality across all your repositories.</p>
-          <a href="https://www.codacy.com/pricing" target="_blank"> 
-            <button class="secondary">Upgrade to PRO</button> 
+          <a href="https://www.codacy.com/pricing" target="_blank">
+            <button id="connect-to-codacy-button">Connect to Codacy</button>
           </a>
+          <p id="cloud-no-org-description" style="display: none;">Keep your project up to standards and customize rules.</p>
+          <button id="add-org-button" style="display: none;">Add organization to Codacy</button>
+          <button id="add-repo-button" style="display: none;">Add repository to Codacy</button>
         </div>
-      </body>
-    </html>`
+      </div>
+    </li>
+
+    <li>
+      <div class="setup-item flex" id="cli-item">
+        <img src="${unfinishedStepIconUri}" alt="CLI Icon" class="setup-item-icon" id="cli-icon">
+        <div class="setup-item-content">
+          <h2>Local analysis</h2>
+          <p id="cli-description">Get instant feedback as you type by analyzing your code locally.</p>
+          <button id="install-cli-button">Install Codacy CLI</button>
+          <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
+          <p id="add-repository-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-repository-button">Add this repository to Codacy</button></p>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="setup-item flex" id="local-analysis-item">
+        <img src="${unfinishedStepIconUri}" alt="MCP Icon" class="setup-item-icon" id="mcp-icon">
+        <div class="setup-item-content">
+          <h2>AI Guardrails</h2>
+          <p id="mcp-description">Control your AI generated code with Codacy Guardrails.</p>
+          <button id="install-mcp-button">Install Codacy MCP</button>
+          <button class="link-btn" id="generate-instructions-button" style="display: none;">Generate Instructions File</button>
+        </div>
+      </div>
+    </li>
+  </ul>
+
+  <div class="setup-item upgrade-box" id="upgrade-box">
+    <p>Strengthen security and quality across all your repositories.</p>
+    <a href="https://www.codacy.com/pricing" target="_blank">
+      <button class="secondary">Upgrade to PRO</button>
+    </a>
+  </div>
+</body>
+</html>`
   }
 }

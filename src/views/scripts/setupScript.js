@@ -218,7 +218,7 @@
           }
         } else {
           mcpIcon.src = iconUris.warning
-          mcpDescription.innerHTML = 'MCP installed.</br>Instructions file not found.'
+          mcpDescription.innerHTML = 'MCP installed.<br/>Instructions file not found.'
           if (generateInstructionsButton) {
             generateInstructionsButton.style.display = 'inline-block'
           }
