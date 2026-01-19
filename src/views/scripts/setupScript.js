@@ -48,6 +48,21 @@
   }
 
   /**
+   * Safely sets cloud description with highlighted text using DOM methods.
+   * @param {HTMLElement} element - The element to update
+   * @param {string} highlightText - The text to highlight
+   */
+  function setCloudDescription(element, highlightText) {
+    element.textContent = ''
+    const textNode = document.createTextNode('Connected to ')
+    const span = document.createElement('span')
+    span.className = 'highlight'
+    span.textContent = highlightText
+    element.appendChild(textNode)
+    element.appendChild(span)
+  }
+
+  /**
    * Validates that the message origin is trusted for VS Code webview communication.
    * Valid origins: webview's own origin, 'vscode-webview://' protocol, or 'null' from extension host.
    * @param {string} origin - The origin to validate
@@ -156,18 +171,18 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationProvider}/${organizationName}/${repositoryName}</span>`
+          setCloudDescription(cloudDescription, `${organizationProvider}/${organizationName}/${repositoryName}`)
         } else if(isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationProvider}/${organizationName}</span>`
+          setCloudDescription(cloudDescription, `${organizationProvider}/${organizationName}`)
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${userName}</span>`
+          setCloudDescription(cloudDescription, userName)
         }
       }
     } else {
