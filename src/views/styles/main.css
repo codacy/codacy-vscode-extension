@@ -49,3 +49,7 @@ body {
 #cloud-no-org-description  {
   margin-top: 8px;
 }
+
+.highlight {
+  color: var(--vscode-textLink-foreground);
+}

@@ -33,6 +33,21 @@
   let organizationInfo = null
   let repositoryInfo = null
   /**
+   * Escapes HTML special characters to prevent XSS attacks.
+   * @param {string | undefined | null} str - The string to escape
+   * @returns {string} - The escaped string
+   */
+  function escapeHtml(str) {
+    if (str == null) return ''
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
+  /**
    * Validates that the message origin is trusted for VS Code webview communication.
    * Valid origins: webview's own origin, 'vscode-webview://' protocol, or 'null' from extension host.
    * @param {string} origin - The origin to validate
@@ -73,6 +88,9 @@
         isLoggedIn = message.isLoggedIn
         isOrgInCodacy = message.isOrgInCodacy
         isRepoInCodacy = message.isRepoInCodacy
+        userInfo = message.userInfo
+        organizationInfo = message.organizationInfo
+        repositoryInfo = message.repositoryInfo
         handleLoginStateChange(isLoggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo)
         break
       case 'mcpStatusChanged':
@@ -132,18 +150,18 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          cloudDescription.textContent = `Connected to ${organizationInfo?.provider}/${organizationInfo?.name}/${repositoryInfo?.name}`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationInfo?.provider}/${organizationInfo?.name}/${repositoryInfo?.name}</span>`
         } else if(isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.textContent = `Connected to ${organizationInfo?.provider}/${organizationInfo?.name}`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationInfo?.provider}/${organizationInfo?.name}</span>`
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.textContent = `Connected to ${userInfo?.name}`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${userInfo?.name}</span>`
         }
       }
     } else {
