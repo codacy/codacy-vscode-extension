@@ -117,6 +117,18 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         case 'installCLI':
           this.installCLI()
           break
+        case 'openMCPSettings':
+          vscode.commands.executeCommand('workbench.action.openSettings', 'codacy')
+          break
+        case 'refreshMCPStatus':
+          this.installMCP()
+          break
+        case 'refreshCLIStatus':
+          this.updateCLIStatus()
+          break
+        case 'openCLISettings':
+          vscode.commands.executeCommand('workbench.action.openSettings', 'codacy.cli')
+          break
       }
     })
   }
@@ -211,41 +223,22 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async installMCP() {
+  private async installMCP(isUpdate = false) {
     try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Installing Codacy MCP...',
-          cancellable: false,
-        },
-        async () => {
-          await configureMCP(this._codacyCloud?.params)
-        }
-      )
+      await configureMCP(this._codacyCloud?.params, isUpdate)
       this.updateMCPStatus()
     } catch (error) {
-      Logger.error(`Failed to install MCP: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      Logger.error(`Failed to configure MCP: ${error instanceof Error ? error.message : 'Unknown error'}`)
       vscode.window.showErrorMessage(
-        `Failed to install MCP: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to configure MCP: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
   }
 
   private async installCLI() {
     try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Installing Codacy CLI...',
-          cancellable: false,
-        },
-        async () => {
-          await this._codacyCloud?.cli?.install()
-        }
-      )
+      await this._codacyCloud?.cli?.install()
       this.updateCLIStatus()
-      vscode.window.showInformationMessage('Codacy CLI installed successfully.')
     } catch (error) {
       Logger.error(`Failed to install CLI: ${error instanceof Error ? error.message : 'Unknown error'}`)
       vscode.window.showErrorMessage(
@@ -351,7 +344,17 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       <div class="setup-item flex" id="cli-item">
         <img src="${unfinishedStepIconUri}" alt="CLI Icon" class="setup-item-icon" id="cli-icon">
         <div class="setup-item-content">
-          <h2>Local analysis</h2>
+          <div class="setup-item-header">
+            <h2>Local analysis</h2>
+            <div class="header-actions" id="cli-header-actions">
+              <button class="icon-btn" id="cli-refresh-button" title="Refresh status">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/></svg>
+              </button>
+              <button class="icon-btn" id="cli-settings-button" title="Open settings">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.4 2.3h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.4V7.4l-2.4-.5-.3-.8 1.3-2-.8-.8-2 1.3-.7-.2zM9.4 1l.5 2.4L12 2.1l2 2-1.4 2.1 2.4.4v2.8l-2.4.5L14 12l-2 2-2.1-1.4-.5 2.4H6.6l-.5-2.4L4 14l-2-2 1.4-2.1L1 9.4V6.6l2.4-.5L2 4l2-2 2.1 1.4.4-2.4h3zm.6 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+              </button>
+            </div>
+          </div>
           <p id="cli-description">Get instant feedback as you type by analyzing your code locally.</p>
           <button id="install-cli-button">Install Codacy CLI</button>
           <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
@@ -364,7 +367,17 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       <div class="setup-item flex" id="local-analysis-item">
         <img src="${unfinishedStepIconUri}" alt="MCP Icon" class="setup-item-icon" id="mcp-icon">
         <div class="setup-item-content">
-          <h2>AI Guardrails</h2>
+          <div class="setup-item-header">
+            <h2>AI Guardrails</h2>
+            <div class="header-actions" id="mcp-header-actions">
+              <button class="icon-btn" id="mcp-refresh-button" title="Refresh status">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/></svg>
+              </button>
+              <button class="icon-btn" id="mcp-settings-button" title="Open settings">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.4 2.3h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.4V7.4l-2.4-.5-.3-.8 1.3-2-.8-.8-2 1.3-.7-.2zM9.4 1l.5 2.4L12 2.1l2 2-1.4 2.1 2.4.4v2.8l-2.4.5L14 12l-2 2-2.1-1.4-.5 2.4H6.6l-.5-2.4L4 14l-2-2 1.4-2.1L1 9.4V6.6l2.4-.5L2 4l2-2 2.1 1.4.4-2.4h3zm.6 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm1 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+              </button>
+            </div>
+          </div>
           <p id="mcp-description">Control your AI generated code with Codacy Guardrails.</p>
           <button id="install-mcp-button">Install Codacy MCP</button>
           <button class="link-btn" id="generate-instructions-button" style="display: none;">Generate Instructions File</button>

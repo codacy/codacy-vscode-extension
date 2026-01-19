@@ -43,7 +43,7 @@ body {
   font-weight: 510;
 }
 
-.setup-item button:not(.link-btn) {
+.setup-item button:not(.link-btn,.icon-btn) {
   margin-top: 8px;
 }
 #cloud-no-org-description  {
@@ -52,4 +52,38 @@ body {
 
 .highlight {
   color: var(--vscode-textLink-foreground);
+}
+
+.setup-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.setup-item-header h2 {
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
 }

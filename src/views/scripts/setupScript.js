@@ -161,18 +161,25 @@
       const repositoryName = escapeHtml(repositoryInfo?.name)
       const userName = escapeHtml(userInfo?.name)
       const organizationProvider = escapeHtml(organizationInfo?.provider)
-      
+
       upgradeBox.style.display = 'none'
-      if (cloudIcon && iconUris && cloudDescription && connectToCodacyButton && addOrgButton && addRepoButton && noOrgDescription) {
-        
+      if (
+        cloudIcon &&
+        iconUris &&
+        cloudDescription &&
+        connectToCodacyButton &&
+        addOrgButton &&
+        addRepoButton &&
+        noOrgDescription
+      ) {
         connectToCodacyButton.style.display = 'none'
         cloudIcon.src = iconUris.finished
-        if(isOrgInCodacy && isRepoInCodacy) {
+        if (isOrgInCodacy && isRepoInCodacy) {
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
           setCloudDescription(cloudDescription, `${organizationProvider}/${organizationName}/${repositoryName}`)
-        } else if(isOrgInCodacy) {
+        } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
@@ -195,6 +202,7 @@
 
   function handleMCPStatusChange(isMCPInstalled, hasInstructionFile) {
     const mcpDescription = document.getElementById('mcp-description')
+    const mcpHeaderActions = document.getElementById('mcp-header-actions')
     /** @type {HTMLImageElement | null} */
     const mcpIcon = /** @type {HTMLImageElement | null} */ (document.getElementById('mcp-icon'))
     const installMcpButton = /** @type {HTMLButtonElement | null} */ (document.getElementById('install-mcp-button'))
@@ -207,6 +215,9 @@
 
     if (mcpIcon && iconUris && mcpDescription) {
       if (isMCPInstalled) {
+        if (mcpHeaderActions) {
+          mcpHeaderActions.style.display = 'flex'
+        }
         if (installMcpButton) {
           installMcpButton.style.display = 'none'
         }
@@ -228,6 +239,9 @@
         mcpDescription.textContent = 'Control your AI generated code with Codacy Guardrails.'
         if (generateInstructionsButton) {
           generateInstructionsButton.style.display = 'none'
+        }
+        if (mcpHeaderActions) {
+          mcpHeaderActions.style.display = 'none'
         }
       }
       mcpIcon.src = isMCPInstalled && hasInstructionFile ? iconUris.finished : iconUris.warning
@@ -291,6 +305,38 @@
         vscode.postMessage({ type: 'addRepository' })
       })
     }
+
+    // MCP settings button
+    const mcpSettingsButton = document.getElementById('mcp-settings-button')
+    if (mcpSettingsButton) {
+      mcpSettingsButton.addEventListener('click', function () {
+        vscode.postMessage({ type: 'openMCPSettings' })
+      })
+    }
+
+    // MCP refresh button
+    const mcpRefreshButton = document.getElementById('mcp-refresh-button')
+    if (mcpRefreshButton) {
+      mcpRefreshButton.addEventListener('click', function () {
+        vscode.postMessage({ type: 'refreshMCPStatus' })
+      })
+    }
+
+    // CLI settings button
+    const cliSettingsButton = document.getElementById('cli-settings-button')
+    if (cliSettingsButton) {
+      cliSettingsButton.addEventListener('click', function () {
+        vscode.postMessage({ type: 'openCLISettings' })
+      })
+    }
+
+    // CLI refresh button
+    const cliRefreshButton = document.getElementById('cli-refresh-button')
+    if (cliRefreshButton) {
+      cliRefreshButton.addEventListener('click', function () {
+        vscode.postMessage({ type: 'refreshCLIStatus' })
+      })
+    }
   })
 
   function handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy) {
@@ -300,12 +346,20 @@
     const addOrganizationSection = document.getElementById('add-organization-section')
     const addRepositorySection = document.getElementById('add-repository-section')
     const installCliButton = document.getElementById('install-cli-button')
+    const cliHeaderActions = document.getElementById('cli-header-actions')
     /** @type {IconUris | undefined} */
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
 
     if (cliIcon && iconUris && cliDescription) {
+      if (addOrganizationSection && addRepositorySection) {
+        addOrganizationSection.style.display = 'none'
+        addRepositorySection.style.display = 'none'
+      }
       if (isCLIInstalled) {
+        if (cliHeaderActions) {
+          cliHeaderActions.style.display = 'flex'
+        }
         if (installCliButton) {
           installCliButton.style.display = 'none'
         }
@@ -315,7 +369,7 @@
           if (isOrgInCodacy && isRepoInCodacy) {
             addOrganizationSection.style.display = 'none'
             addRepositorySection.style.display = 'none'
-          } else if(isOrgInCodacy) {
+          } else if (isOrgInCodacy) {
             addRepositorySection.style.display = 'inline-block'
             addOrganizationSection.style.display = 'none'
             cliIcon.src = iconUris.warning
@@ -326,6 +380,9 @@
           }
         }
       } else {
+        if (cliHeaderActions) {
+          cliHeaderActions.style.display = 'none'
+        }
         if (installCliButton) {
           installCliButton.style.display = 'inline-block'
         }
