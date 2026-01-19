@@ -67,6 +67,14 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       this.updateLoginState()
     })
 
+    // Listen for CodacyCloud state changes to update login state
+    if (this._codacyCloud) {
+      this._codacyCloud.onDidChangeState(() => {
+        this.updateLoginState()
+        this.updateCLIStatus()
+      })
+    }
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message) => {
       switch (message.type) {

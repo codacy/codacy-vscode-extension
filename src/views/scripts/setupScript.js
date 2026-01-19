@@ -101,7 +101,8 @@
       case 'cliStatusChanged':
         isCLIInstalled = message.isCLIInstalled
         isOrgInCodacy = message.isOrgInCodacy
-        handleCLIStatusChange(isCLIInstalled, isOrgInCodacy)
+        isRepoInCodacy = message.isRepoInCodacy
+        handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy)
         break
       default:
         break
@@ -141,6 +142,11 @@
 
     if (!upgradeBox) return
     if (loggedIn) {
+      const organizationName = escapeHtml(organizationInfo?.name)
+      const repositoryName = escapeHtml(repositoryInfo?.name)
+      const userName = escapeHtml(userInfo?.name)
+      const organizationProvider = escapeHtml(organizationInfo?.provider)
+      
       upgradeBox.style.display = 'none'
       if (cloudIcon && iconUris && cloudDescription && connectToCodacyButton && addOrgButton && addRepoButton && noOrgDescription) {
         
@@ -150,18 +156,18 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationInfo?.provider}/${organizationInfo?.name}/${repositoryInfo?.name}</span>`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationProvider}/${organizationName}/${repositoryName}</span>`
         } else if(isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationInfo?.provider}/${organizationInfo?.name}</span>`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${organizationProvider}/${organizationName}</span>`
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          cloudDescription.innerHTML = `Connected to <span class="highlight">${userInfo?.name}</span>`
+          cloudDescription.innerHTML = `Connected to <span class="highlight">${userName}</span>`
         }
       }
     } else {
@@ -300,7 +306,7 @@
             cliIcon.src = iconUris.warning
           } else {
             addOrganizationSection.style.display = 'inline-block'
-             addRepositorySection.style.display = 'none'
+            addRepositorySection.style.display = 'none'
             cliIcon.src = iconUris.warning
           }
         }
