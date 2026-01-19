@@ -301,7 +301,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         <link href="${styleVSCode}" rel="stylesheet">
         <link href="${styleMain}" rel="stylesheet">
 
-        <title>Cat Colors</title>
+        <title>Codacy Setup</title>
         <script nonce="${nonce}">
           window.iconUris = {
             finished: "${finishedStepIconUri}",
