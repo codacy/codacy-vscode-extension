@@ -50,16 +50,28 @@
   /**
    * Safely sets cloud description with highlighted text using DOM methods.
    * @param {HTMLElement} element - The element to update
-   * @param {string} highlightText - The text to highlight
+   * @param {{type: 'organization' | 'repository' | 'user', params: {organization?: string, provider?: string, repository?: string, user?: string}}} context - The context to use
    */
-  function setCloudDescription(element, highlightText) {
+  function setCloudDescription(element, {type, params}) {
     element.textContent = ''
     const textNode = document.createTextNode('Connected to ')
-    const span = document.createElement('span')
-    span.className = 'highlight'
-    span.textContent = highlightText
+    const linkNode = document.createElement('a')
+    switch (type) {
+      case 'organization':
+        linkNode.textContent = `${params.provider}/${params.organization}`
+        linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}`
+        break
+      case 'repository':
+        linkNode.textContent = `${params.provider}/${params.organization}/${params.repository}`
+        linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}/${params.repository}`
+        break
+      case 'user':
+        linkNode.textContent = params.user ?? ''
+        linkNode.href = `https://app.codacy.com/organizations`
+        break
+    }
     element.appendChild(textNode)
-    element.appendChild(span)
+    element.appendChild(linkNode)
   }
 
   /**
@@ -178,18 +190,18 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          setCloudDescription(cloudDescription, `${organizationProvider}/${organizationName}/${repositoryName}`)
+          setCloudDescription(cloudDescription, {type: 'repository', params: {organization: organizationName, provider: organizationProvider, repository: repositoryName}})
         } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          setCloudDescription(cloudDescription, `${organizationProvider}/${organizationName}`)
+          setCloudDescription(cloudDescription, {type: 'organization', params: {organization: organizationName, provider: organizationProvider}})
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
-          setCloudDescription(cloudDescription, userName)
+          setCloudDescription(cloudDescription, {type: 'user', params: {user: userName}})
         }
       }
     } else {

@@ -50,10 +50,6 @@ body {
   margin-top: 8px;
 }
 
-.highlight {
-  color: var(--vscode-textLink-foreground);
-}
-
 .setup-item-header {
   display: flex;
   align-items: center;
