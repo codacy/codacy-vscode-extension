@@ -71,6 +71,21 @@ button.secondary:hover {
 	background: var(--vscode-button-secondaryHoverBackground);
 }
 
+button.link-btn {
+	background: none;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 0;
+	margin: 0;
+}
+
+button.link-btn:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
 input:not([type='checkbox']),
 textarea {
 	display: block;

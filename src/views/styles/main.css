@@ -12,6 +12,25 @@ body {
 	padding: 12px;
 	border: 1px solid var(--vscode-input-border);
 }
+.setup-item h2 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.setup-item p {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+.setup-item-content {
+  width: 100%;
+}
+.flex {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+}
+.setup-item-icon {
+  margin-right: 8px;
+}
 
 .upgrade-box {
   margin-top: 16px;
@@ -24,6 +43,9 @@ body {
   font-weight: 510;
 }
 
-.setup-item button {
+.setup-item button:not(.link-btn) {
+  margin-top: 8px;
+}
+#cloud-no-org-description  {
   margin-top: 8px;
 }

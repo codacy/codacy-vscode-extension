@@ -175,7 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
   context.subscriptions.push(new SupportTree(context))
-  activateWebview(context)
+  const setupViewProvider = activateWebview(context)
 
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)
@@ -226,6 +226,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const codacyCloud = new CodacyCloud()
     context.subscriptions.push(codacyCloud)
+
+    // Set the CodacyCloud instance in the SetupViewProvider
+    setupViewProvider?.setCodacyCloud(codacyCloud)
 
     const gitProvider = await registerGitProvider(context, codacyCloud)
 
