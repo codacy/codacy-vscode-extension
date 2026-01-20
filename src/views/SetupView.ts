@@ -331,6 +331,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     const styleVSCode = escapeHtml(styleVSCodeUri.toString())
     const styleMain = escapeHtml(styleMainUri.toString())
     const script = escapeHtml(scriptUri.toString())
+    const safeNonce = escapeHtml(nonce)
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -341,7 +342,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     and only allow scripts that have a specific nonce.
     (See the 'webview-sample' extension sample for img-src content security policy examples)
   -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}'; img-src ${cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${safeNonce}'; img-src ${cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link href="${styleReset}" rel="stylesheet">
@@ -349,14 +350,14 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   <link href="${styleMain}" rel="stylesheet">
 
   <title>Codacy Setup</title>
-  <script nonce="${nonce}">
+  <script nonce="${safeNonce}">
     window.iconUris = {
       finished: "${finishedStepIconUri}",
       unfinished: "${unfinishedStepIconUri}",
       warning: "${warningStepIconUri}"
     };
   </script>
-  <script nonce="${nonce}" src="${script}"></script>
+  <script nonce="${safeNonce}" src="${script}"></script>
 </head>
 <body>
   <ul class="setup-list">
