@@ -363,7 +363,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   <ul class="setup-list">
     <li>
       <div class="setup-item flex" id="cloud-item">
-        <img src="${unfinishedStepIconUri}" alt="Cloud Icon" class="setup-item-icon" id="cloud-icon">
+        <img src="${escapeHtml(unfinishedStepIconUri)}" alt="Cloud Icon" class="setup-item-icon" id="cloud-icon">
         <div class="setup-item-content">
           <h2>Cloud sync</h2>
           <p id="cloud-description">Customize local analysis and keep your PRs up to standards in the IDE.</p>
@@ -377,7 +377,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
     <li>
       <div class="setup-item flex" id="cli-item">
-        <img src="${unfinishedStepIconUri}" alt="CLI Icon" class="setup-item-icon" id="cli-icon">
+        <img src="${escapeHtml(unfinishedStepIconUri)}" alt="CLI Icon" class="setup-item-icon" id="cli-icon">
         <div class="setup-item-content">
           <div class="setup-item-header">
             <h2>Local analysis</h2>
@@ -400,7 +400,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
     <li>
       <div class="setup-item flex" id="local-analysis-item">
-        <img src="${unfinishedStepIconUri}" alt="MCP Icon" class="setup-item-icon" id="mcp-icon">
+        <img src="${escapeHtml(unfinishedStepIconUri)}" alt="MCP Icon" class="setup-item-icon" id="mcp-icon">
         <div class="setup-item-content">
           <div class="setup-item-header">
             <h2>AI Guardrails</h2>
