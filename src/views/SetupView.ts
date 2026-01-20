@@ -143,7 +143,16 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async connectToCodacy() {
-    await codacyAuth()
+    try {
+      await codacyAuth()
+      this.updateLoginState()
+      this.updateCLIStatus()
+    } catch (error) {
+      Logger.error(`Failed to connect to Codacy: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      vscode.window.showErrorMessage(
+        `Failed to connect to Codacy: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
   }
 
   private updateBadge() {
@@ -198,17 +207,21 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private updateMCPStatus() {
     if (this._view) {
       const isMCPInstalled = isMCPConfigured()
-      checkRulesFile().then((hasInstructionFile) => {
-        // MCP is complete when installed and has instructions file
-        this._isMCPComplete = isMCPInstalled && hasInstructionFile
-        this.updateBadge()
+      checkRulesFile()
+        .then((hasInstructionFile) => {
+          // MCP is complete when installed and has instructions file
+          this._isMCPComplete = isMCPInstalled && hasInstructionFile
+          this.updateBadge()
 
-        this._view?.webview.postMessage({
-          type: 'mcpStatusChanged',
-          isMCPInstalled,
-          hasInstructionFile,
+          this._view?.webview.postMessage({
+            type: 'mcpStatusChanged',
+            isMCPInstalled,
+            hasInstructionFile,
+          })
         })
-      })
+        .catch((error) => {
+          Logger.error(`Failed to check MCP status: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        })
     }
   }
 

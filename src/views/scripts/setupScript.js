@@ -1,7 +1,7 @@
 //@ts-check
 /// <reference lib="dom" />
 
-/* global acquireVsCodeApi, document, window, console */
+/* global acquireVsCodeApi, document, window */
 
 /**
  * @typedef {Object} VsCodeApi
