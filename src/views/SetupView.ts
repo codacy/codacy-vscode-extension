@@ -423,7 +423,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
   <div class="setup-item upgrade-box" id="upgrade-box">
     <p>Strengthen security and quality across all your repositories.</p>
-    <a href="https://www.codacy.com/pricing" target="_blank">
+    <a href="https://www.codacy.com/pricing" target="_blank" rel="noopener noreferrer">
       <button class="secondary">Upgrade to PRO</button>
     </a>
   </div>
