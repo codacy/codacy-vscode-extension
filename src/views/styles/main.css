@@ -1,16 +1,16 @@
 body {
-	background-color: transparent;
+  background-color: transparent;
 }
 
 .setup-list {
-	list-style: none;
-	padding: 0;
+  list-style: none;
+  padding: 0;
 }
 
 .setup-item {
-	width: 100%;
-	padding: 12px;
-	border: 1px solid var(--vscode-input-border);
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--vscode-input-border);
 }
 .setup-item h2 {
   font-size: 14px;
@@ -43,10 +43,10 @@ body {
   font-weight: 510;
 }
 
-.setup-item button:not(.link-btn,.icon-btn) {
+.setup-item button:not(.link-btn, .icon-btn) {
   margin-top: 8px;
 }
-#cloud-no-org-description  {
+#cloud-no-org-description {
   margin-top: 8px;
 }
 
