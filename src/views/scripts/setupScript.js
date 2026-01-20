@@ -169,6 +169,11 @@
   /**
    * Handle login state changes
    * @param {boolean} loggedIn
+   * @param {boolean} isOrgInCodacy
+   * @param {boolean} isRepoInCodacy
+   * @param {Object|null} userInfo
+   * @param {Object|null} organizationInfo
+   * @param {Object|null} repositoryInfo
    */
   function handleLoginStateChange(loggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo) {
     const upgradeBox = document.getElementById('upgrade-box')
