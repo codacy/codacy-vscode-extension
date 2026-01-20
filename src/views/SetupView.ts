@@ -138,6 +138,9 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         case 'openCLISettings':
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy.cli')
           break
+        default:
+          Logger.appendLine(`Unknown message type: ${message.type}`)
+          break
       }
     })
   }

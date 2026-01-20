@@ -227,7 +227,7 @@
         } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           addOrgButton.style.display = 'none'
-          noOrgDescription.style.display = 'none'
+          noOrgDescription.style.display = 'inline-block'
           cloudIcon.src = iconUris.warning
           if (organizationInfo.billing === 'premium') {
             upgradeBox.style.display = 'none'
