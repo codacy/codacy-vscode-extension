@@ -164,10 +164,21 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       const isLoggedIn = !!Config.apiToken
       const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
       const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
-      const userInfo = isLoggedIn ? await Account.current() : undefined
       const organizationInfo = this._codacyCloud?.organization
       const repositoryInfo = this._codacyCloud?.repository
 
+      let userInfo = undefined
+      if (isLoggedIn) {
+        try {
+          userInfo = await Account.current()
+        } catch (error) {
+          Logger.error(
+            'Failed to fetch current account in updateLoginState',
+            error instanceof Error ? error.message : String(error)
+          )
+          userInfo = undefined
+        }
+      }
       // Cloud is complete when logged in with org and repo in Codacy
       this._isCloudComplete = isLoggedIn && isOrgInCodacy && isRepoInCodacy
       this.updateBadge()
