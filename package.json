@@ -47,7 +47,8 @@
         {
           "type": "webview",
           "id": "codacy.setupView",
-          "name": "Setup"
+          "name": "Setup",
+          "when": "codacy:hasProject"
         },
         {
           "id": "codacy:status",
@@ -84,20 +85,6 @@
           "when": "codacy:hasProject && Codacy:CodacyCloudStateContext == Loaded && Codacy:BranchStateContext == OnAnalysedBranch",
           "icon": "$(bug)",
           "initialSize": 3
-        },
-        {
-          "id": "codacy:mcp",
-          "name": "AI Guardrails",
-          "when": "codacy:hasProject && codacy:supportsMCP",
-          "icon": "$(gear)",
-          "initialSize": 2
-        },
-        {
-          "id": "codacy:cli",
-          "name": "Local Analysis",
-          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || (codacy:windowsDetected && !codacy:canInstallCLI))",
-          "icon": "$(gear)",
-          "initialSize": 2
         },
         {
           "id": "codacy:support",

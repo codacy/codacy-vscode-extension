@@ -291,7 +291,6 @@
           mcpHeaderActions.style.display = 'none'
         }
       }
-      mcpIcon.src = isMCPInstalled && hasInstructionFile ? iconUris.finished : iconUris.warning
     }
   }
 
