@@ -245,9 +245,18 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   }
 
   private generateInstructionsFile() {
-    createOrUpdateRules().then(() => {
-      this.updateMCPStatus()
-    })
+    createOrUpdateRules()
+      .then(() => {
+        this.updateMCPStatus()
+      })
+      .catch((error) => {
+        Logger.error(
+          `Failed to generate instructions file: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+        vscode.window.showErrorMessage(
+          `Failed to generate instructions file: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      })
   }
 
   private async addRepository() {
