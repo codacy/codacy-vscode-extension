@@ -399,7 +399,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     </li>
 
     <li>
-      <div class="setup-item flex" id="local-analysis-item">
+      <div class="setup-item flex" id="mcp-item">
         <img src="${escapeHtml(unfinishedStepIconUri)}" alt="MCP Icon" class="setup-item-icon" id="mcp-icon">
         <div class="setup-item-content">
           <div class="setup-item-header">
