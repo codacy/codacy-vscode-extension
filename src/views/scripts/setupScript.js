@@ -211,7 +211,11 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
-          if (organizationInfo.billing === 'premium') {
+          setCloudDescription(cloudDescription, {
+            type: 'repository',
+            params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
+          })
+          if (organizationInfo?.billing === 'premium') {
             upgradeBox.style.display = 'none'
           } else {
             upgradeBox.style.display = 'block'
@@ -220,16 +224,16 @@
               `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
             )
           }
-          setCloudDescription(cloudDescription, {
-            type: 'repository',
-            params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
-          })
         } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
           addOrgButton.style.display = 'none'
           noOrgDescription.style.display = 'inline-block'
           cloudIcon.src = iconUris.warning
-          if (organizationInfo.billing === 'premium') {
+          setCloudDescription(cloudDescription, {
+            type: 'organization',
+            params: { organization: organizationName, provider: organizationProvider },
+          })
+          if (organizationInfo?.billing === 'premium') {
             upgradeBox.style.display = 'none'
           } else {
             upgradeBox.style.display = 'block'
@@ -238,10 +242,6 @@
               `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
             )
           }
-          setCloudDescription(cloudDescription, {
-            type: 'organization',
-            params: { organization: organizationName, provider: organizationProvider },
-          })
         } else {
           addOrgButton.style.display = 'inline-block'
           noOrgDescription.style.display = 'inline-block'
