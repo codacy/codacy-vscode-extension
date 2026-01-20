@@ -67,7 +67,7 @@
           return
         }
         linkNode.textContent = `${params.provider}/${params.organization}`
-        linkNode.href = `https://app.codacy.com/${encodeURIComponent(params.provider)}/${encodeURIComponent(params.organization)}`
+        linkNode.href = `https://app.codacy.com/organizations/${encodeURIComponent(params.provider)}/${encodeURIComponent(params.organization)}`
         break
       case 'repository':
         if (!params.provider || !params.organization || !params.repository) {
@@ -177,6 +177,7 @@
    */
   function handleLoginStateChange(loggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo) {
     const upgradeBox = document.getElementById('upgrade-box')
+    const upgradeButton = document.getElementById('upgrade-button')
     /** @type {HTMLImageElement | null} */
     const cloudIcon = /** @type {HTMLImageElement | null} */ (document.getElementById('cloud-icon'))
     const cloudDescription = document.getElementById('cloud-description')
@@ -193,9 +194,6 @@
       const userName = escapeHtml(userInfo?.name)
       const organizationProvider = escapeHtml(organizationInfo?.provider)
 
-      if (upgradeBox) {
-        upgradeBox.style.display = 'none'
-      }
       if (
         cloudIcon &&
         iconUris &&
@@ -203,7 +201,9 @@
         connectToCodacyButton &&
         addOrgButton &&
         addRepoButton &&
-        noOrgDescription
+        noOrgDescription &&
+        upgradeBox &&
+        upgradeButton
       ) {
         connectToCodacyButton.style.display = 'none'
         cloudIcon.src = iconUris.finished
@@ -211,14 +211,33 @@
           addOrgButton.style.display = 'none'
           addRepoButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
+          if (organizationInfo.billing === 'premium') {
+            upgradeBox.style.display = 'none'
+          } else {
+            upgradeBox.style.display = 'block'
+            upgradeButton.setAttribute(
+              'href',
+              `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
+            )
+          }
           setCloudDescription(cloudDescription, {
             type: 'repository',
             params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
           })
         } else if (isOrgInCodacy) {
           addRepoButton.style.display = 'inline-block'
+          addOrgButton.style.display = 'none'
           noOrgDescription.style.display = 'none'
           cloudIcon.src = iconUris.warning
+          if (organizationInfo.billing === 'premium') {
+            upgradeBox.style.display = 'none'
+          } else {
+            upgradeBox.style.display = 'block'
+            upgradeButton.setAttribute(
+              'href',
+              `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
+            )
+          }
           setCloudDescription(cloudDescription, {
             type: 'organization',
             params: { organization: organizationName, provider: organizationProvider },
@@ -228,6 +247,8 @@
           noOrgDescription.style.display = 'inline-block'
           addRepoButton.style.display = 'none'
           cloudIcon.src = iconUris.warning
+          upgradeBox.style.display = 'block'
+          upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
           setCloudDescription(cloudDescription, { type: 'user', params: { user: userName } })
         }
       }
@@ -237,11 +258,13 @@
         addRepoButton &&
         noOrgDescription &&
         upgradeBox &&
+        upgradeButton &&
         cloudIcon &&
         cloudDescription &&
         connectToCodacyButton
       ) {
         upgradeBox.style.display = 'block'
+        upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
         cloudIcon.src = iconUris.unfinished
         cloudDescription.textContent = 'Customize local analysis and keep your PRs up to standards in the IDE.'
         addOrgButton.style.display = 'none'
@@ -406,6 +429,7 @@
     const addRepositorySection = document.getElementById('add-repository-section')
     const installCliButton = document.getElementById('install-cli-button')
     const cliHeaderActions = document.getElementById('cli-header-actions')
+    const dependenciesDescription = document.getElementById('dependencies-description')
     /** @type {IconUris | undefined} */
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
@@ -421,6 +445,9 @@
         }
         if (installCliButton) {
           installCliButton.style.display = 'none'
+        }
+        if (dependenciesDescription) {
+          dependenciesDescription.style.display = 'none'
         }
         cliDescription.textContent = 'Codacy CLI installed'
         cliIcon.src = iconUris.finished
@@ -444,6 +471,9 @@
         }
         if (installCliButton) {
           installCliButton.style.display = 'inline-block'
+        }
+        if (dependenciesDescription) {
+          dependenciesDescription.style.display = 'inline-block'
         }
         cliDescription.textContent = 'Get instant feedback as you type by analyzing your code locally.'
         cliIcon.src = iconUris.unfinished

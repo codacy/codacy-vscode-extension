@@ -56,6 +56,11 @@ body {
   margin-top: 8px;
 }
 
+#dependencies-description {
+  margin-top: 8px;
+  color: var(--vscode-disabledForeground);
+}
+
 .setup-item-header {
   display: flex;
   align-items: center;

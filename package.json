@@ -45,12 +45,6 @@
     "views": {
       "codacy-main": [
         {
-          "type": "webview",
-          "id": "codacy.setupView",
-          "name": "Setup",
-          "when": "codacy:hasProject"
-        },
-        {
           "id": "codacy:status",
           "name": "Status",
           "icon": "$(library)",
@@ -61,7 +55,7 @@
           "id": "codacy:cloud-status",
           "name": "Codacy Cloud",
           "icon": "$(library)",
-          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest",
+          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest && Codacy:CodacyCloudStateContext != NeedsAuthentication && Codacy:CodacyCloudStateContext != NeedsToAddOrganization && Codacy:CodacyCloudStateContext != NeedsToAddRepository",
           "initialSize": 1,
           "collapsed": false
         },
@@ -87,6 +81,14 @@
           "initialSize": 3
         },
         {
+          "type": "webview",
+          "id": "codacy.setupView",
+          "name": "Setup",
+          "when": "codacy:hasProject",
+          "collapsed": false,
+          "initialSize": 4
+        },
+        {
           "id": "codacy:support",
           "name": "Help and Feedback",
           "icon": "$(question)",
@@ -107,11 +109,6 @@
       },
       {
         "view": "codacy:cloud-status",
-        "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.codacyAuth)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
-        "when": "Codacy:CodacyCloudStateContext == NeedsAuthentication"
-      },
-      {
-        "view": "codacy:cloud-status",
         "contents": "This project isn't a Git repository. To connect it to Codacy, initialize a Git repository first.",
         "when": "Codacy:CodacyCloudStateContext == NoGitRepository"
       },
@@ -129,11 +126,6 @@
         "view": "codacy:cloud-status",
         "contents": "An admin must approve your request to join the organization on Codacy.",
         "when": "Codacy:CodacyCloudStateContext == HasPendingJoinOrganization"
-      },
-      {
-        "view": "codacy:cloud-status",
-        "contents": "This organization is not part of Codacy.\n[Add organization](command:codacy.codacyAuth)",
-        "when": "Codacy:CodacyCloudStateContext == NeedsToAddOrganization"
       },
       {
         "view": "codacy:cloud-status",

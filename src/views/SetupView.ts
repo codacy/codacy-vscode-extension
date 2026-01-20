@@ -418,6 +418,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
           <button id="install-cli-button">Install Codacy CLI</button>
           <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
           <p id="add-repository-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-repository-button">Add this repository to Codacy</button></p>
+          <p id="dependencies-description">Installs required dependencies: Node, Python, Java</p>
         </div>
       </div>
     </li>
@@ -447,7 +448,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
   <div class="setup-item upgrade-box" id="upgrade-box">
     <p>Strengthen security and quality across all your repositories.</p>
-    <a href="https://www.codacy.com/pricing" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.codacy.com/pricing" id="upgrade-button" target="_blank" rel="noopener noreferrer">
       <button class="secondary">Upgrade to PRO</button>
     </a>
   </div>

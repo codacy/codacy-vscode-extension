@@ -63,7 +63,7 @@ button:focus {
 }
 
 button.secondary {
-  color: var(--vscode-button-foreground);
+  color: var(--vscode-button-secondaryForeground);
   background: var(--vscode-button-secondaryBackground);
 }
 
