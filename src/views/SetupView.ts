@@ -130,7 +130,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy')
           break
         case 'refreshMCPStatus':
-          this.installMCP()
+          this.installMCP(true)
           break
         case 'refreshCLIStatus':
           this.updateCLIStatus()
