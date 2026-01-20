@@ -67,7 +67,7 @@
           return
         }
         linkNode.textContent = `${params.provider}/${params.organization}`
-        linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}`
+        linkNode.href = `https://app.codacy.com/${encodeURIComponent(params.provider)}/${encodeURIComponent(params.organization)}`
         break
       case 'repository':
         if (!params.provider || !params.organization || !params.repository) {
@@ -75,7 +75,7 @@
           return
         }
         linkNode.textContent = `${params.provider}/${params.organization}/${params.repository}`
-        linkNode.href = `https://app.codacy.com/${params.provider}/${params.organization}/${params.repository}`
+        linkNode.href = `https://app.codacy.com/${encodeURIComponent(params.provider)}/${encodeURIComponent(params.organization)}/${encodeURIComponent(params.repository)}`
         break
       case 'user':
         if (!params.user) {
