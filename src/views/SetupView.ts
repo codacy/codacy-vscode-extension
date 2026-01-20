@@ -352,9 +352,9 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   <title>Codacy Setup</title>
   <script nonce="${safeNonce}">
     window.iconUris = {
-      finished: "${finishedStepIconUri}",
-      unfinished: "${unfinishedStepIconUri}",
-      warning: "${warningStepIconUri}"
+      finished: "${escapeHtml(finishedStepIconUri)}",
+      unfinished: "${escapeHtml(unfinishedStepIconUri)}",
+      warning: "${escapeHtml(warningStepIconUri)}"
     };
   </script>
   <script nonce="${safeNonce}" src="${script}"></script>
