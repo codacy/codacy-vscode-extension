@@ -10,7 +10,13 @@ body {
 .setup-item {
   width: 100%;
   padding: 12px;
-  border: 1px solid var(--vscode-input-border);
+  border-width: 1px 1px 0;
+  border-style: solid;
+  border-color: var(--vscode-input-border);
+}
+
+li:last-of-type .setup-item, #upgrade-box {
+  border-width: 1px;
 }
 
 .setup-item h2 {
