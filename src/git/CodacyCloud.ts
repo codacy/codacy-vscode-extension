@@ -592,6 +592,10 @@ export class CodacyCloud implements vscode.Disposable {
     return this._organization?.organization
   }
 
+  get organizationWithMeta() {
+    return this._organization
+  }
+
   get lastAnalysedCommit() {
     return this._repository?.lastAnalysedCommit
   }

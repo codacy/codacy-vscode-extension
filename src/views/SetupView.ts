@@ -138,6 +138,9 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         case 'openCLISettings':
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy.cli')
           break
+        case 'debug':
+          Logger.appendLine(`Debug message: ${message.message}`, JSON.stringify(message.data))
+          break
         default:
           Logger.appendLine(`Unknown message type: ${message.type}`)
           break
@@ -176,7 +179,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       const isLoggedIn = !!Config.apiToken
       const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
       const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
-      const organizationInfo = this._codacyCloud?.organization
+      const organizationInfo = this._codacyCloud?.organizationWithMeta
       const repositoryInfo = this._codacyCloud?.repository
 
       let userInfo = undefined

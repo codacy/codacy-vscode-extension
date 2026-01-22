@@ -17,7 +17,7 @@
  * @property {string} warning
  */
 
-;(function () {
+; (function () {
   /** @type {VsCodeApi} */
   // @ts-expect-error - acquireVsCodeApi is provided by VS Code webview API
   const vscode = acquireVsCodeApi()
@@ -166,6 +166,124 @@
     handleMessage(event)
   })
 
+  // ============================================
+  // Login State Handlers
+  // ============================================
+
+  /**
+   * Shows the logged in state
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showLoggedInState(elements) {
+    if (!elements) return
+    const {
+      cloudIcon,
+      connectToCodacyButton,
+      iconUris,
+    } = elements
+
+    connectToCodacyButton.style.display = 'none'
+    cloudIcon.src = iconUris.finished
+  }
+  /**
+   * Shows the logged out state
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showLoggedOutState(elements) {
+    if (!elements) return
+    const {
+      upgradeBox,
+      upgradeButton,
+      cloudIcon,
+      cloudDescription,
+      connectToCodacyButton,
+      addOrgButton,
+      addRepoButton,
+      noOrgDescription,
+      iconUris,
+    } = elements
+
+    upgradeBox.style.display = 'block'
+    upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
+    cloudIcon.src = iconUris.unfinished
+    cloudDescription.textContent = 'Customize local analysis and keep your PRs up to standards in the IDE.'
+    addOrgButton.style.display = 'none'
+    addRepoButton.style.display = 'none'
+    noOrgDescription.style.display = 'none'
+    connectToCodacyButton.style.display = 'inline-block'
+  }
+
+  /**
+   * Handles the organization states
+   * @param {Object} elements
+   * @param {string} state
+   * @returns {void}
+   */
+  function handleLoginOrgStates(elements, connectionInfo, state) {
+    if (!elements) return
+    const {
+      upgradeBox,
+      upgradeButton,
+      cloudIcon,
+      cloudDescription,
+      addOrgButton,
+      addRepoButton,
+      noOrgDescription,
+      iconUris,
+    } = elements
+    const { organizationName, organizationProvider, repositoryName, userName, billing } = connectionInfo
+    switch (state) {
+      case 'needsToAddOrganization':
+        addOrgButton.style.display = 'inline-block'
+        noOrgDescription.style.display = 'inline-block'
+        addRepoButton.style.display = 'none'
+        cloudIcon.src = iconUris.warning
+        upgradeBox.style.display = 'block'
+        upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
+        setCloudDescription(cloudDescription, { type: 'user', params: { user: userName } })
+        break
+      case 'needsToAddRepository':
+        addRepoButton.style.display = 'inline-block'
+        addOrgButton.style.display = 'none'
+        noOrgDescription.style.display = 'inline-block'
+        cloudIcon.src = iconUris.warning
+        setCloudDescription(cloudDescription, {
+          type: 'organization',
+          params: { organization: organizationName, provider: organizationProvider },
+        })
+        if (billing.isPremium) {
+          upgradeBox.style.display = 'none'
+        } else {
+          upgradeBox.style.display = 'block'
+          upgradeButton.setAttribute(
+            'href',
+            `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
+          )
+        }
+        break
+      case 'isInCodacy':
+        addOrgButton.style.display = 'none'
+        addRepoButton.style.display = 'none'
+        noOrgDescription.style.display = 'none'
+        setCloudDescription(cloudDescription, {
+          type: 'repository',
+          params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
+        })
+        if (billing.isPremium) {
+          upgradeBox.style.display = 'none'
+        } else {
+          upgradeBox.style.display = 'block'
+          upgradeButton.setAttribute(
+            'href',
+            `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
+          )
+        }
+        break
+    }
+  }
+
   /**
    * Handle login state changes
    * @param {boolean} loggedIn
@@ -188,93 +306,95 @@
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
 
+    const elements = {
+      cloudIcon,
+      cloudDescription,
+      addOrgButton,
+      addRepoButton,
+      noOrgDescription,
+      upgradeBox,
+      upgradeButton,
+      connectToCodacyButton,
+      iconUris,
+    }
     if (loggedIn) {
-      const organizationName = escapeHtml(organizationInfo?.name)
+      const organizationName = escapeHtml(organizationInfo?.organization?.name)
       const repositoryName = escapeHtml(repositoryInfo?.name)
       const userName = escapeHtml(userInfo?.name)
-      const organizationProvider = escapeHtml(organizationInfo?.provider)
+      const organizationProvider = escapeHtml(organizationInfo?.organization?.provider)
+      const billing = organizationInfo?.billing
 
-      if (
-        cloudIcon &&
-        iconUris &&
-        cloudDescription &&
-        connectToCodacyButton &&
-        addOrgButton &&
-        addRepoButton &&
-        noOrgDescription &&
-        upgradeBox &&
-        upgradeButton
-      ) {
-        connectToCodacyButton.style.display = 'none'
-        cloudIcon.src = iconUris.finished
-        if (isOrgInCodacy && isRepoInCodacy) {
-          addOrgButton.style.display = 'none'
-          addRepoButton.style.display = 'none'
-          noOrgDescription.style.display = 'none'
-          setCloudDescription(cloudDescription, {
-            type: 'repository',
-            params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
-          })
-          if (organizationInfo?.billing === 'premium') {
-            upgradeBox.style.display = 'none'
-          } else {
-            upgradeBox.style.display = 'block'
-            upgradeButton.setAttribute(
-              'href',
-              `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
-            )
-          }
-        } else if (isOrgInCodacy) {
-          addRepoButton.style.display = 'inline-block'
-          addOrgButton.style.display = 'none'
-          noOrgDescription.style.display = 'inline-block'
-          cloudIcon.src = iconUris.warning
-          setCloudDescription(cloudDescription, {
-            type: 'organization',
-            params: { organization: organizationName, provider: organizationProvider },
-          })
-          if (organizationInfo?.billing === 'premium') {
-            upgradeBox.style.display = 'none'
-          } else {
-            upgradeBox.style.display = 'block'
-            upgradeButton.setAttribute(
-              'href',
-              `https://app.codacy.com/organizations/${encodeURIComponent(organizationProvider)}/${encodeURIComponent(organizationName)}/settings/billing`
-            )
-          }
-        } else {
-          addOrgButton.style.display = 'inline-block'
-          noOrgDescription.style.display = 'inline-block'
-          addRepoButton.style.display = 'none'
-          cloudIcon.src = iconUris.warning
-          upgradeBox.style.display = 'block'
-          upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
-          setCloudDescription(cloudDescription, { type: 'user', params: { user: userName } })
-        }
+      const connectionInfo = { organizationName, organizationProvider, repositoryName, userName, billing }
+
+      showLoggedInState(elements)
+      if (isOrgInCodacy && isRepoInCodacy) {
+        handleLoginOrgStates(elements, connectionInfo, 'isInCodacy')
+      } else if (isOrgInCodacy) {
+        handleLoginOrgStates(elements, connectionInfo, 'needsToAddRepository')
+      } else {
+        handleLoginOrgStates(elements, connectionInfo, 'needsToAddOrganization')
       }
     } else {
-      if (
-        addOrgButton &&
-        addRepoButton &&
-        noOrgDescription &&
-        upgradeBox &&
-        upgradeButton &&
-        cloudIcon &&
-        cloudDescription &&
-        connectToCodacyButton
-      ) {
-        upgradeBox.style.display = 'block'
-        upgradeButton.setAttribute('href', 'https://www.codacy.com/pricing')
-        cloudIcon.src = iconUris.unfinished
-        cloudDescription.textContent = 'Customize local analysis and keep your PRs up to standards in the IDE.'
-        addOrgButton.style.display = 'none'
-        addRepoButton.style.display = 'none'
-        noOrgDescription.style.display = 'none'
-        connectToCodacyButton.style.display = 'inline-block'
-      }
+      showLoggedOutState(elements)
     }
   }
 
+  // ============================================
+  // MCP State Handlers
+  // ============================================
+
+  /**
+   * Shows the uninstalled MCP state
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showUninstalledMCPState(elements) {
+    if (!elements) return
+    const { mcpHeaderActions, installMcpButton, generateInstructionsButton, mcpDescription, mcpIcon, iconUris } =
+      elements
+    mcpIcon.src = iconUris.unfinished
+    mcpDescription.textContent = 'Control your AI generated code with Codacy Guardrails.'
+    if (generateInstructionsButton) {
+      generateInstructionsButton.style.display = 'none'
+    }
+    if (mcpHeaderActions) {
+      mcpHeaderActions.style.display = 'none'
+    }
+    if (installMcpButton) {
+      installMcpButton.style.display = 'block'
+    }
+  }
+
+  function showInstalledMCPState(elements, hasInstructionFile) {
+    if (!elements) return
+    const { mcpHeaderActions, installMcpButton, generateInstructionsButton, mcpDescription, mcpIcon, iconUris } =
+      elements
+    if (mcpHeaderActions) {
+      mcpHeaderActions.style.display = 'flex'
+    }
+    if (installMcpButton) {
+      installMcpButton.style.display = 'none'
+    }
+    if (hasInstructionFile) {
+      mcpIcon.src = iconUris.finished
+      mcpDescription.textContent = 'Found MCP and instructions file'
+      if (generateInstructionsButton) {
+        generateInstructionsButton.style.display = 'none'
+      }
+    } else {
+      mcpIcon.src = iconUris.warning
+      mcpDescription.innerHTML = 'MCP installed.<br/>Instructions file not found.'
+      if (generateInstructionsButton) {
+        generateInstructionsButton.style.display = 'inline-block'
+      }
+    }
+  }
+  /**
+   * Handles the MCP status changes
+   * @param {boolean} isMCPInstalled
+   * @param {boolean} hasInstructionFile
+   * @returns {void}
+   */
   function handleMCPStatusChange(isMCPInstalled, hasInstructionFile) {
     const mcpDescription = document.getElementById('mcp-description')
     const mcpHeaderActions = document.getElementById('mcp-header-actions')
@@ -288,36 +408,20 @@
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
 
+    const elements = {
+      mcpIcon,
+      mcpDescription,
+      mcpHeaderActions,
+      installMcpButton,
+      generateInstructionsButton,
+      iconUris,
+    }
+
     if (mcpIcon && iconUris && mcpDescription) {
       if (isMCPInstalled) {
-        if (mcpHeaderActions) {
-          mcpHeaderActions.style.display = 'flex'
-        }
-        if (installMcpButton) {
-          installMcpButton.style.display = 'none'
-        }
-        if (hasInstructionFile) {
-          mcpIcon.src = iconUris.finished
-          mcpDescription.textContent = 'Found MCP and instructions file'
-          if (generateInstructionsButton) {
-            generateInstructionsButton.style.display = 'none'
-          }
-        } else {
-          mcpIcon.src = iconUris.warning
-          mcpDescription.innerHTML = 'MCP installed.<br/>Instructions file not found.'
-          if (generateInstructionsButton) {
-            generateInstructionsButton.style.display = 'inline-block'
-          }
-        }
+        showInstalledMCPState(elements, hasInstructionFile)
       } else {
-        mcpIcon.src = iconUris.unfinished
-        mcpDescription.textContent = 'Control your AI generated code with Codacy Guardrails.'
-        if (generateInstructionsButton) {
-          generateInstructionsButton.style.display = 'none'
-        }
-        if (mcpHeaderActions) {
-          mcpHeaderActions.style.display = 'none'
-        }
+        showUninstalledMCPState(elements)
       }
     }
   }
@@ -421,6 +525,86 @@
     }
   })
 
+  // ============================================
+  // CLI State Handlers
+  // ============================================
+
+  /**
+   * Shows the uninstalled CLI state
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showUninstalledCLIState(elements) {
+    if (!elements) return
+    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription, cliIcon, iconUris } = elements
+    if (cliHeaderActions) {
+      cliHeaderActions.style.display = 'none'
+    }
+    if (installCliButton) {
+      installCliButton.style.display = 'inline-block'
+    }
+    if (dependenciesDescription) {
+      dependenciesDescription.style.display = 'inline-block'
+    }
+    cliDescription.textContent = 'Get instant feedback as you type by analyzing your code locally.'
+    cliIcon.src = iconUris.unfinished
+  }
+
+  /**
+   * Shows the installed CLI state
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showInstalledCLIState(elements) {
+    if (!elements) return
+    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription } = elements
+    if (cliHeaderActions) {
+      cliHeaderActions.style.display = 'flex'
+    }
+    if (installCliButton) {
+      installCliButton.style.display = 'none'
+    }
+    if (dependenciesDescription) {
+      dependenciesDescription.style.display = 'none'
+    }
+    cliDescription.textContent = 'Codacy CLI installed'
+  }
+
+  /**
+   * Handles the organization states for the CLI
+   * @param {Object} elements
+   * @param {string} state
+   * @returns {void}
+   */
+  function handleCLIOrgStates(elements, state) {
+    if (!elements) return
+    const { addOrganizationSection, addRepositorySection, iconUris, cliIcon } = elements
+    switch (state) {
+      case 'needsToAddOrganization':
+        addOrganizationSection.style.display = 'inline-block'
+        addRepositorySection.style.display = 'none'
+        cliIcon.src = iconUris.warning
+        break
+      case 'needsToAddRepository':
+        addOrganizationSection.style.display = 'none'
+        addRepositorySection.style.display = 'inline-block'
+        cliIcon.src = iconUris.warning
+        break
+      case 'isInCodacy':
+        addOrganizationSection.style.display = 'none'
+        addRepositorySection.style.display = 'none'
+        cliIcon.src = iconUris.finished
+        break
+    }
+  }
+
+  /**
+   * Handles the CLI status changes
+   * @param {boolean} isCLIInstalled
+   * @param {boolean} isOrgInCodacy
+   * @param {boolean} isRepoInCodacy
+   * @returns {void}
+   */
   function handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy) {
     /** @type {HTMLImageElement | null} */
     const cliIcon = /** @type {HTMLImageElement | null} */ (document.getElementById('cli-icon'))
@@ -434,49 +618,33 @@
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
 
+    const elements = {
+      cliIcon,
+      cliDescription,
+      addOrganizationSection,
+      addRepositorySection,
+      installCliButton,
+      cliHeaderActions,
+      dependenciesDescription,
+      iconUris,
+    }
+
     if (cliIcon && iconUris && cliDescription) {
       if (addOrganizationSection && addRepositorySection) {
         addOrganizationSection.style.display = 'none'
         addRepositorySection.style.display = 'none'
       }
       if (isCLIInstalled) {
-        if (cliHeaderActions) {
-          cliHeaderActions.style.display = 'flex'
-        }
-        if (installCliButton) {
-          installCliButton.style.display = 'none'
-        }
-        if (dependenciesDescription) {
-          dependenciesDescription.style.display = 'none'
-        }
-        cliDescription.textContent = 'Codacy CLI installed'
-        cliIcon.src = iconUris.finished
-        if (addOrganizationSection && addRepositorySection) {
-          if (isOrgInCodacy && isRepoInCodacy) {
-            addOrganizationSection.style.display = 'none'
-            addRepositorySection.style.display = 'none'
-          } else if (isOrgInCodacy) {
-            addRepositorySection.style.display = 'inline-block'
-            addOrganizationSection.style.display = 'none'
-            cliIcon.src = iconUris.warning
-          } else {
-            addOrganizationSection.style.display = 'inline-block'
-            addRepositorySection.style.display = 'none'
-            cliIcon.src = iconUris.warning
-          }
+        showInstalledCLIState(elements)
+        if (isOrgInCodacy && isRepoInCodacy) {
+          handleCLIOrgStates(elements, 'isInCodacy')
+        } else if (isOrgInCodacy) {
+          handleCLIOrgStates(elements, 'needsToAddRepository')
+        } else {
+          handleCLIOrgStates(elements, 'needsToAddOrganization')
         }
       } else {
-        if (cliHeaderActions) {
-          cliHeaderActions.style.display = 'none'
-        }
-        if (installCliButton) {
-          installCliButton.style.display = 'inline-block'
-        }
-        if (dependenciesDescription) {
-          dependenciesDescription.style.display = 'inline-block'
-        }
-        cliDescription.textContent = 'Get instant feedback as you type by analyzing your code locally.'
-        cliIcon.src = iconUris.unfinished
+        showUninstalledCLIState(elements)
       }
     }
   }
