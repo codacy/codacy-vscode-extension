@@ -253,7 +253,7 @@
           type: 'organization',
           params: { organization: organizationName, provider: organizationProvider },
         })
-        if (billing.isPremium) {
+        if (billing?.isPremium) {
           upgradeBox.style.display = 'none'
         } else {
           upgradeBox.style.display = 'block'
@@ -271,7 +271,7 @@
           type: 'repository',
           params: { organization: organizationName, provider: organizationProvider, repository: repositoryName },
         })
-        if (billing.isPremium) {
+        if (billing?.isPremium) {
           upgradeBox.style.display = 'none'
         } else {
           upgradeBox.style.display = 'block'
