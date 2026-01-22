@@ -218,6 +218,7 @@
   /**
    * Handles the organization states
    * @param {Object} elements
+   * @param {Object} connectionInfo
    * @param {string} state
    * @returns {void}
    */
