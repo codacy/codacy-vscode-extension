@@ -203,6 +203,18 @@ export class CodacyCloud implements vscode.Disposable {
             // repository not found, check for codacy cloud status
             if (this._params) {
               const status = await getRepositoryCodacyCloudStatus(this._params.provider, this._params.organization)
+
+              // Fetch organization BEFORE setting state (so it's available when state change event fires)
+              try {
+                const { data: organization } = await Api.Organization.getOrganization(
+                  this._params.provider,
+                  this._params.organization
+                )
+                this._organization = organization
+              } catch (orgError) {
+                Logger.warn(`Could not fetch organization: ${(orgError as Error).message}`)
+              }
+
               this.state = status
             } else {
               this.state = CodacyCloudState.NoRepository

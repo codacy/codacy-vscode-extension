@@ -1,0 +1,131 @@
+body {
+  background-color: transparent;
+}
+
+.setup-list {
+  list-style: none;
+  padding: 0;
+}
+
+.setup-item {
+  width: 100%;
+  padding: 12px;
+  border-width: 1px 1px 0;
+  border-style: solid;
+  border-color: var(--vscode-input-border);
+}
+
+li:last-of-type .setup-item, #upgrade-box {
+  border-width: 1px;
+}
+
+.setup-item h2 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.setup-item p {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.setup-item-content {
+  width: 100%;
+}
+
+.flex {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.setup-item-icon {
+  margin-right: 8px;
+}
+
+.upgrade-box {
+  margin-top: 16px;
+}
+
+.setup-item-title {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 510;
+}
+
+.setup-item button:not(.link-btn, .icon-btn) {
+  margin-top: 8px;
+}
+
+#cloud-no-org-description {
+  margin-top: 8px;
+}
+
+#dependencies-description {
+  margin-top: 8px;
+  color: var(--vscode-disabledForeground);
+}
+
+.setup-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.setup-item-header h2 {
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+/* Loading state styles */
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--vscode-input-border);
+  border-top-color: var(--vscode-focusBorder);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 0;
+}

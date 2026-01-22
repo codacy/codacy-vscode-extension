@@ -10,7 +10,7 @@
     "url": "https://github.com/codacy/codacy-vscode-extension"
   },
   "engines": {
-    "vscode": "^1.99.0"
+    "vscode": "^1.102.0"
   },
   "categories": [
     "Linters",
@@ -55,7 +55,7 @@
           "id": "codacy:cloud-status",
           "name": "Codacy Cloud",
           "icon": "$(library)",
-          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest",
+          "when": "codacy:hasProject && Codacy:PullRequestStateContext == NoPullRequest && Codacy:CodacyCloudStateContext != NeedsAuthentication && Codacy:CodacyCloudStateContext != NeedsToAddOrganization && Codacy:CodacyCloudStateContext != NeedsToAddRepository",
           "initialSize": 1,
           "collapsed": false
         },
@@ -81,18 +81,12 @@
           "initialSize": 3
         },
         {
-          "id": "codacy:mcp",
-          "name": "AI Guardrails",
-          "when": "codacy:hasProject && codacy:supportsMCP",
-          "icon": "$(gear)",
-          "initialSize": 2
-        },
-        {
-          "id": "codacy:cli",
-          "name": "Local Analysis",
-          "when": "codacy:hasProject && ((!codacy:cliInstalled && codacy:canInstallCLI) || (codacy:windowsDetected && !codacy:canInstallCLI))",
-          "icon": "$(gear)",
-          "initialSize": 2
+          "type": "webview",
+          "id": "codacy.setupView",
+          "name": "Setup",
+          "when": "codacy:hasProject",
+          "collapsed": false,
+          "initialSize": 4
         },
         {
           "id": "codacy:support",
@@ -115,11 +109,6 @@
       },
       {
         "view": "codacy:cloud-status",
-        "contents": "You are not connected to Codacy. Connect to Codacy to customize your rules and scan every PR before it gets merged.\n[Connect to Codacy](command:codacy.codacyAuth)\n\nGet access to all features: coverage, DAST, SCA scanning, and more. [Learn more about Codacy](https://www.codacy.com/)",
-        "when": "Codacy:CodacyCloudStateContext == NeedsAuthentication"
-      },
-      {
-        "view": "codacy:cloud-status",
         "contents": "This project isn't a Git repository. To connect it to Codacy, initialize a Git repository first.",
         "when": "Codacy:CodacyCloudStateContext == NoGitRepository"
       },
@@ -137,11 +126,6 @@
         "view": "codacy:cloud-status",
         "contents": "An admin must approve your request to join the organization on Codacy.",
         "when": "Codacy:CodacyCloudStateContext == HasPendingJoinOrganization"
-      },
-      {
-        "view": "codacy:cloud-status",
-        "contents": "This organization is not part of Codacy.\n[Add organization](command:codacy.codacyAuth)",
-        "when": "Codacy:CodacyCloudStateContext == NeedsToAddOrganization"
       },
       {
         "view": "codacy:cloud-status",
@@ -504,7 +488,7 @@
     "@types/sarif": "2.1.7",
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
-    "@types/vscode": "^1.99.0",
+    "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",
     "@vscode/test-electron": "^2.3.4",
@@ -525,6 +509,7 @@
   },
   "dependencies": {
     "@codacy/codacy-mcp": "^0.6.19",
+    "@eslint/js": "^9.39.2",
     "@segment/analytics-node": "^1.1.3",
     "@types/uuid": "^10.0.0",
     "axios": "^1.7.4",
