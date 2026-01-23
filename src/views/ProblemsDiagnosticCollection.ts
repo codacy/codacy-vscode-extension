@@ -394,11 +394,11 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
         }
 
         // add see issue details actions for API issues
-        const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
+        const seeIssueDetailsAction = new vscode.CodeAction('Codacy: See issue details', vscode.CodeActionKind.QuickFix)
         seeIssueDetailsAction.diagnostics = [diagnostic]
         seeIssueDetailsAction.command = {
           command: 'codacy.issue.seeDetails',
-          title: 'See issue details',
+          title: 'Codacy: See issue details',
           arguments: [diagnostic.commitIssue],
         }
         actions.push(seeIssueDetailsAction)
@@ -407,11 +407,14 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
       // Handle CLI diagnostics
       else if (diagnostic instanceof CliIssueDiagnostic) {
         // add see issue details actions for CLI issues
-        const seeIssueDetailsAction = new vscode.CodeAction('See issue details', vscode.CodeActionKind.QuickFix)
+        const seeIssueDetailsAction = new vscode.CodeAction(
+          'Codacy CLI: See issue details',
+          vscode.CodeActionKind.QuickFix
+        )
         seeIssueDetailsAction.diagnostics = [diagnostic]
         seeIssueDetailsAction.command = {
           command: 'codacy.cliIssue.seeDetails',
-          title: 'See issue details',
+          title: 'Codacy CLI: See issue details',
           arguments: [diagnostic.result],
         }
         actions.push(seeIssueDetailsAction)
