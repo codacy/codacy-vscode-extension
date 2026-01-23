@@ -30,7 +30,7 @@ import {
 } from './commands/configureMCP'
 import { addRepository, joinOrganization } from './onboarding'
 import { createOrUpdateRules } from './commands/createRules'
-import { activateWebview } from './views/SetupView'
+// import { activateWebview } from './views/SetupView'
 
 /**
  * Handle file creation events by running Codacy CLI config discover
@@ -175,7 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
   Logger.appendLine('Codacy extension activated')
   context.subscriptions.push(Logger)
   context.subscriptions.push(new SupportTree(context))
-  const setupViewProvider = activateWebview(context)
+  // const setupViewProvider = activateWebview(context)
 
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)
@@ -228,7 +228,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(codacyCloud)
 
     // Set the CodacyCloud instance in the SetupViewProvider
-    setupViewProvider?.setCodacyCloud(codacyCloud)
+    // setupViewProvider?.setCodacyCloud(codacyCloud)
 
     const gitProvider = await registerGitProvider(context, codacyCloud)
 
