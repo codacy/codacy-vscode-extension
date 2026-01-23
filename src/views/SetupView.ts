@@ -329,15 +329,11 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     )
 
     // Do the same for the stylesheet.
-    const styleResetUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'reset.css')
-    )
+    const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'reset.css'))
     const styleVSCodeUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'vscode.css')
     )
-    const styleMainUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'main.css')
-    )
+    const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'main.css'))
 
     const unfinishedStepIconUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'assets', 'circle-large.svg')
@@ -464,7 +460,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   <div class="setup-item upgrade-box" id="upgrade-box">
     <p>Strengthen security and quality across all your repositories.</p>
     <a href="https://www.codacy.com/pricing" id="upgrade-button" target="_blank" rel="noopener noreferrer">
-      <button class="secondary">Upgrade to Pro</button>
+      <button class="secondary">Upgrade plan</button>
     </a>
   </div>
 </body>
