@@ -325,29 +325,29 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private _getHtmlForWebview(webview: vscode.Webview) {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'scripts', 'setupScript.js')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'scripts', 'setupScript.js')
     )
 
     // Do the same for the stylesheet.
     const styleResetUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'styles', 'reset.css')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'reset.css')
     )
     const styleVSCodeUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'styles', 'vscode.css')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'vscode.css')
     )
     const styleMainUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'styles', 'main.css')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'styles', 'main.css')
     )
 
     const unfinishedStepIconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'assets', 'circle-large.svg')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'assets', 'circle-large.svg')
     )
 
     const finishedStepIconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'assets', 'pass-filled.svg')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'assets', 'pass-filled.svg')
     )
     const warningStepIconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'src', 'views', 'assets', 'warning.svg')
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'assets', 'warning.svg')
     )
 
     // Use a nonce to only allow a specific script to be run.
