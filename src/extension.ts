@@ -242,9 +242,13 @@ export async function activate(context: vscode.ExtensionContext) {
     const ide = getCurrentIDE()
 
     if (ide === 'vscode' || ide === 'insiders') {
-      context.subscriptions.push(
-        vscode.lm.registerMcpServerDefinitionProvider('codacyMcpProvider', new CodacyMcpProvider(context))
-      )
+      try {
+        context.subscriptions.push(
+          vscode.lm.registerMcpServerDefinitionProvider('codacyMcpProvider', new CodacyMcpProvider(context))
+        )
+      } catch (error) {
+        Logger.warn(`Failed to register MCP server definition provider: ${error}`)
+      }
     }
 
     // Configure MCP automatically
