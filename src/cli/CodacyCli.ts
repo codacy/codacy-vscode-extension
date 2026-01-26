@@ -48,7 +48,11 @@ export abstract class CodacyCli {
   }
 
   protected preparePathForExec(path: string): string {
-    return path
+    // Wrap path in double quotes and escape characters that are special inside double quotes
+    // Special characters inside double quotes that we escape: $, `, \, "
+    // This approach works both when the path is used directly and when wrapped in additional quotes
+    const escaped = path.replace(/([\\$"`])/g, '\\$1')
+    return `"${escaped}"`
   }
 
   protected getIdentificationParameters(): Record<string, string> {

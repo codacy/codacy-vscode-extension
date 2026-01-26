@@ -91,10 +91,10 @@ export class MacCodacyCli extends CodacyCli {
             const execPath = this.preparePathForExec(codacyCliPath)
 
             await this.execAsync(
-              `curl -Ls -o "${execPath}" https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`
+              `curl -Ls -o ${execPath} https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh`
             )
 
-            await this.execAsync(`chmod +x "${execPath}"`)
+            await this.execAsync(`chmod +x ${execPath}`)
 
             this.setCliCommand(
               this._cliVersion ? `CODACY_CLI_V2_VERSION=${this._cliVersion} ${codacyCliPath}` : codacyCliPath

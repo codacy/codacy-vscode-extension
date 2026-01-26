@@ -11,12 +11,13 @@ export class WinWSLCodacyCli extends MacCodacyCli {
   private static toWSLPath(path: string): string {
     // Convert Windows path to WSL path
     // Example: 'C:\Users\user\project' -> '/mnt/c/Users/user/project'
-    // First, unescape any escaped spaces (backslash-space -> space)
+    // Remove quotes and unescape any escaped spaces
     let cleanPath = path.replace(/^'|'$/g, '')
-    // Unescape any escaped spaces (backslash-space -> space)
     cleanPath = cleanPath.replace(/\\ /g, ' ')
-    // Then convert backslashes to slashes and add /mnt/ prefix
-    const wslPath = cleanPath.replace(/\\/g, '/').replace(/^'?([a-zA-Z]):/, '/mnt/$1').replace(/ /g, '\\ ')
+    // Convert backslashes to slashes and add /mnt/ prefix
+    // Note: We don't escape spaces here - the parent preparePathForExec will handle all escaping
+    // The regex [a-zA-Z] matches both uppercase and lowercase drive letters (A-Z, a-z)
+    const wslPath = cleanPath.replace(/\\/g, '/').replace(/^'?([a-zA-Z]):/, (_, letter) => `/mnt/${letter.toLowerCase()}`)
     return wslPath
   }
 
@@ -28,9 +29,10 @@ export class WinWSLCodacyCli extends MacCodacyCli {
   }
 
   protected preparePathForExec(path: string): string {
-    // Convert the path to WSL format and wrap in quotes to handle spaces
+    // Convert the path to WSL format first
     const wslPath = WinWSLCodacyCli.toWSLPath(path)
-    return wslPath.includes(' ') ? `"${wslPath}"` : wslPath;
+    // Then apply the base class escaping for shell special characters
+    return super.preparePathForExec(wslPath)
   }
 
   protected async execAsync(
