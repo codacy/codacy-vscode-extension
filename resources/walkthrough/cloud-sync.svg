@@ -8,7 +8,7 @@
       --codacy-foreground: var(--vscode-editor-foreground, #d4d4d4);
       --codacy-accent: var(--vscode-button-background, #0e639c);
       --codacy-text-muted: var(--vscode-descriptionForeground, #9ca3af);
-      --codacy-border: var(--vscode-panel-border, #3c3c3c);
+      --codacy-border: var(--vscode-panel-border, #E1E1E1);
       --codacy-warning: var(--vscode-testing-iconQueued, #ccb23e);
       --codacy-success: var(--vscode-testing-iconPassed, #73c991);
       --codacy-error: var(--vscode-testing-iconFailed, #f14c4c);
@@ -17,11 +17,13 @@
       --codacy-icon-dark: var(--vscode-icon-foreground, #171d26);
       --codacy-white: #ffffff;
       --codacy-card-background: var(--vscode-editorWidget-background, #ffffff);
+      --codacy-surface: var(--vscode-sideBar-background, #e5e5e5);
+      --codacy-panel: var(--vscode-editorWidget-background, #f8f8f8);
     }
   </style>
 
   <g clip-path="url(#clip0_89_7832)" filter="url(#filter0_d_89_7832)">
-    <rect width="410" height="304.143" transform="translate(16 14)" fill="var(--codacy-background)"/>
+    <rect width="410" height="304.143" transform="translate(16 14)" fill="var(--codacy-panel)"/>
     <mask id="path-1-inside-1_89_7832" fill="white">
       <path d="M16 14.1433H228V318.143H16V14.1433Z"/>
     </mask>
