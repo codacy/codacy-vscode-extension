@@ -46,7 +46,10 @@
             "media": {
               "image": "resources/walkthrough/cloud-sync.svg",
               "altText": "Cloud sync illustration showing connection to Codacy"
-            }
+            },
+            "completionEvents": [
+              "onContext:Codacy:CodacyCloudStateContext == Loaded"
+            ]
           },
           {
             "id": "codacy.walkthrough.aiGuardrails",
@@ -55,7 +58,10 @@
             "media": {
               "image": "resources/walkthrough/ai-guardrails.svg",
               "altText": "Shield icon representing AI guardrails protection"
-            }
+            },
+            "completionEvents": [
+              "onContext:codacy:mcpConfigured"
+            ]
           },
           {
             "id": "codacy.walkthrough.localAnalysis",
@@ -64,7 +70,10 @@
             "media": {
               "image": "resources/walkthrough/local-analysis.svg",
               "altText": "Terminal showing Codacy CLI analyzing code"
-            }
+            },
+            "completionEvents": [
+              "onContext:codacy:cliInstalled"
+            ]
           },
           {
             "id": "codacy.walkthrough.customizeAnalysis",
@@ -73,7 +82,10 @@
             "media": {
               "image": "resources/walkthrough/customize-analysis.svg",
               "altText": "Settings icon representing customization"
-            }
+            },
+            "completionEvents": [
+              "onCommand:codacy.configurePatterns"
+            ]
           }
         ]
       }
