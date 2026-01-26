@@ -37,7 +37,7 @@
       {
         "id": "codacy.setup",
         "title": "Get Started with Codacy",
-        "description": "Set up Codacy to analyze your code, connect to the cloud, and enable AI guardrails.",
+        "description": "Set up quality checks, coverage visibility and AI guardrails in just a few steps.",
         "steps": [
           {
             "id": "codacy.walkthrough.cloudSync",
