@@ -115,7 +115,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
         Logger.error('Repository parameters are not available')
         return
       }
-      const { provider, organization } = codacyCloud.params!
+      const { provider, organization } = codacyCloud.params
       vscode.env.openExternal(
         vscode.Uri.parse(`https://app.codacy.com/organizations/${provider}/${organization}/dashboard`)
       )
@@ -126,7 +126,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
         Logger.error('Cannot configure patterns: repository parameters are not available')
         return
       }
-      const { provider, organization, repository } = codacyCloud.params!
+      const { provider, organization, repository } = codacyCloud.params
       vscode.env.openExternal(
         vscode.Uri.parse(`https://app.codacy.com/${provider}/${organization}/${repository}/patterns`)
       )
