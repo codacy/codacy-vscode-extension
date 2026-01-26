@@ -44,7 +44,12 @@
             "title": "Connect to Codacy",
             "description": "Create or sign-in to your account to customize analysis, PR overviews, see coverage in the IDE, and much more.\n\n[Connect to Codacy](command:codacy.codacyAuth)",
             "media": {
-              "image": "resources/walkthrough/cloud-sync.svg",
+              "image": {
+                "light": "resources/walkthrough/light/cloud-sync.svg",
+                "dark": "resources/walkthrough/dark/cloud-sync.svg",
+                "hc": "resources/walkthrough/dark/cloud-sync.svg",
+                "hcLight": "resources/walkthrough/light/cloud-sync.svg"
+              },
               "altText": "Cloud sync illustration showing connection to Codacy"
             },
             "completionEvents": [
@@ -56,7 +61,12 @@
             "title": "Set Up AI Guardrails",
             "description": "Control your AI-generated code with Codacy Guardrails.\n\nInstall the MCP Server to get access to Codacy information from your AI agent.\n\n[Install Codacy MCP](command:codacy.configureMCP)",
             "media": {
-              "image": "resources/walkthrough/ai-guardrails.svg",
+              "image": {
+                "light": "resources/walkthrough/light/ai-guardrails.svg",
+                "dark": "resources/walkthrough/dark/ai-guardrails.svg",
+                "hc": "resources/walkthrough/dark/ai-guardrails.svg",
+                "hcLight": "resources/walkthrough/light/ai-guardrails.svg"
+              },
               "altText": "Shield icon representing AI guardrails protection"
             },
             "completionEvents": [
@@ -68,7 +78,12 @@
             "title": "Install Local Analysis",
             "description": "Get instant feedback as you type by analyzing your code locally.\n\n[Install Codacy CLI](command:codacy.installCLI)\n\nInstalls all required dependencies: Node, Python, Java",
             "media": {
-              "image": "resources/walkthrough/local-analysis.svg",
+              "image": {  
+                "light": "resources/walkthrough/light/local-analysis.svg",
+                "dark": "resources/walkthrough/dark/local-analysis.svg",
+                "hc": "resources/walkthrough/dark/local-analysis.svg",
+                "hcLight": "resources/walkthrough/light/local-analysis.svg"
+              },
               "altText": "Terminal showing Codacy CLI analyzing code"
             },
             "completionEvents": [
@@ -80,7 +95,12 @@
             "title": "Customize Your Analysis",
             "description": "With your organization and repository added to Codacy, configure the patterns and standards you want to follow in the cloud and the IDE.\n\n[Configure patterns](command:codacy.configurePatterns)\n\nPlus you can adjust gates / goals for duplication, complexity and even coverage.",
             "media": {
-              "image": "resources/walkthrough/customize-analysis.svg",
+              "image": {
+                "light": "resources/walkthrough/light/customize-analysis.svg",
+                "dark": "resources/walkthrough/dark/customize-analysis.svg",
+                "hc": "resources/walkthrough/dark/customize-analysis.svg",
+                "hcLight": "resources/walkthrough/light/customize-analysis.svg"
+              },
               "altText": "Settings icon representing customization"
             },
             "completionEvents": [
