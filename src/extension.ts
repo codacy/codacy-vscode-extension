@@ -272,10 +272,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // add views
     const statusBar = new StatusBar(context, codacyCloud)
-    context.subscriptions.push(new PullRequestSummaryTree(context, codacyCloud))
+
+    // Create tree views with error handling - if one fails, others can still work
+    try {
+      context.subscriptions.push(new PullRequestSummaryTree(context, codacyCloud))
+    } catch (error) {
+      Logger.error(`Failed to initialize PullRequestView: ${error}`)
+    }
+
     context.subscriptions.push(statusBar)
-    context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
-    context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
+
+    try {
+      context.subscriptions.push(new PullRequestsTree(context, codacyCloud))
+    } catch (error) {
+      Logger.error(`Failed to initialize OpenPullRequestsView: ${error}`)
+    }
+
+    try {
+      context.subscriptions.push(new BranchIssuesTree(context, codacyCloud))
+    } catch (error) {
+      Logger.error(`Failed to initialize BranchIssuesView: ${error}`)
+    }
 
     // initialize the problems diagnostic collection with status bar reference
     context.subscriptions.push(new ProblemsDiagnosticCollection(codacyCloud, statusBar))
