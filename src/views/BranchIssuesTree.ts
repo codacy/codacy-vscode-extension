@@ -9,6 +9,7 @@ import {
 import { BranchIssue, MAX_FETCH_BRANCH_ISSUES } from '../git/IssuesManager'
 import { differenceInDays } from 'date-fns'
 import { Account } from '../codacy/Account'
+import Logger from '../common/logger'
 
 const RECENTLY_ADDED_DAYS = 60
 
@@ -16,7 +17,7 @@ export class BranchIssuesTree extends vscode.Disposable implements vscode.TreeDa
   private _onDidChangeTreeData = new vscode.EventEmitter<BranchIssuesTreeNode | void>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
   private _disposables: vscode.Disposable[] = []
-  private _view: vscode.TreeView<BranchIssuesTreeNode>
+  private _view: vscode.TreeView<BranchIssuesTreeNode> | undefined
 
   private _allIssues: BranchIssue[] = []
 
@@ -27,29 +28,44 @@ export class BranchIssuesTree extends vscode.Disposable implements vscode.TreeDa
     super(() => this.dispose())
 
     // create the tree view
-    this._view = vscode.window.createTreeView('codacy:branchIssues', {
-      treeDataProvider: this,
-      showCollapseAll: true,
-    })
-
-    this._context.subscriptions.push(this._view)
-
-    // create a command to open the pull request summaryToo
-    this._context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.branchIssues.open', () => {
-        this._view.reveal(this._view.selection[0])
+    try {
+      this._view = vscode.window.createTreeView('codacy:branchIssues', {
+        treeDataProvider: this,
+        showCollapseAll: true,
       })
-    )
 
-    // subsribe to changes in the current branch
-    this._codacyCloud.branchIssues.onDidUpdateBranchIssues((issues: BranchIssue[]) => {
-      this._allIssues = issues
-      this._onDidChangeTreeData.fire()
+      this._context.subscriptions.push(this._view)
+      Logger.debug('BranchIssuesView created successfully')
 
-      this._view.title = `${this._codacyCloud.head?.name} - ${issues.length}${
-        issues.length >= MAX_FETCH_BRANCH_ISSUES ? '+' : ''
-      } issues`
-    })
+      // create a command to open the pull request summary
+      this._context.subscriptions.push(
+        vscode.commands.registerCommand('codacy.branchIssues.open', () => {
+          if (this._view) {
+            this._view.reveal(this._view.selection[0])
+          }
+        })
+      )
+
+      // subscribe to changes in the current branch
+      this._codacyCloud.branchIssues.onDidUpdateBranchIssues((issues: BranchIssue[]) => {
+        this._allIssues = issues
+        this._onDidChangeTreeData.fire()
+
+        if (this._view) {
+          this._view.title = `${this._codacyCloud.head?.name} - ${issues.length}${
+            issues.length >= MAX_FETCH_BRANCH_ISSUES ? '+' : ''
+          } issues`
+        }
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logger.error(`Failed to create BranchIssuesView: ${errorMessage}`)
+      Logger.error(
+        `[BranchIssuesView] Error stack: ${error instanceof Error ? error.stack : '[BranchIssuesView] No stack trace'}`
+      )
+      this._view = undefined
+      // Don't re-throw - let extension continue even if this view fails
+    }
   }
 
   getTreeItem(element: BranchIssuesTreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {

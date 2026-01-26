@@ -8,6 +8,7 @@ import {
   PullRequestIssuesNode,
   PullRequestSummaryNode,
 } from './nodes'
+import Logger from '../common/logger'
 
 export class PullRequestSummaryTree
   extends vscode.Disposable
@@ -16,7 +17,7 @@ export class PullRequestSummaryTree
   private _onDidChangeTreeData = new vscode.EventEmitter<PullRequestSummaryNode | void>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
   private _disposables: vscode.Disposable[] = []
-  private _view: vscode.TreeView<PullRequestSummaryNode>
+  private _view: vscode.TreeView<PullRequestSummaryNode> | undefined
 
   constructor(
     private _context: vscode.ExtensionContext,
@@ -25,30 +26,45 @@ export class PullRequestSummaryTree
     super(() => this.dispose())
 
     // create the tree view
-    this._view = vscode.window.createTreeView('codacy:prSummary', {
-      treeDataProvider: this,
-      showCollapseAll: true,
-    })
-
-    this._context.subscriptions.push(this._view)
-
-    // create a command to open the pull request summary
-    this._context.subscriptions.push(
-      vscode.commands.registerCommand('codacy.pr.openSummary', () => {
-        this._view.reveal(this._view.selection[0])
+    try {
+      this._view = vscode.window.createTreeView('codacy:prSummary', {
+        treeDataProvider: this,
+        showCollapseAll: true,
       })
-    )
 
-    // subscribe to changes in the pull request
-    this._codacyCloud.onDidUpdatePullRequest((pr) => {
-      this._onDidChangeTreeData.fire()
+      this._context.subscriptions.push(this._view)
+      Logger.debug('PullRequestView created successfully')
 
-      if (pr) {
-        this._view.title = `Pull Request #${pr.meta.number}`
-      } else {
-        this._view.title = 'Pull Request'
-      }
-    })
+      // create a command to open the pull request summary
+      this._context.subscriptions.push(
+        vscode.commands.registerCommand('codacy.pr.openSummary', () => {
+          if (this._view) {
+            this._view.reveal(this._view.selection[0])
+          }
+        })
+      )
+
+      // subscribe to changes in the pull request
+      this._codacyCloud.onDidUpdatePullRequest((pr) => {
+        this._onDidChangeTreeData.fire()
+
+        if (this._view) {
+          if (pr) {
+            this._view.title = `Pull Request #${pr.meta.number}`
+          } else {
+            this._view.title = 'Pull Request'
+          }
+        }
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logger.error(`Failed to create PullRequestView: ${errorMessage}`)
+      Logger.error(
+        `[PullRequestView] Error stack: ${error instanceof Error ? error.stack : '[PullRequestView] No stack trace'}`
+      )
+      this._view = undefined
+      // Don't re-throw - let extension continue even if this view fails
+    }
   }
 
   getTreeItem(element: PullRequestSummaryNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
