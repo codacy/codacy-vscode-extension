@@ -117,6 +117,12 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
       )
       Config.updateOnboardingSkipped(false)
     },
+    'codacy.configurePatterns': () => {
+      const { provider, organization, repository } = codacyCloud.params!
+      vscode.env.openExternal(
+        vscode.Uri.parse(`https://app.codacy.com/${provider}/${organization}/${repository}/patterns`)
+      )
+    },
   }
 
   Object.keys(commands).forEach((cmd) => {
