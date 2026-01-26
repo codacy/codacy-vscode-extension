@@ -33,6 +33,83 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "walkthroughs": [
+      {
+        "id": "codacy.setup",
+        "title": "Get Started with Codacy",
+        "description": "Set up quality checks, coverage visibility and AI guardrails in just a few steps.",
+        "steps": [
+          {
+            "id": "codacy.walkthrough.cloudSync",
+            "title": "Connect to Codacy",
+            "description": "Create or sign-in to your account to customize analysis, PR overviews, see coverage in the IDE, and much more.\n\n[Connect to Codacy](command:codacy.codacyAuth)",
+            "media": {
+              "image": {
+                "light": "resources/walkthrough/light/cloud-sync.svg",
+                "dark": "resources/walkthrough/dark/cloud-sync.svg",
+                "hc": "resources/walkthrough/dark/cloud-sync.svg",
+                "hcLight": "resources/walkthrough/light/cloud-sync.svg"
+              },
+              "altText": "Cloud sync illustration showing connection to Codacy"
+            },
+            "completionEvents": [
+              "onContext:Codacy:CodacyCloudStateContext == Loaded"
+            ]
+          },
+          {
+            "id": "codacy.walkthrough.aiGuardrails",
+            "title": "Set Up AI Guardrails",
+            "description": "Control your AI-generated code with Codacy Guardrails.\n\nInstall the MCP Server to get access to Codacy information from your AI agent.\n\n[Install Codacy MCP](command:codacy.configureMCP)",
+            "media": {
+              "image": {
+                "light": "resources/walkthrough/light/ai-guardrails.svg",
+                "dark": "resources/walkthrough/dark/ai-guardrails.svg",
+                "hc": "resources/walkthrough/dark/ai-guardrails.svg",
+                "hcLight": "resources/walkthrough/light/ai-guardrails.svg"
+              },
+              "altText": "Shield icon representing AI guardrails protection"
+            },
+            "completionEvents": [
+              "onContext:codacy:mcpConfigured"
+            ]
+          },
+          {
+            "id": "codacy.walkthrough.localAnalysis",
+            "title": "Install Local Analysis",
+            "description": "Get instant feedback as you type by analyzing your code locally.\n\n[Install Codacy CLI](command:codacy.installCLI)\n\nInstalls all required dependencies: Node, Python, Java",
+            "media": {
+              "image": {  
+                "light": "resources/walkthrough/light/local-analysis.svg",
+                "dark": "resources/walkthrough/dark/local-analysis.svg",
+                "hc": "resources/walkthrough/dark/local-analysis.svg",
+                "hcLight": "resources/walkthrough/light/local-analysis.svg"
+              },
+              "altText": "Terminal showing Codacy CLI analyzing code"
+            },
+            "completionEvents": [
+              "onContext:codacy:cliInstalled"
+            ]
+          },
+          {
+            "id": "codacy.walkthrough.customizeAnalysis",
+            "title": "Customize Your Analysis",
+            "description": "With your organization and repository added to Codacy, configure the patterns and standards you want to follow in the cloud and the IDE.\n\n[Configure patterns](command:codacy.configurePatterns)\n\nPlus you can adjust gates / goals for duplication, complexity and even coverage.",
+            "media": {
+              "image": {
+                "light": "resources/walkthrough/light/customize-analysis.svg",
+                "dark": "resources/walkthrough/dark/customize-analysis.svg",
+                "hc": "resources/walkthrough/dark/customize-analysis.svg",
+                "hcLight": "resources/walkthrough/light/customize-analysis.svg"
+              },
+              "altText": "Settings icon representing customization"
+            },
+            "completionEvents": [
+              "onCommand:codacy.configurePatterns"
+            ]
+          }
+        ]
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -332,6 +409,12 @@
         "title": "Install Codacy CLI",
         "category": "Codacy commands",
         "when": "!codacy:cliInstalled && codacy:canInstallCLI"
+      },
+      {
+        "command": "codacy.configurePatterns",
+        "title": "Configure Patterns",
+        "category": "Codacy commands",
+        "when": "Codacy:CodacyCloudStateContext == Loaded"
       }
     ],
     "menus": {
