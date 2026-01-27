@@ -68,7 +68,7 @@ export async function showPatternInStandardView(
         escapedProvider +
         '/' +
         escapedOrganization +
-        '/coding-standards/' +
+        '/policies/coding-standards/edit?id=' +
         escapedId
       return '<li><a href="' + href + '" target="_blank">Edit "' + escapedName + '"</a></li>'
     })
@@ -127,7 +127,7 @@ export async function showPatternInStandardView(
           }
           return
         case 'refreshIssues':
-          // Handle refresh issues if needed
+          // TODO: Implement refresh issues
           return
       }
     },

@@ -110,7 +110,7 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
     )
 
     if (action === 'Complete setup') {
-      await vscode.commands.executeCommand('workbench.view.extension.codacy.setupView')
+      await vscode.commands.executeCommand('workbench.view.extension.codacy-main')
     }
     return
   }
@@ -134,7 +134,6 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
   if (!hasPermissions) {
     const action = await vscode.window.showInformationMessage(
       "You don't have permissions to disable this pattern. Contact your Admin or ask for permissions.",
-      'Review pattern',
       'View permissions'
     )
 
@@ -156,14 +155,14 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
   const patternId = issue.patternInfo.id
 
   try {
-    // await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
-    //   patterns: [
-    //     {
-    //       id: patternId,
-    //       enabled: false,
-    //     },
-    //   ],
-    // })
+    await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
+      patterns: [
+        {
+          id: patternId,
+          enabled: false,
+        },
+      ],
+    })
 
     const action = await vscode.window.showInformationMessage(
       'Pattern was successfully disabled in the cloud. This might take some time to reflect in the UI.',
@@ -173,14 +172,14 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
 
     if (action === 'Undo') {
       try {
-        // await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
-        //   patterns: [
-        //     {
-        //       id: patternId,
-        //       enabled: true,
-        //     },
-        //   ],
-        // })
+        await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
+          patterns: [
+            {
+              id: patternId,
+              enabled: true,
+            },
+          ],
+        })
         vscode.window.showInformationMessage('Pattern has been re-enabled.')
         Logger.appendLine(`Pattern "${patternId}" re-enabled for repository ${provider}/${organization}/${repository}`)
       } catch (error) {

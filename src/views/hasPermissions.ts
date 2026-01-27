@@ -7,8 +7,15 @@ export const hasPermission = async (
   allowedByDefault: Permission,
   repositoryPermission?: Permission
 ) => {
-  const { data: organizationData } = await Api.Organization.getOrganization(provider, organization)
-  const minimumPermission = organizationData.analysisConfigurationMinimumPermission
+  let minimumPermission: Permission | undefined
+
+  try {
+    const { data: organizationData } = await Api.Organization.getOrganization(provider, organization)
+    minimumPermission = organizationData.analysisConfigurationMinimumPermission
+  } catch (error) {
+    // If we cannot retrieve the organization or its configuration, deny permission by default.
+    return false
+  }
 
   if (!minimumPermission) return false
 
