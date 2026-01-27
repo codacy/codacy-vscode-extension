@@ -49,7 +49,7 @@ export async function showPatternInStandardView(
 
   const panel = vscode.window.createWebviewPanel(
     'codacy.patternInStandard', // internal id
-    `Disable pattern "${escapedTitle}"`,
+    'Disable pattern',
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
@@ -70,7 +70,6 @@ export async function showPatternInStandardView(
       const encodedId = encodeURIComponent(standard.id)
       const encodedProvider = encodeURIComponent(params.provider)
       const encodedOrganization = encodeURIComponent(params.organization)
-      // All user-controlled values are escaped via escapeHtml() above
       const href =
         'https://app.codacy.com/organizations/' +
         encodedProvider +
@@ -78,7 +77,7 @@ export async function showPatternInStandardView(
         encodedOrganization +
         '/policies/coding-standards/edit?id=' +
         encodedId
-      return '<li><a href="' + escapeHtml(href) + '" target="_blank">Edit "' + escapedName + '"</a></li>'
+      return '<li><a href="' + href + '" target="_blank">Edit "' + escapedName + '"</a></li>'
     })
     .join('')
 
@@ -111,8 +110,8 @@ export async function showPatternInStandardView(
           </div>
           <p class="step-description">To disable this pattern, edit the standards below:</p>
           <ul class="standards-list">${standardsListHtml}</ul>
-          <button class="copy-pattern-button" data-pattern-title="${escapedTitle}">
-            <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" width="16" height="16" viewBox="0 0 512 512"><rect x="128" y="128" width="336" height="336" rx="57" ry="57" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"/><path d="M383.5 128l.5-24a56.16 56.16 0 00-56-56H112a64.19 64.19 0 00-64 64v216a56.16 56.16 0 0056 56h24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>
+          <button class="copy-pattern-button" data-pattern-title="${escapedTitle}" aria-label="Copy pattern">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="copy-icon" width="16" height="16" viewBox="0 0 512 512"><rect x="128" y="128" width="336" height="336" rx="57" ry="57" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"/><path d="M383.5 128l.5-24a56.16 56.16 0 00-56-56H112a64.19 64.19 0 00-64 64v216a56.16 56.16 0 0056 56h24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>
             Copy pattern: "${escapedTitle}"
           </button>
         </div>
@@ -122,7 +121,7 @@ export async function showPatternInStandardView(
             <div class="step-title">Refresh your analysis</div>
           </div>
           <p class="step-description">After disabling the pattern, refresh your issues and local analysis rules.</p>
-          <button class="refresh-button">Refresh issues</button>
+          <button class="refresh-button" aria-label="Refresh issues">Refresh issues</button>
         </div>
         <p class="help-text">
           Need help? <a href="https://docs.codacy.com/organizations/using-coding-standards/#editing" target="_blank">
@@ -151,19 +150,28 @@ export async function showPatternInStandardView(
           }
           return
         case 'refreshIssues':
-          if (issue.commitInfo) {
-            try {
-              await Api.Repository.reanalyzeCommitById(params.provider, params.organization, params.repository, {
-                commitUuid: issue.commitInfo.sha,
-              })
-              if (cli) {
-                await cli.initialize()
-              }
-              vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')
-            } catch (error) {
-              vscode.window.showErrorMessage('Failed to refresh issues. Please try again.')
-              Logger.error(`Failed to refresh issues: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          if (!issue.commitInfo) {
+            vscode.window.showErrorMessage(
+              'Cannot refresh this issue because commit information is unavailable in Codacy Cloud. Talk to support.'
+            )
+            Logger.error(
+              '[Codacy API] Attempted to refresh issues but no commit information was available for the selected issue.'
+            )
+            return
+          }
+          try {
+            await Api.Repository.reanalyzeCommitById(params.provider, params.organization, params.repository, {
+              commitUuid: issue.commitInfo.sha,
+            })
+            if (cli) {
+              await cli.initialize()
             }
+            vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')
+          } catch (error) {
+            vscode.window.showErrorMessage('Failed to refresh issues. Please try again.')
+            Logger.error(
+              `[Codacy API] Failed to refresh issues from commit ${issue.commitInfo.sha}: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
           }
 
           return

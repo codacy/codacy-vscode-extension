@@ -5,8 +5,7 @@ import { CodingStandardInfo, CommitIssue } from '../api/client'
 import Logger from '../common/logger'
 import { ProcessedSarifResult } from '../cli'
 import { RepositoryParams } from '../git/CodacyCloud'
-import { handleError } from '../common/utils'
-import { CodacyError } from '../common/utils'
+import { handleError, CodacyError } from '../common/utils'
 import { hasPermission } from './hasPermissions'
 import { getCurrentPendingCount } from './SetupView'
 import { showPatternInStandardView } from './PatternInStandardView'
@@ -95,8 +94,10 @@ export const seeCliIssueDetailsCommand = async (issue?: ProcessedSarifResult) =>
 
 export const disablePatternCommand = async (issue?: CommitIssue, params?: RepositoryParams, cli?: CodacyCli) => {
   if (!issue || !params) {
-    vscode.window.showErrorMessage('Unable to disable pattern: missing repository information.')
-    Logger.error('Unable to disable pattern: missing repository information.')
+    vscode.window.showErrorMessage(
+      "We couldn't disable this pattern because we're missing repository information. If this keeps happening, reach out to support."
+    )
+    Logger.error('[Codacy API] Unable to disable pattern: missing repository information')
     return
   }
 
@@ -106,7 +107,7 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
   // If pendingCount > 0, setup is incomplete
   if (pendingCount === undefined || pendingCount > 0) {
     const action = await vscode.window.showInformationMessage(
-      'Complete your Codacy setup to disable a pattern',
+      'Complete your Codacy setup to disable patterns.',
       'Complete setup'
     )
 
@@ -127,14 +128,19 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
     codingStandards = repositoryData.standards
   } catch (error) {
     Logger.error(
-      `Failed to check 'disable pattern' permissions: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[Codacy API] Failed to check repository information: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
+    if (error instanceof CodacyError) {
+      handleError(error, false)
+    } else {
+      handleError(new CodacyError('Failed to check repository information', error as Error, 'API'), false)
+    }
     return
   }
 
   if (!hasPermissions) {
     const action = await vscode.window.showInformationMessage(
-      "You don't have permissions to disable this pattern. Contact your Admin or ask for permissions.",
+      "You don't have permission to disable this pattern. Contact your admin or  ask for permissions.",
       'View permissions'
     )
 
@@ -169,7 +175,9 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
       'Pattern was successfully disabled in the cloud. This might take some time to reflect in the UI.',
       'Undo'
     )
-    Logger.appendLine(`Pattern "${patternId}" disabled for repository ${provider}/${organization}/${repository}`)
+    Logger.appendLine(
+      `[Codacy API] Pattern "${patternId}" disabled for repository ${provider}/${organization}/${repository}`
+    )
 
     if (action === 'Undo') {
       try {
@@ -181,9 +189,14 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
             },
           ],
         })
-        vscode.window.showInformationMessage('Pattern has been re-enabled.')
-        Logger.appendLine(`Pattern "${patternId}" re-enabled for repository ${provider}/${organization}/${repository}`)
+        vscode.window.showInformationMessage('Pattern re-enabled successfully.')
+        Logger.appendLine(
+          `[Codacy API] Pattern "${patternId}" re-enabled for repository ${provider}/${organization}/${repository}`
+        )
       } catch (error) {
+        Logger.error(
+          `[Codacy API] Failed to re-enable pattern "${patternId}": ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
         if (error instanceof CodacyError) {
           handleError(error, false)
         } else {
@@ -192,6 +205,9 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
       }
     }
   } catch (error) {
+    Logger.error(
+      `[Codacy API] Failed to disable pattern "${patternId}": ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
     if (error instanceof CodacyError) {
       handleError(error, false)
     } else {
