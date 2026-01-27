@@ -3,6 +3,7 @@ import { CodingStandardInfo, CommitIssue, Pattern } from '../api/client'
 import { Api } from '../api'
 import Logger from '../common/logger'
 import { getNonce } from './utils'
+import { CodacyCli } from '../cli/CodacyCli'
 
 /**
  * Escape HTML special characters to prevent XSS attacks
@@ -18,9 +19,10 @@ function escapeHtml(text: string | number): string {
 }
 
 export async function showPatternInStandardView(
-  params: { provider: string; organization: string },
+  params: { provider: string; organization: string; repository: string },
   issue: CommitIssue,
-  standards: CodingStandardInfo[]
+  standards: CodingStandardInfo[],
+  cli?: CodacyCli
 ) {
   let pattern: Pattern | undefined
 
@@ -149,7 +151,21 @@ export async function showPatternInStandardView(
           }
           return
         case 'refreshIssues':
-          // TODO: Implement refresh issues
+          if (issue.commitInfo) {
+            try {
+              await Api.Repository.reanalyzeCommitById(params.provider, params.organization, params.repository, {
+                commitUuid: issue.commitInfo.sha,
+              })
+              if (cli) {
+                await cli.initialize()
+              }
+              vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')
+            } catch (error) {
+              vscode.window.showErrorMessage('Failed to refresh issues. Please try again.')
+              Logger.error(`Failed to refresh issues: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            }
+          }
+
           return
       }
     },

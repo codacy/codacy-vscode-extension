@@ -275,7 +275,10 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(AuthUriHandler.register())
 
     context.subscriptions.push(
-      vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider(() => codacyCloud.params))
+      vscode.languages.registerCodeActionsProvider(
+        '*',
+        new IssueActionProvider(() => codacyCloud.params, codacyCloud.cli)
+      )
     )
 
     context.subscriptions.push(

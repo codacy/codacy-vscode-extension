@@ -10,6 +10,7 @@ import { CodacyError } from '../common/utils'
 import { hasPermission } from './hasPermissions'
 import { getCurrentPendingCount } from './SetupView'
 import { showPatternInStandardView } from './PatternInStandardView'
+import { CodacyCli } from '../cli/CodacyCli'
 
 export class IssueDetailsProvider {
   async provideTextDocumentContent(uri: vscode.Uri) {
@@ -92,7 +93,7 @@ export const seeCliIssueDetailsCommand = async (issue?: ProcessedSarifResult) =>
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
 }
 
-export const disablePatternCommand = async (issue?: CommitIssue, params?: RepositoryParams) => {
+export const disablePatternCommand = async (issue?: CommitIssue, params?: RepositoryParams, cli?: CodacyCli) => {
   if (!issue || !params) {
     vscode.window.showErrorMessage('Unable to disable pattern: missing repository information.')
     Logger.error('Unable to disable pattern: missing repository information.')
@@ -147,7 +148,7 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
 
   // If coding standard is applied, user can't disable patterns at repository level
   if (codingStandards.length > 0) {
-    showPatternInStandardView({ provider, organization }, issue, codingStandards)
+    showPatternInStandardView({ provider, organization, repository }, issue, codingStandards, cli)
     return
   }
 

@@ -11,6 +11,7 @@ import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 import { StatusBar } from './StatusBar'
+import { CodacyCli } from '../cli/CodacyCli'
 
 const patternSeverityToDiagnosticSeverity = (severity: SeverityLevel): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -369,7 +370,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
  * Custom Code Action Provider to provide quick fixes for Codacy issues
  */
 export class IssueActionProvider implements vscode.CodeActionProvider {
-  constructor(private getParams?: () => { provider: string; organization: string; repository: string } | undefined) {}
+  constructor(
+    private getParams?: () => { provider: string; organization: string; repository: string } | undefined,
+    private cli?: CodacyCli
+  ) {}
 
   provideCodeActions(
     document: vscode.TextDocument,
@@ -413,7 +417,7 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
           disablePatternAction.command = {
             command: 'codacy.issue.disablePattern',
             title: 'Codacy: Disable pattern',
-            arguments: [diagnostic.commitIssue, params],
+            arguments: [diagnostic.commitIssue, params, this.cli],
           }
           actions.push(disablePatternAction)
         }
