@@ -369,6 +369,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
  * Custom Code Action Provider to provide quick fixes for Codacy issues
  */
 export class IssueActionProvider implements vscode.CodeActionProvider {
+  constructor(private getParams?: () => { provider: string; organization: string; repository: string } | undefined) {}
+
   provideCodeActions(
     document: vscode.TextDocument,
     range: vscode.Range | vscode.Selection,
@@ -402,6 +404,19 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
           arguments: [diagnostic.commitIssue],
         }
         actions.push(seeIssueDetailsAction)
+
+        // add disable pattern action for API issues
+        const params = this.getParams?.()
+        if (params) {
+          const disablePatternAction = new vscode.CodeAction('Codacy: Disable pattern', vscode.CodeActionKind.QuickFix)
+          disablePatternAction.diagnostics = [diagnostic]
+          disablePatternAction.command = {
+            command: 'codacy.issue.disablePattern',
+            title: 'Codacy: Disable pattern',
+            arguments: [diagnostic.commitIssue, params],
+          }
+          actions.push(disablePatternAction)
+        }
       }
 
       // Handle CLI diagnostics

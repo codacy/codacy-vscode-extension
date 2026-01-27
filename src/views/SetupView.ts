@@ -9,6 +9,9 @@ import { codacyAuth } from '../auth'
 import Logger from '../common/logger'
 import { Account } from '../codacy/Account'
 
+let currentPendingCount = 0
+export const getCurrentPendingCount = () => currentPendingCount
+
 function getNonce() {
   let text = ''
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -65,6 +68,8 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     }
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview)
+
+    currentPendingCount = SetupViewProvider.TOTAL_SETUP_ITEMS
 
     // Send initial status to webview and update badge
     this.updateLoginState()
@@ -166,6 +171,8 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
     const completedCount = [this._isCloudComplete, this._isCLIComplete, this._isMCPComplete].filter(Boolean).length
     const pendingCount = SetupViewProvider.TOTAL_SETUP_ITEMS - completedCount
+
+    currentPendingCount = pendingCount
 
     if (pendingCount > 0) {
       this._view.title = `SETUP (${pendingCount} left)`
