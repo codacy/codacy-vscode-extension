@@ -9,6 +9,7 @@ import { handleError } from '../common/utils'
 import { CodacyError } from '../common/utils'
 import { hasPermission } from './hasPermissions'
 import { getCurrentPendingCount } from './SetupView'
+import { showPatternInStandardView } from './PatternInStandardView'
 
 export class IssueDetailsProvider {
   async provideTextDocumentContent(uri: vscode.Uri) {
@@ -147,9 +148,7 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
 
   // If coding standard is applied, user can't disable patterns at repository level
   if (codingStandards.length > 0) {
-    vscode.window.showInformationMessage(
-      'This repository uses a coding standard. Patterns are managed at the coding standard level, not at the repository level.'
-    )
+    showPatternInStandardView({ provider, organization }, issue, codingStandards)
     return
   }
 
