@@ -1,0 +1,150 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  padding: 40px;
+  line-height: 1.6;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  margin-bottom: 16px;
+}
+
+.intro-text {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 28px;
+}
+
+.step-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.step-number {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 9px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.step-description {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 16px;
+  margin-left: 24px;
+}
+
+.standards-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  margin-left: 24px;
+}
+
+.standards-list li {
+  margin-bottom: 16px;
+}
+
+.standards-list a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.standards-list a:hover {
+  color: var(--vscode-textLink-activeForeground);
+}
+
+.standards-list a::after {
+  content: ' →';
+  margin-left: 5px;
+}
+
+.copy-pattern-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  margin-left: 24px;
+}
+
+.copy-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+}
+
+.refresh-button {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-block;
+  margin-left: 24px;
+}
+
+.refresh-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.help-text {
+  margin-top: 28px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.help-text a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+.help-text a:hover {
+  color: var(--vscode-textLink-activeForeground);
+}
