@@ -8,18 +8,10 @@ import { addRepository } from '../onboarding'
 import { codacyAuth } from '../auth'
 import Logger from '../common/logger'
 import { Account } from '../codacy/Account'
+import { getNonce } from './utils'
 
-let currentPendingCount = 0
+let currentPendingCount: number | undefined = undefined
 export const getCurrentPendingCount = () => currentPendingCount
-
-function getNonce() {
-  let text = ''
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length))
-  }
-  return text
-}
 
 export const activateWebview = (context: vscode.ExtensionContext, codacyCloud?: CodacyCloud) => {
   const provider = new SetupViewProvider(context.extensionUri, codacyCloud)

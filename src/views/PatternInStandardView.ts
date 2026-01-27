@@ -1,7 +1,8 @@
-// src/views/PatternInStandardView.ts
 import * as vscode from 'vscode'
-import { CodingStandardInfo, CommitIssue } from '../api/client'
+import { CodingStandardInfo, CommitIssue, Pattern } from '../api/client'
 import { Api } from '../api'
+import Logger from '../common/logger'
+import { getNonce } from './utils'
 
 /**
  * Escape HTML special characters to prevent XSS attacks
@@ -21,7 +22,18 @@ export async function showPatternInStandardView(
   issue: CommitIssue,
   standards: CodingStandardInfo[]
 ) {
-  const { data: pattern } = await Api.Tools.getPattern(issue.toolInfo.uuid, issue.patternInfo.id)
+  let pattern: Pattern | undefined
+
+  // Use a nonce to only allow a specific script to be run.
+  const nonce = getNonce()
+
+  try {
+    const { data: patternData } = await Api.Tools.getPattern(issue.toolInfo.uuid, issue.patternInfo.id)
+    pattern = patternData
+  } catch (error) {
+    vscode.window.showErrorMessage('Failed to load pattern details. Please try again.')
+    return
+  }
 
   const escapedTitle = escapeHtml(pattern.title || pattern.id)
 
@@ -43,43 +55,46 @@ export async function showPatternInStandardView(
     }
   )
 
-  // Get the URI for the CSS file
   const styleUri = panel.webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'styles', 'pattern-in-standard.css')
   )
-
-  // Get the URI for the JavaScript file
   const scriptUri = panel.webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'scripts', 'patternInStandardScript.js')
   )
 
-  const styleEscapeHtml = escapeHtml(styleUri.toString())
-  const scriptEscapeHtml = escapeHtml(scriptUri.toString())
-
   const standardsListHtml = standards
     .map((standard) => {
       const escapedName = escapeHtml(standard.name)
-      const escapedId = escapeHtml(standard.id)
-      const escapedProvider = escapeHtml(params.provider)
-      const escapedOrganization = escapeHtml(params.organization)
+      const encodedId = encodeURIComponent(standard.id)
+      const encodedProvider = encodeURIComponent(params.provider)
+      const encodedOrganization = encodeURIComponent(params.organization)
       // All user-controlled values are escaped via escapeHtml() above
       const href =
         'https://app.codacy.com/organizations/' +
-        escapedProvider +
+        encodedProvider +
         '/' +
-        escapedOrganization +
+        encodedOrganization +
         '/policies/coding-standards/edit?id=' +
-        escapedId
-      return '<li><a href="' + href + '" target="_blank">Edit "' + escapedName + '"</a></li>'
+        encodedId
+      return '<li><a href="' + escapeHtml(href) + '" target="_blank">Edit "' + escapedName + '"</a></li>'
     })
     .join('')
+
+  const cspSource = escapeHtml(panel.webview.cspSource)
+  const safeNonce = escapeHtml(nonce)
 
   panel.webview.html = `<!DOCTYPE html>
     <html>
       <head>
         <meta charset="UTF-8">
+        <!--
+          Use a content security policy to only allow loading styles from our extension directory,
+          and only allow scripts that have a specific nonce.
+          (See the 'webview-sample' extension sample for img-src content security policy examples)
+        -->
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${safeNonce}'; img-src ${cspSource};">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="${styleEscapeHtml}" rel="stylesheet">
+        <link href="${styleUri.toString()}" rel="stylesheet">
       </head>
       <body>
         <h1>Disable pattern "${escapedTitle}"</h1>
@@ -112,7 +127,7 @@ export async function showPatternInStandardView(
             Learn how to disable patterns in standards
           </a>
         </p>
-        <script src="${scriptEscapeHtml}"></script>
+        <script nonce="${safeNonce}" src="${scriptUri.toString()}"></script>
       </body>
     </html>`
 
@@ -122,8 +137,15 @@ export async function showPatternInStandardView(
       switch (message.type) {
         case 'copyPattern':
           if (message.patternTitle) {
-            await vscode.env.clipboard.writeText(message.patternTitle)
-            vscode.window.showInformationMessage(`Pattern "${message.patternTitle}" copied to clipboard`)
+            try {
+              await vscode.env.clipboard.writeText(message.patternTitle)
+              vscode.window.showInformationMessage(`Pattern "${message.patternTitle}" copied to clipboard`)
+            } catch (error) {
+              vscode.window.showErrorMessage('Failed to copy pattern title to clipboard. Please try again.')
+              Logger.error(
+                `Failed to copy pattern title to clipboard: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+            }
           }
           return
         case 'refreshIssues':
