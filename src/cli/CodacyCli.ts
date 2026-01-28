@@ -53,7 +53,7 @@ export abstract class CodacyCli {
    *
    * Security measures:
    * 1. Rejects null bytes (\0) - always indicates malicious intent
-   * 2. Rejects unsafe control characters (ASCII 0-31 except \n, \t, \r)
+   * 2. Rejects control characters (ASCII 0-31 and 127)
    * 3. Prevents path traversal attacks by ensuring paths resolve within workspace
    *
    * Allows:
@@ -71,10 +71,10 @@ export abstract class CodacyCli {
       return false
     }
 
-    // Reject control characters except newline, tab, and carriage return
-    // which might legitimately appear in file paths in some edge cases
+    // Reject all control characters (including newline, tab, carriage return)
+    // as they are very unusual for file names
     // eslint-disable-next-line no-control-regex -- Intentionally checking for control chars to reject them for security
-    const hasUnsafeControlChars = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(filePath)
+    const hasUnsafeControlChars = /[\x00-\x1F\x7F]/.test(filePath)
     if (hasUnsafeControlChars) {
       Logger.warn(`Path contains unsafe control characters: ${filePath}`)
       return false
@@ -121,20 +121,7 @@ export abstract class CodacyCli {
     }
 
     // Escape special characters for shell execution
-    // Use placeholders to avoid double-escaping newlines and tabs
-    const NEWLINE_PLACEHOLDER = '__CODACY_NEWLINE__'
-    const TAB_PLACEHOLDER = '__CODACY_TAB__'
-
-    // Replace newlines and tabs with placeholders
-    let escapedPath = path.replace(/\n/g, NEWLINE_PLACEHOLDER).replace(/\t/g, TAB_PLACEHOLDER)
-
-    // Escape all special characters including backslashes
-    escapedPath = escapedPath.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
-
-    // Replace placeholders with their escape sequences
-    return escapedPath
-      .replace(new RegExp(NEWLINE_PLACEHOLDER, 'g'), '\\n')
-      .replace(new RegExp(TAB_PLACEHOLDER, 'g'), '\\t')
+    return path.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
   }
 
   protected getIdentificationParameters(): Record<string, string> {
