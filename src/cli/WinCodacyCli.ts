@@ -1,4 +1,4 @@
-import { ProcessedSarifResult } from '.'
+import { ProcessedSarifResult } from './utils'
 import { CodacyCli } from './CodacyCli'
 import * as vscode from 'vscode'
 

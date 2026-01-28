@@ -3,7 +3,7 @@ export const CODACY_FOLDER_NAME = '.codacy'
 import { exec } from 'child_process'
 import { Config } from '../common'
 import Logger from '../common/logger'
-import { ProcessedSarifResult } from '.'
+import { ProcessedSarifResult } from './utils'
 
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
@@ -48,7 +48,21 @@ export abstract class CodacyCli {
   }
 
   protected preparePathForExec(path: string): string {
-    return path
+    // Escape special characters for shell execution
+    // Use placeholders to avoid double-escaping newlines and tabs
+    const NEWLINE_PLACEHOLDER = '__CODACY_NEWLINE__'
+    const TAB_PLACEHOLDER = '__CODACY_TAB__'
+
+    // Replace newlines and tabs with placeholders
+    let escapedPath = path.replace(/\n/g, NEWLINE_PLACEHOLDER).replace(/\t/g, TAB_PLACEHOLDER)
+
+    // Escape all special characters including backslashes
+    escapedPath = escapedPath.replace(/([\s'"\\;&|`$()[\]{}*?~])/g, '\\$1')
+
+    // Replace placeholders with their escape sequences
+    return escapedPath
+      .replace(new RegExp(NEWLINE_PLACEHOLDER, 'g'), '\\n')
+      .replace(new RegExp(TAB_PLACEHOLDER, 'g'), '\\t')
   }
 
   protected getIdentificationParameters(): Record<string, string> {
