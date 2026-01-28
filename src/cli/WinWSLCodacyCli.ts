@@ -30,20 +30,7 @@ export class WinWSLCodacyCli extends MacCodacyCli {
     // Convert the path to WSL format and escape special characters
     const wslPath = WinWSLCodacyCli.toWSLPath(path)
 
-    // Use placeholders to avoid double-escaping newlines and tabs
-    const NEWLINE_PLACEHOLDER = '__CODACY_NEWLINE__'
-    const TAB_PLACEHOLDER = '__CODACY_TAB__'
-
-    // Replace newlines and tabs with placeholders
-    let escapedPath = wslPath.replace(/\n/g, NEWLINE_PLACEHOLDER).replace(/\t/g, TAB_PLACEHOLDER)
-
-    // Escape all special characters including backslashes
-    escapedPath = escapedPath.replace(/([\s'"\\;&|`$()[\]{}*?~])/g, '\\$1')
-
-    // Replace placeholders with their escape sequences
-    return escapedPath
-      .replace(new RegExp(NEWLINE_PLACEHOLDER, 'g'), '\\n')
-      .replace(new RegExp(TAB_PLACEHOLDER, 'g'), '\\t')
+    return super.preparePathForExec(wslPath)
   }
 
   protected async execAsync(
