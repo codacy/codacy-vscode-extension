@@ -24,7 +24,10 @@ export class WinWSLCodacyCli extends MacCodacyCli {
   private static fromWSLPath(path: string): string {
     // Convert WSL path to Windows path while keeping quotes
     // Example: '/mnt/c/Users/user/project' -> 'C:\Users\user\project'
-    const windowsPath = path.replace(/^'\/mnt\/([a-zA-Z])/, "'$1:").replace(/\//g, '\\')
+    const windowsPath = path
+      .replace(/^'\/mnt\/([a-zA-Z])/, (match, letter) => `'${letter.toUpperCase()}:`)
+      .replace(/^\/mnt\/([a-zA-Z])/, (match, letter) => `${letter.toUpperCase()}:`)
+      .replace(/\//g, '\\')
     return windowsPath
   }
 

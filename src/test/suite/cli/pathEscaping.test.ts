@@ -258,15 +258,18 @@ suite('CLI Path Escaping Tests', () => {
       assert.strictEqual(winEscapedPath2, 'Program\\ Files/My\\ App/config.json')
     })
 
-    test('should handle paths with newlines and tabs', () => {
+    test('should reject paths with newlines for security', () => {
       const pathWithNewline = 'path/with\nnewline/file.js'
+      assert.throws(() => {
+        ;(macCli as any).preparePathForExec(pathWithNewline)
+      }, /Unsafe file path rejected/)
+    })
+
+    test('should reject paths with tabs for security', () => {
       const pathWithTab = 'path/with\ttab/file.js'
-
-      const escapedNewline = (macCli as any).preparePathForExec(pathWithNewline)
-      const escapedTab = (macCli as any).preparePathForExec(pathWithTab)
-
-      assert.strictEqual(escapedNewline, 'path/with\\nnewline/file.js')
-      assert.strictEqual(escapedTab, 'path/with\\ttab/file.js')
+      assert.throws(() => {
+        ;(macCli as any).preparePathForExec(pathWithTab)
+      }, /Unsafe file path rejected/)
     })
   })
 
@@ -327,6 +330,203 @@ suite('CLI Path Escaping Tests', () => {
       const pathWithLessThan = 'file<input.txt'
       const escaped = (macCli as any).preparePathForExec(pathWithLessThan)
       assert.strictEqual(escaped, 'file\\<input.txt')
+    })
+  })
+
+  suite('WSL Path Conversion - toWSLPath', () => {
+    test('should convert Windows C: drive path to WSL format', () => {
+      const windowsPath = 'C:\\Users\\user\\project\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/Users/user/project/file.js')
+    })
+
+    test('should convert Windows D: drive path to WSL format', () => {
+      const windowsPath = 'D:\\data\\files\\document.txt'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/d/data/files/document.txt')
+    })
+
+    test('should handle uppercase drive letters', () => {
+      const windowsPath = 'E:\\Projects\\MyApp\\src\\index.ts'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/e/Projects/MyApp/src/index.ts')
+    })
+
+    test('should handle lowercase drive letters', () => {
+      const windowsPath = 'c:\\users\\test\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/users/test/file.js')
+    })
+
+    test('should handle paths with spaces', () => {
+      const windowsPath = 'C:\\Program Files\\My App\\config.json'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/Program Files/My App/config.json')
+    })
+
+    test('should handle paths with special characters', () => {
+      const windowsPath = "C:\\Users\\user's\\project (2024)\\file.js"
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, "/mnt/c/Users/user's/project (2024)/file.js")
+    })
+
+    test('should remove outer double quotes from path', () => {
+      const windowsPath = '"C:\\Users\\user\\project\\file.js"'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/Users/user/project/file.js')
+    })
+
+    test('should remove outer single quotes from path', () => {
+      const windowsPath = "'C:\\Users\\user\\project\\file.js'"
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/Users/user/project/file.js')
+    })
+
+    test('should handle relative paths without drive letter', () => {
+      const windowsPath = 'relative\\path\\to\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, 'relative/path/to/file.js')
+    })
+
+    test('should handle empty path', () => {
+      const windowsPath = ''
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '')
+    })
+
+    test('should handle path with only drive letter', () => {
+      const windowsPath = 'C:\\'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/')
+    })
+
+    test('should preserve internal quotes', () => {
+      const windowsPath = 'C:\\path\\with"quotes"inside\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/c/path/with"quotes"inside/file.js')
+    })
+
+    test('should handle multiple drive letter variations (Z drive)', () => {
+      const windowsPath = 'Z:\\network\\share\\file.txt'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(wslPath, '/mnt/z/network/share/file.txt')
+    })
+  })
+
+  suite('WSL Path Conversion - fromWSLPath', () => {
+    test('should convert WSL /mnt/c path to Windows C: drive', () => {
+      const wslPath = '/mnt/c/Users/user/project/file.js'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'C:\\Users\\user\\project\\file.js')
+    })
+
+    test('should convert WSL /mnt/d path to Windows D: drive', () => {
+      const wslPath = '/mnt/d/data/files/document.txt'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'D:\\data\\files\\document.txt')
+    })
+
+    test('should handle uppercase drive mount (should convert to uppercase)', () => {
+      const wslPath = '/mnt/E/Projects/MyApp/src/index.ts'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'E:\\Projects\\MyApp\\src\\index.ts')
+    })
+
+    test('should handle paths with spaces', () => {
+      const wslPath = '/mnt/c/Program Files/My App/config.json'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'C:\\Program Files\\My App\\config.json')
+    })
+
+    test('should handle paths with special characters', () => {
+      const wslPath = "/mnt/c/Users/user's/project (2024)/file.js"
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, "C:\\Users\\user's\\project (2024)\\file.js")
+    })
+
+    test('should handle quoted WSL paths with leading quote', () => {
+      const wslPath = "'/mnt/c/Users/user/project/file.js"
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, "'C:\\Users\\user\\project\\file.js")
+    })
+
+    test('should handle quoted WSL paths', () => {
+      const wslPath = "'/mnt/c/Users/user/project/file.js'"
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, "'C:\\Users\\user\\project\\file.js'")
+    })
+
+    test('should handle relative WSL paths without /mnt prefix', () => {
+      const wslPath = 'relative/path/to/file.js'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'relative\\path\\to\\file.js')
+    })
+
+    test('should handle empty path', () => {
+      const wslPath = ''
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, '')
+    })
+
+    test('should handle root path /mnt/c/', () => {
+      const wslPath = '/mnt/c/'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'C:\\')
+    })
+
+    test('should handle paths starting with quote and /mnt', () => {
+      const wslPath = "'/mnt/c/path/to/file.js"
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, "'C:\\path\\to\\file.js")
+    })
+
+    test('should handle multiple drive letter variations (Z drive)', () => {
+      const wslPath = '/mnt/z/network/share/file.txt'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, 'Z:\\network\\share\\file.txt')
+    })
+
+    test('should not modify absolute WSL paths without /mnt', () => {
+      const wslPath = '/usr/local/bin/script.sh'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(windowsPath, '\\usr\\local\\bin\\script.sh')
+    })
+  })
+
+  suite('WSL Path Conversion - Round Trip', () => {
+    test('should handle round trip conversion C: drive', () => {
+      const originalWindows = 'C:\\Users\\user\\project\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(originalWindows)
+      const backToWindows = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(backToWindows, originalWindows)
+    })
+
+    test('should handle round trip conversion with spaces', () => {
+      const originalWindows = 'C:\\Program Files\\My Application\\config.json'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(originalWindows)
+      const backToWindows = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(backToWindows, originalWindows)
+    })
+
+    test('should handle round trip conversion with special characters', () => {
+      const originalWindows = "D:\\Projects\\Project's Name (2024)\\src\\index.ts"
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(originalWindows)
+      const backToWindows = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(backToWindows, originalWindows)
+    })
+
+    test('should handle round trip conversion for relative paths', () => {
+      const originalPath = 'relative\\path\\to\\file.js'
+      const wslPath = (WinWSLCodacyCli as any).toWSLPath(originalPath)
+      const backToWindows = (WinWSLCodacyCli as any).fromWSLPath(wslPath)
+      assert.strictEqual(backToWindows, originalPath)
+    })
+
+    test('should handle reverse round trip WSL to Windows to WSL', () => {
+      const originalWSL = '/mnt/c/Users/user/Documents/file.txt'
+      const windowsPath = (WinWSLCodacyCli as any).fromWSLPath(originalWSL)
+      const backToWSL = (WinWSLCodacyCli as any).toWSLPath(windowsPath)
+      assert.strictEqual(backToWSL, originalWSL)
     })
   })
 })
