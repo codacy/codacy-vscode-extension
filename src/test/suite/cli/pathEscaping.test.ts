@@ -162,25 +162,25 @@ suite('CLI Path Escaping Tests', () => {
     test('should convert Windows paths to WSL format and escape spaces', () => {
       const windowsPath = 'path\\with spaces\\file.js'
       const escaped = (winWSLCli as any).preparePathForExec(windowsPath)
-      assert.strictEqual(escaped, 'path/with\\ spaces/file.js')
+      assert.strictEqual(escaped, "'path/with\\ spaces/file.js'")
     })
 
     test('should handle Windows paths with single quotes', () => {
       const windowsPath = "path\\with'quote\\file.js"
       const escaped = (winWSLCli as any).preparePathForExec(windowsPath)
-      assert.strictEqual(escaped, "path/with\\'quote/file.js")
+      assert.strictEqual(escaped, "'path/with\\'quote/file.js'")
     })
 
     test('should handle Windows paths with double quotes', () => {
       const windowsPath = 'path\\with"quote\\file.js'
       const escaped = (winWSLCli as any).preparePathForExec(windowsPath)
-      assert.strictEqual(escaped, 'path/with\\"quote/file.js')
+      assert.strictEqual(escaped, "'path/with\\\"quote/file.js'")
     })
 
     test('should handle paths that are already in WSL format', () => {
       const wslPath = 'path/with spaces/file.js'
       const escaped = (winWSLCli as any).preparePathForExec(wslPath)
-      assert.strictEqual(escaped, 'path/with\\ spaces/file.js')
+      assert.strictEqual(escaped, "'path/with\\ spaces/file.js'")
     })
 
     test('should handle complex Windows paths with multiple special characters', () => {
@@ -188,32 +188,32 @@ suite('CLI Path Escaping Tests', () => {
         'path with spaces\\and\'quotes"and;special&chars|more$complex`stuff(test)[array]{object}*.js?query~home'
       const escaped = (winWSLCli as any).preparePathForExec(complexPath)
       const expected =
-        'path\\ with\\ spaces/and\\\'quotes\\"and\\;special\\&chars\\|more\\$complex\\`stuff\\(test\\)\\[array\\]\\{object\\}\\*.js\\?query\\~home'
+        "'path\\ with\\ spaces/and\\'quotes\\\"and\\;special\\&chars\\|more\\$complex\\`stuff\\(test\\)\\[array\\]\\{object\\}\\*.js\\?query\\~home'"
       assert.strictEqual(escaped, expected)
     })
 
     test('should handle paths with already quoted outer quotes', () => {
       const quotedPath = '"path\\with spaces\\file.js"'
       const escaped = (winWSLCli as any).preparePathForExec(quotedPath)
-      assert.strictEqual(escaped, 'path/with\\ spaces/file.js')
+      assert.strictEqual(escaped, "'path/with\\ spaces/file.js'")
     })
 
     test('should handle paths with single quotes around them', () => {
       const quotedPath = "'path\\with spaces\\file.js'"
       const escaped = (winWSLCli as any).preparePathForExec(quotedPath)
-      assert.strictEqual(escaped, 'path/with\\ spaces/file.js')
+      assert.strictEqual(escaped, "'path/with\\ spaces/file.js'")
     })
 
     test('should handle empty paths (resolves to root)', () => {
       const emptyPath = ''
       const escaped = (winWSLCli as any).preparePathForExec(emptyPath)
-      assert.strictEqual(escaped, '')
+      assert.strictEqual(escaped, "''")
     })
 
     test('should handle normal Windows paths without special characters', () => {
       const normalPath = 'normal\\path\\to\\file.js'
       const escaped = (winWSLCli as any).preparePathForExec(normalPath)
-      assert.strictEqual(escaped, 'normal/path/to/file.js')
+      assert.strictEqual(escaped, "'normal/path/to/file.js'")
     })
   })
 
@@ -252,10 +252,10 @@ suite('CLI Path Escaping Tests', () => {
 
       // Test Windows WSL escaping
       const winEscapedPath1 = (winWSLCli as any).preparePathForExec(vscodeWorkspacePaths[4])
-      assert.strictEqual(winEscapedPath1, 'My\\ Documents/Project\\ \\(v2\\)/src/file.ts')
+      assert.strictEqual(winEscapedPath1, "'My\\ Documents/Project\\ \\(v2\\)/src/file.ts'")
 
       const winEscapedPath2 = (winWSLCli as any).preparePathForExec(vscodeWorkspacePaths[5])
-      assert.strictEqual(winEscapedPath2, 'Program\\ Files/My\\ App/config.json')
+      assert.strictEqual(winEscapedPath2, "'Program\\ Files/My\\ App/config.json'")
     })
 
     test('should reject paths with newlines for security', () => {
