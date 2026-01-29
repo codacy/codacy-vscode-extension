@@ -67,7 +67,8 @@ export class WinWSLCodacyCli extends MacCodacyCli {
 
     // Convert to WSL format and escape special characters
     const wslPath = WinWSLCodacyCli.toWSLPath(winFilePath)
-    return wslPath.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
+    const escapedPath = wslPath.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
+    return `'${escapedPath}'`
   }
 
   protected async execAsync(
