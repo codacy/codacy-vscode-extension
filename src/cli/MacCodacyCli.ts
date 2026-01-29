@@ -5,7 +5,7 @@ import { CodacyError } from '../common/utils'
 
 import { CODACY_FOLDER_NAME, CodacyCli } from './CodacyCli'
 import Logger from '../common/logger'
-import { ProcessedSarifResult, processSarifResults } from '.'
+import { ProcessedSarifResult, processSarifResults } from './utils'
 import { Config } from '../common/config'
 
 export class MacCodacyCli extends CodacyCli {

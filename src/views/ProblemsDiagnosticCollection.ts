@@ -263,7 +263,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         }
 
         // Run the local analysis
-        const results = await this._codacyCloud.cli?.analyze({ file: `'${pathToFile.replace(/ /g, '\\ ')}'` })
+        const results = await this._codacyCloud.cli?.analyze({ file: `'${pathToFile}'` })
 
         this._currentCliIssues[originalPath] = results || []
 
