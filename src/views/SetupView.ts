@@ -50,11 +50,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     this._codacyCloud = codacyCloud
   }
 
-  public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ) {
+  public resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView
 
     webviewView.webview.options = {

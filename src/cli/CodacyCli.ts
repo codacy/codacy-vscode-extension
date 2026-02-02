@@ -3,7 +3,8 @@ export const CODACY_FOLDER_NAME = '.codacy'
 import { exec } from 'child_process'
 import { Config } from '../common'
 import Logger from '../common/logger'
-import { ProcessedSarifResult } from '.'
+import { ProcessedSarifResult } from './utils'
+import * as path from 'path'
 
 // Set a larger buffer size (10MB)
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
@@ -47,8 +48,80 @@ export abstract class CodacyCli {
     vscode.commands.executeCommand('setContext', 'codacy:cliInstalled', !!command)
   }
 
+  /**
+   * Validates a file path for security concerns
+   *
+   * Security measures:
+   * 1. Rejects null bytes (\0) - always indicates malicious intent
+   * 2. Rejects control characters (ASCII 0-31 and 127)
+   * 3. Prevents path traversal attacks by ensuring paths resolve within workspace
+   *
+   * Allows:
+   * - Unicode characters (e.g., emoji, non-English characters)
+   * - Common special characters in file names (spaces, parentheses, brackets, etc.)
+   * - Shell metacharacters (will be escaped by preparePathForExec)
+   *
+   * @param filePath The path to validate
+   * @returns true if the path is safe, false otherwise
+   */
+  protected isPathSafe(filePath: string): boolean {
+    // Reject null bytes (always a security risk)
+    if (filePath.includes('\0')) {
+      Logger.warn(`Path contains null byte: ${filePath}`)
+      return false
+    }
+
+    // Reject all control characters (including newline, tab, carriage return)
+    // as they are very unusual for file names
+    // eslint-disable-next-line no-control-regex -- Intentionally checking for control chars to reject them for security
+    const hasUnsafeControlChars = /[\x00-\x1F\x7F]/.test(filePath)
+    if (hasUnsafeControlChars) {
+      Logger.warn(`Path contains unsafe control characters: ${filePath}`)
+      return false
+    }
+
+    // Resolve the path to check for path traversal attempts
+    const resolvedPath = path.resolve(this.rootPath, filePath)
+    const normalizedRoot = path.normalize(this.rootPath)
+    // Check if the resolved path is within the workspace
+    if (!resolvedPath.startsWith(normalizedRoot)) {
+      Logger.warn(`Path traversal attempt detected: ${filePath} resolves outside workspace`)
+      return false
+    }
+
+    return true
+  }
+
+  /**
+   * Prepares a file path for safe shell execution by escaping special characters
+   *
+   * Security approach:
+   * 1. First validates path using isPathSafe() (path traversal, null bytes, control chars)
+   * 2. Then escapes all shell metacharacters to prevent command injection
+   *
+   * Escaped characters include:
+   * - Command separators: ; & |
+   * - Command substitution: ` $ ( )
+   * - I/O redirection: < >
+   * - Glob patterns: * ? [ ] { }
+   * - Quotes and spaces: ' " \s
+   * - Special shell chars: ~ \
+   *
+   * This allows legitimate file names with unusual but safe characters while
+   * preventing command injection attacks.
+   *
+   * @param path The file path to prepare for shell execution
+   * @returns Escaped path safe for shell execution
+   * @throws Error if path fails security validation
+   */
   protected preparePathForExec(path: string): string {
-    return path
+    // Validate path security before escaping
+    if (!this.isPathSafe(path)) {
+      throw new Error(`Unsafe file path rejected: ${path}`)
+    }
+
+    // Escape special characters for shell execution
+    return path.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
   }
 
   protected getIdentificationParameters(): Record<string, string> {
@@ -65,15 +138,24 @@ export abstract class CodacyCli {
   }
 
   protected execAsync(command: string, args?: Record<string, string>): Promise<{ stdout: string; stderr: string }> {
-    // stringyfy the args
+    // Validate and escape arguments
     const argsString = Object.entries(args || {})
-      .map(([key, value]) => `--${key} ${value}`)
+      .map(([key, value]) => {
+        // Validate argument key (should be alphanumeric and hyphens only)
+        if (!/^[a-zA-Z0-9-]+$/.test(key)) {
+          throw new Error(`Invalid argument key: ${key}`)
+        }
+
+        // Escape the value to prevent injection
+        const escapedValue = value.replace(/([\s'"\\;&|`$()[\]{}*?~<>])/g, '\\$1')
+        return `--${key} ${escapedValue}`
+      })
       .join(' ')
 
-    // Add the args to the command and remove any shell metacharacters
-    const cmd = `${command} ${argsString}`.trim().replace(/[;&|`$]/g, '')
+    // Build the command - no need to strip characters since we've already escaped them properly
+    const cmd = `${command} ${argsString}`.trim()
 
-    // Add the CODACY_CLI_VERSION to the command
+    // Execute command
     return new Promise((resolve, reject) => {
       exec(
         cmd,
