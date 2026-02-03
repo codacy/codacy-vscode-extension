@@ -35,4 +35,8 @@ export class WinCodacyCli extends CodacyCli {
   public configDiscover(_filePath: string): Promise<void> {
     throw new Error(NOT_SUPPORTED)
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public configReset(): Promise<void> {
+    throw new Error(NOT_SUPPORTED)
+  }
 }

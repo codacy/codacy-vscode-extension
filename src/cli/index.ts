@@ -83,6 +83,9 @@ export class Cli {
 
     // set Cli command if found
     await this.cliInstance.preflightCodacyCli(false)
+    
+    // check for an already installed CLI to update tools config
+    await this.cliInstance.configReset()
 
     return this.cliInstance
   }

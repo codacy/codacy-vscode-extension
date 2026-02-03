@@ -38,6 +38,8 @@ export abstract class CodacyCli {
   public abstract analyze(options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null>
 
   public abstract configDiscover(filePath: string): Promise<void>
+  
+  public abstract configReset(): Promise<void>
 
   public getCliCommand(): string {
     return this._cliCommand

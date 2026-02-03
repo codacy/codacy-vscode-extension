@@ -276,4 +276,16 @@ export class MacCodacyCli extends CodacyCli {
       }
     }
   }
+  
+  public async configReset(): Promise<void> {
+    const resetCommand = `${this.getCliCommand()} config reset`
+    const resetParams = this.getIdentificationParameters()
+
+    const hasIdentificationParams = await this.validateIdentificationParameters(resetParams)
+    if (!hasIdentificationParams) {
+      Logger.debug('CLI mode is remote and no identification parameters provided. Skipping update and config reset.')
+      return
+    }
+    await this.execAsync(resetCommand, resetParams)
+  }
 }
