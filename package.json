@@ -393,6 +393,16 @@
         "category": "Codacy commands"
       },
       {
+        "command": "codacy.issue.disablePattern",
+        "title": "Disable a pattern for this repository",
+        "category": "Codacy commands"
+      },
+      {
+        "command": "codacy.cliIssue.disablePattern",
+        "title": "Disable a pattern detected by the CLI for this repository",
+        "category": "Codacy commands"
+      },
+      {
         "command": "codacy.configureMCP",
         "title": "Configure Codacy MCP Server",
         "category": "Codacy commands",

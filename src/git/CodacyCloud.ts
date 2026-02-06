@@ -4,7 +4,7 @@ import Logger from '../common/logger'
 import Telemetry from '../common/telemetry'
 import { Config, handleError, parseGitRemote } from '../common'
 import { Api } from '../api'
-import { Branch, OpenAPIError, OrganizationWithMeta, RepositoryWithAnalysis } from '../api/client'
+import { Branch, OpenAPIError, OrganizationWithMeta, Provider, RepositoryWithAnalysis } from '../api/client'
 import { PullRequest, PullRequestInfo } from './PullRequest'
 import { IssuesManager } from './IssuesManager'
 import { checkFirstAnalysisStatus, getRepositoryCodacyCloudStatus } from '../onboarding'
@@ -48,7 +48,7 @@ const LOAD_RETRY_TIME = 2 * 60 * 1000 // 2 minutes
 const MAX_LOAD_ATTEMPTS = 5
 
 export interface RepositoryParams {
-  provider: 'bb' | 'gh' | 'gl'
+  provider: Provider
   organization: string
   repository: string
 }
