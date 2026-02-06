@@ -87,13 +87,57 @@ export const seeCliIssueDetailsCommand = async (issue?: ProcessedSarifResult) =>
     return
   }
 
-  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue?.rule.id}`)
+  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue.rule.id}`)
 
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
 }
 
-export const disablePatternCommand = async (issue?: CommitIssue, params?: RepositoryParams, cli?: CodacyCli) => {
-  if (!issue || !params) {
+export interface DisablePatternProps extends RepositoryParams {
+  toolUuid: string
+  patternId: string
+  commitSHA?: string
+}
+
+export const disablePatternCommand = async (issue: CommitIssue, params: RepositoryParams, cli?: CodacyCli) => {
+  const props: DisablePatternProps = {
+    provider: params.provider,
+    organization: params.organization,
+    repository: params.repository,
+    toolUuid: issue.toolInfo.uuid,
+    patternId: issue.patternInfo.id,
+    commitSHA: issue.commitInfo?.sha,
+  }
+
+  await disablePatternFn(props, cli)
+}
+
+export const disableCliPatternCommand = async (
+  params: RepositoryParams,
+  issue?: ProcessedSarifResult,
+  cli?: CodacyCli
+) => {
+  const tools = await Api.Tools.listTools()
+  const toolUuid = tools.data.find((tool) => tool.name === issue?.tool)?.uuid
+
+  if (!issue || !issue.rule || !toolUuid) {
+    vscode.window.showErrorMessage('Unable to show issue details: missing tool or rule information.')
+    Logger.error('Unable to show issue details: missing tool or rule information.')
+    return
+  }
+
+  const props: DisablePatternProps = {
+    provider: params.provider,
+    organization: params.organization,
+    repository: params.repository,
+    toolUuid,
+    patternId: issue.rule.id,
+    // no commit SHA for CLI issues, we should simply re-initialize the CLI
+  }
+  await disablePatternFn(props, cli)
+}
+
+export const disablePatternFn = async (props?: DisablePatternProps, cli?: CodacyCli) => {
+  if (!props) {
     vscode.window.showErrorMessage(
       "We couldn't disable this pattern because we're missing repository information. If this keeps happening, reach out to support."
     )
@@ -117,7 +161,7 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
     return
   }
 
-  const { provider, organization, repository } = params
+  const { provider, organization, repository } = props
 
   let codingStandards: CodingStandardInfo[] = []
   let hasPermissions = false
@@ -154,12 +198,12 @@ export const disablePatternCommand = async (issue?: CommitIssue, params?: Reposi
 
   // If coding standard is applied, user can't disable patterns at repository level
   if (codingStandards.length > 0) {
-    showPatternInStandardView({ provider, organization, repository }, issue, codingStandards, cli)
+    showPatternInStandardView(props, codingStandards, cli)
     return
   }
 
-  const toolUuid = issue.toolInfo.uuid
-  const patternId = issue.patternInfo.id
+  const toolUuid = props.toolUuid
+  const patternId = props.patternId
 
   try {
     await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {

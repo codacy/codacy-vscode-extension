@@ -1,9 +1,10 @@
 import * as vscode from 'vscode'
-import { CodingStandardInfo, CommitIssue, Pattern } from '../api/client'
+import { CodingStandardInfo, Pattern } from '../api/client'
 import { Api } from '../api'
 import Logger from '../common/logger'
 import { getNonce } from './utils'
 import { CodacyCli } from '../cli/CodacyCli'
+import { DisablePatternProps } from './IssueDetailsProvider'
 
 /**
  * Escape HTML special characters to prevent XSS attacks
@@ -19,8 +20,7 @@ function escapeHtml(text: string | number): string {
 }
 
 export async function showPatternInStandardView(
-  params: { provider: string; organization: string; repository: string },
-  issue: CommitIssue,
+  props: DisablePatternProps,
   standards: CodingStandardInfo[],
   cli?: CodacyCli
 ) {
@@ -30,7 +30,7 @@ export async function showPatternInStandardView(
   const nonce = getNonce()
 
   try {
-    const { data: patternData } = await Api.Tools.getPattern(issue.toolInfo.uuid, issue.patternInfo.id)
+    const { data: patternData } = await Api.Tools.getPattern(props.toolUuid, props.patternId)
     pattern = patternData
   } catch (error) {
     vscode.window.showErrorMessage('Failed to load pattern details. Please try again.')
@@ -68,8 +68,8 @@ export async function showPatternInStandardView(
     .map((standard) => {
       const escapedName = escapeHtml(standard.name)
       const encodedId = encodeURIComponent(standard.id)
-      const encodedProvider = encodeURIComponent(params.provider)
-      const encodedOrganization = encodeURIComponent(params.organization)
+      const encodedProvider = encodeURIComponent(props.provider)
+      const encodedOrganization = encodeURIComponent(props.organization)
       const href =
         'https://app.codacy.com/organizations/' +
         encodedProvider +
@@ -150,27 +150,26 @@ export async function showPatternInStandardView(
           }
           return
         case 'refreshIssues':
-          if (!issue.commitInfo) {
-            vscode.window.showErrorMessage(
-              'Cannot refresh this issue because commit information is unavailable in Codacy Cloud. Talk to support.'
-            )
-            Logger.error(
-              '[Codacy API] Attempted to refresh issues but no commit information was available for the selected issue.'
-            )
-            return
-          }
           try {
-            await Api.Repository.reanalyzeCommitById(params.provider, params.organization, params.repository, {
-              commitUuid: issue.commitInfo.sha,
-            })
+            if (!props.commitSHA) {
+              Logger.debug(
+                '[Codacy API] Attempted to refresh issues but no commit information was available for the selected issue.'
+              )
+            } else {
+              await Api.Repository.reanalyzeCommitById(props.provider, props.organization, props.repository, {
+                commitUuid: props.commitSHA,
+              })
+            }
             if (cli) {
               await cli.initialize()
             }
-            vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')
+            if (cli || props.commitSHA) {
+              vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')
+            }
           } catch (error) {
             vscode.window.showErrorMessage('Failed to refresh issues. Please try again.')
             Logger.error(
-              `[Codacy API] Failed to refresh issues from commit ${issue.commitInfo.sha}: ${error instanceof Error ? error.message : 'Unknown error'}`
+              `[Codacy API] Failed to refresh issues from commit ${props.commitSHA}: ${error instanceof Error ? error.message : 'Unknown error'}`
             )
           }
 

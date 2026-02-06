@@ -15,6 +15,7 @@ import {
   seeIssueDetailsCommand,
   seeCliIssueDetailsCommand,
   disablePatternCommand,
+  disableCliPatternCommand,
 } from './views/IssueDetailsProvider'
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
@@ -98,6 +99,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.cliIssue.seeDetails': seeCliIssueDetailsCommand,
     'codacy.issue.disablePattern': disablePatternCommand,
+    'codacy.cliIssue.disablePattern': disableCliPatternCommand,
     'codacy.installCLI': async () => {
       await codacyCloud.cli?.install()
     },

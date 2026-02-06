@@ -437,6 +437,22 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
           arguments: [diagnostic.result],
         }
         actions.push(seeIssueDetailsAction)
+
+        // add disable pattern action for API issues
+        const params = this.getParams?.()
+        if (params) {
+          const disablePatternAction = new vscode.CodeAction(
+            'Codacy CLI: Disable pattern',
+            vscode.CodeActionKind.QuickFix
+          )
+          disablePatternAction.diagnostics = [diagnostic]
+          disablePatternAction.command = {
+            command: 'codacy.cliIssue.disablePattern',
+            title: 'Codacy CLI: Disable pattern',
+            arguments: [params, diagnostic.result, this.cli],
+          }
+          actions.push(disablePatternAction)
+        }
       }
 
       return actions
