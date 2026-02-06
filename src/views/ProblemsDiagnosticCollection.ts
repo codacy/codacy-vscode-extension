@@ -391,7 +391,10 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
       if (diagnostic instanceof ApiIssueDiagnostic) {
         // add fix for the issue if suggestion is present
         if (diagnostic.commitIssue.suggestion) {
-          const action = new vscode.CodeAction('Apply Codacy suggested fix', vscode.CodeActionKind.QuickFix)
+          const action = new vscode.CodeAction(
+            `Codacy: Apply Codacy suggested fix (${diagnostic.commitIssue.patternInfo.id})`,
+            vscode.CodeActionKind.QuickFix
+          )
           action.edit = new vscode.WorkspaceEdit()
           action.edit.replace(document.uri, diagnostic.range, diagnostic.commitIssue.suggestion.trim())
           action.diagnostics = [diagnostic]
@@ -400,7 +403,10 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
         }
 
         // add see issue details actions for API issues
-        const seeIssueDetailsAction = new vscode.CodeAction('Codacy: See issue details', vscode.CodeActionKind.QuickFix)
+        const seeIssueDetailsAction = new vscode.CodeAction(
+          `Codacy: See issue details (${diagnostic.commitIssue.patternInfo.id})`,
+          vscode.CodeActionKind.QuickFix
+        )
         seeIssueDetailsAction.diagnostics = [diagnostic]
         seeIssueDetailsAction.command = {
           command: 'codacy.issue.seeDetails',
@@ -412,7 +418,10 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
         // add disable pattern action for API issues
         const params = this.getParams?.()
         if (params) {
-          const disablePatternAction = new vscode.CodeAction('Codacy: Disable pattern', vscode.CodeActionKind.QuickFix)
+          const disablePatternAction = new vscode.CodeAction(
+            `Codacy: Disable pattern (${diagnostic.commitIssue.patternInfo.id})`,
+            vscode.CodeActionKind.QuickFix
+          )
           disablePatternAction.diagnostics = [diagnostic]
           disablePatternAction.command = {
             command: 'codacy.issue.disablePattern',
@@ -427,7 +436,7 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
       else if (diagnostic instanceof CliIssueDiagnostic) {
         // add see issue details actions for CLI issues
         const seeIssueDetailsAction = new vscode.CodeAction(
-          'Codacy CLI: See issue details',
+          `Codacy CLI: See issue details (${diagnostic.result.rule?.id})`,
           vscode.CodeActionKind.QuickFix
         )
         seeIssueDetailsAction.diagnostics = [diagnostic]
@@ -442,7 +451,7 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
         const params = this.getParams?.()
         if (params) {
           const disablePatternAction = new vscode.CodeAction(
-            'Codacy CLI: Disable pattern',
+            `Codacy CLI: Disable pattern (${diagnostic.result.rule?.id})`,
             vscode.CodeActionKind.QuickFix
           )
           disablePatternAction.diagnostics = [diagnostic]
