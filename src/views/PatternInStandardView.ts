@@ -21,21 +21,12 @@ function escapeHtml(text: string | number): string {
 
 export async function showPatternInStandardView(
   props: DisablePatternProps,
+  pattern: Pattern,
   standards: CodingStandardInfo[],
   cli?: CodacyCli
 ) {
-  let pattern: Pattern | undefined
-
   // Use a nonce to only allow a specific script to be run.
   const nonce = getNonce()
-
-  try {
-    const { data: patternData } = await Api.Tools.getPattern(props.toolUuid, props.patternId)
-    pattern = patternData
-  } catch (error) {
-    vscode.window.showErrorMessage('Failed to load pattern details. Please try again.')
-    return
-  }
 
   const escapedTitle = escapeHtml(pattern.title || pattern.id)
 

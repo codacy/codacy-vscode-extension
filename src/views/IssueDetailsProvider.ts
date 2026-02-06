@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { Api } from '../api'
 import { Tools } from '../codacy/Tools'
-import { CodingStandardInfo, CommitIssue } from '../api/client'
+import { CommitIssue } from '../api/client'
 import Logger from '../common/logger'
 import { ProcessedSarifResult } from '../cli'
 import { RepositoryParams } from '../git/CodacyCloud'
@@ -163,13 +163,23 @@ export const disablePatternFn = async (props?: DisablePatternProps, cli?: Codacy
 
   const { provider, organization, repository } = props
 
-  let codingStandards: CodingStandardInfo[] = []
-  let hasPermissions = false
-
   try {
     const { data: repositoryData } = await Api.Repository.getRepository(provider, organization, repository)
-    hasPermissions = await hasPermission(provider, organization, 'admin', repositoryData.permission)
-    codingStandards = repositoryData.standards
+    const hasPermissions = await hasPermission(provider, organization, 'admin', repositoryData.permission)
+
+    if (!hasPermissions) {
+      const action = await vscode.window.showInformationMessage(
+        "You don't have permission to disable this pattern. Contact your admin or  ask for permissions.",
+        'View permissions'
+      )
+
+      if (action === 'View permissions') {
+        // Open Codacy to view permissions
+        const permissionsUrl = `https://app.codacy.com/organizations/${provider}/${organization}/settings/permissions`
+        await vscode.env.openExternal(vscode.Uri.parse(permissionsUrl))
+      }
+      return
+    }
   } catch (error) {
     Logger.error(
       `[Codacy API] Failed to check repository information: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -182,23 +192,29 @@ export const disablePatternFn = async (props?: DisablePatternProps, cli?: Codacy
     return
   }
 
-  if (!hasPermissions) {
-    const action = await vscode.window.showInformationMessage(
-      "You don't have permission to disable this pattern. Contact your admin or  ask for permissions.",
-      'View permissions'
+  try {
+    const { data: patternData } = await Api.Analysis.getRepositoryToolPattern(
+      props.provider,
+      props.organization,
+      props.repository,
+      props.toolUuid,
+      props.patternId
     )
 
-    if (action === 'View permissions') {
-      // Open Codacy to view permissions
-      const permissionsUrl = `https://app.codacy.com/organizations/${provider}/${organization}/settings/permissions`
-      await vscode.env.openExternal(vscode.Uri.parse(permissionsUrl))
+    // If the pattern is enabled by a coding standard, user can't disable it at repository level, so we show the standard view
+    if (patternData.enabledBy.length > 0) {
+      showPatternInStandardView(props, patternData.patternDefinition, patternData.enabledBy, cli)
+      return
     }
-    return
-  }
-
-  // If coding standard is applied, user can't disable patterns at repository level
-  if (codingStandards.length > 0) {
-    showPatternInStandardView(props, codingStandards, cli)
+  } catch (error) {
+    Logger.error(
+      `[Codacy API] Failed to get coding standards: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+    if (error instanceof CodacyError) {
+      handleError(error, false)
+    } else {
+      handleError(new CodacyError('Failed to get coding standards', error as Error, 'API'), false)
+    }
     return
   }
 
