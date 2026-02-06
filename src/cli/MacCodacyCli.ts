@@ -23,13 +23,8 @@ export class MacCodacyCli extends CodacyCli {
 
     if (fs.existsSync(fullPath)) {
       this.setCliCommand(this._cliVersion ? `CODACY_CLI_V2_VERSION=${this._cliVersion} ${localPath}` : localPath)
-
       // CLI found, update it if necessary
-      if (!this._cliVersion) {
-        await this.update()
-      }
-
-      return
+      return await this.update()
     }
 
     // CLI not found, attempt to install it
@@ -133,7 +128,10 @@ export class MacCodacyCli extends CodacyCli {
         Logger.debug('CLI mode is remote and no identification parameters provided. Skipping update and config reset.')
         return
       }
-      await this.execAsync(updateCommand)
+      //Call Update if CLI version is not set
+      if (!this._cliVersion) {
+        await this.execAsync(updateCommand)
+      }
       await this.execAsync(resetCommand, resetParams)
 
       // Initialize codacy-cli after update
