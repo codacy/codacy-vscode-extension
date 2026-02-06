@@ -39,8 +39,6 @@ export abstract class CodacyCli {
 
   public abstract configDiscover(filePath: string): Promise<void>
   
-  public abstract configReset(): Promise<void>
-
   public getCliCommand(): string {
     return this._cliCommand
   }
