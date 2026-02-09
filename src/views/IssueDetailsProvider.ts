@@ -120,8 +120,8 @@ export const disableCliPatternCommand = async (
   const toolUuid = tools.data.find((tool) => tool.name === issue?.tool)?.uuid
 
   if (!issue || !issue.rule || !toolUuid) {
-    vscode.window.showErrorMessage('Unable to show issue details: missing tool or rule information.')
-    Logger.error('Unable to show issue details: missing tool or rule information.')
+    vscode.window.showErrorMessage('Unable to disable pattern: missing tool or rule information.')
+    Logger.error('Unable to disable pattern: missing tool or rule information.')
     return
   }
 
