@@ -261,7 +261,9 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
         if (generateRules === 'automatic') {
           await createOrUpdateRules(params)
         }
-        await notifyMCPInstallation()
+        if (!isUpdate) {
+          await notifyMCPInstallation()
+        }
         return
       } else {
         await installMCPForVSCode(codacyServer)
