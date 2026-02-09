@@ -10,7 +10,13 @@ import { StatusBar } from './views/StatusBar'
 import { IssueActionProvider, ProblemsDiagnosticCollection } from './views/ProblemsDiagnosticCollection'
 import { Config } from './common/config'
 import { AuthUriHandler, codacyAuth } from './auth'
-import { IssueDetailsProvider, seeIssueDetailsCommand, seeCliIssueDetailsCommand } from './views/IssueDetailsProvider'
+import {
+  IssueDetailsProvider,
+  seeIssueDetailsCommand,
+  seeCliIssueDetailsCommand,
+  disablePatternCommand,
+  disableCliPatternCommand,
+} from './views/IssueDetailsProvider'
 import { PullRequestsTree } from './views/PullRequestsTree'
 import { PullRequestNode } from './views/nodes/PullRequestNode'
 import { BranchIssuesTree } from './views/BranchIssuesTree'
@@ -92,6 +98,8 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.cliIssue.seeDetails': seeCliIssueDetailsCommand,
+    'codacy.issue.disablePattern': disablePatternCommand,
+    'codacy.cliIssue.disablePattern': disableCliPatternCommand,
     'codacy.installCLI': async () => {
       await codacyCloud.cli?.install()
     },
@@ -299,7 +307,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(AuthUriHandler.register())
 
-    context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueActionProvider()))
+    context.subscriptions.push(
+      vscode.languages.registerCodeActionsProvider(
+        '*',
+        new IssueActionProvider(() => codacyCloud.params, codacyCloud.cli)
+      )
+    )
 
     context.subscriptions.push(
       vscode.workspace.registerTextDocumentContentProvider('codacyIssue', new IssueDetailsProvider())

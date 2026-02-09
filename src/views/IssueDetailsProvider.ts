@@ -4,6 +4,12 @@ import { Tools } from '../codacy/Tools'
 import { CommitIssue } from '../api/client'
 import Logger from '../common/logger'
 import { ProcessedSarifResult } from '../cli'
+import { RepositoryParams } from '../git/CodacyCloud'
+import { handleError, CodacyError } from '../common/utils'
+import { hasPermission } from './hasPermissions'
+import { getCurrentPendingCount } from './SetupView'
+import { showPatternInStandardView } from './PatternInStandardView'
+import { CodacyCli } from '../cli/CodacyCli'
 
 export class IssueDetailsProvider {
   async provideTextDocumentContent(uri: vscode.Uri) {
@@ -81,7 +87,191 @@ export const seeCliIssueDetailsCommand = async (issue?: ProcessedSarifResult) =>
     return
   }
 
-  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue?.rule.id}`)
+  const uri = vscode.Uri.parse(`codacyIssue://${toolUuid}/${issue.rule.id}`)
 
   vscode.commands.executeCommand('markdown.showPreviewToSide', uri)
+}
+
+export interface DisablePatternProps extends RepositoryParams {
+  toolUuid: string
+  patternId: string
+  commitSHA?: string
+}
+
+export const disablePatternCommand = async (issue: CommitIssue, params: RepositoryParams, cli?: CodacyCli) => {
+  const props: DisablePatternProps = {
+    provider: params.provider,
+    organization: params.organization,
+    repository: params.repository,
+    toolUuid: issue.toolInfo.uuid,
+    patternId: issue.patternInfo.id,
+    commitSHA: issue.commitInfo?.sha,
+  }
+
+  await disablePatternFn(props, cli)
+}
+
+export const disableCliPatternCommand = async (
+  params: RepositoryParams,
+  issue?: ProcessedSarifResult,
+  cli?: CodacyCli
+) => {
+  const tools = await Api.Tools.listTools()
+  const toolUuid = tools.data.find((tool) => tool.name === issue?.tool)?.uuid
+
+  if (!issue || !issue.rule || !toolUuid) {
+    vscode.window.showErrorMessage('Unable to disable pattern: missing tool or rule information.')
+    Logger.error('Unable to disable pattern: missing tool or rule information.')
+    return
+  }
+
+  const props: DisablePatternProps = {
+    provider: params.provider,
+    organization: params.organization,
+    repository: params.repository,
+    toolUuid,
+    patternId: issue.rule.id,
+    // no commit SHA for CLI issues, we should simply re-initialize the CLI
+  }
+  await disablePatternFn(props, cli)
+}
+
+export const disablePatternFn = async (props?: DisablePatternProps, cli?: CodacyCli) => {
+  if (!props) {
+    vscode.window.showErrorMessage(
+      "We couldn't disable this pattern because we're missing repository information. If this keeps happening, reach out to support."
+    )
+    Logger.error('[Codacy API] Unable to disable pattern: missing repository information')
+    return
+  }
+
+  const pendingCount = getCurrentPendingCount()
+
+  // If pendingCount is undefined, assume setup is not complete (safer default)
+  // If pendingCount > 0, setup is incomplete
+  if (pendingCount === undefined || pendingCount > 0) {
+    const action = await vscode.window.showInformationMessage(
+      'Complete your Codacy setup to disable patterns.',
+      'Complete setup'
+    )
+
+    if (action === 'Complete setup') {
+      await vscode.commands.executeCommand('workbench.view.extension.codacy-main')
+    }
+    return
+  }
+
+  const { provider, organization, repository } = props
+
+  try {
+    const { data: repositoryData } = await Api.Repository.getRepository(provider, organization, repository)
+    const hasPermissions = await hasPermission(provider, organization, 'admin', repositoryData.permission)
+
+    if (!hasPermissions) {
+      const action = await vscode.window.showInformationMessage(
+        "You don't have permission to disable this pattern. Contact your admin or ask for permissions.",
+        'View permissions'
+      )
+
+      if (action === 'View permissions') {
+        // Open Codacy to view permissions
+        const permissionsUrl = `https://app.codacy.com/organizations/${provider}/${organization}/settings/permissions`
+        await vscode.env.openExternal(vscode.Uri.parse(permissionsUrl))
+      }
+      return
+    }
+  } catch (error) {
+    Logger.error(
+      `[Codacy API] Failed to check repository information: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+    if (error instanceof CodacyError) {
+      handleError(error, false)
+    } else {
+      handleError(new CodacyError('Failed to check repository information', error as Error, 'API'), false)
+    }
+    return
+  }
+
+  try {
+    const { data: patternData } = await Api.Analysis.getRepositoryToolPattern(
+      props.provider,
+      props.organization,
+      props.repository,
+      props.toolUuid,
+      props.patternId
+    )
+
+    // If the pattern is enabled by a coding standard, user can't disable it at repository level, so we show the standard view
+    if (patternData.enabledBy.length > 0) {
+      showPatternInStandardView(props, patternData.patternDefinition, patternData.enabledBy, cli)
+      return
+    }
+  } catch (error) {
+    Logger.error(
+      `[Codacy API] Failed to get coding standards: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+    if (error instanceof CodacyError) {
+      handleError(error, false)
+    } else {
+      handleError(new CodacyError('Failed to get coding standards', error as Error, 'API'), false)
+    }
+    return
+  }
+
+  const toolUuid = props.toolUuid
+  const patternId = props.patternId
+
+  try {
+    await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
+      patterns: [
+        {
+          id: patternId,
+          enabled: false,
+        },
+      ],
+    })
+
+    const action = await vscode.window.showInformationMessage(
+      'Pattern was successfully disabled in the cloud. This might take some time to reflect in the UI.',
+      'Undo'
+    )
+    Logger.appendLine(
+      `[Codacy API] Pattern "${patternId}" disabled for repository ${provider}/${organization}/${repository}`
+    )
+
+    if (action === 'Undo') {
+      try {
+        await Api.Analysis.configureTool(provider, organization, repository, toolUuid, {
+          patterns: [
+            {
+              id: patternId,
+              enabled: true,
+            },
+          ],
+        })
+        vscode.window.showInformationMessage('Pattern re-enabled successfully.')
+        Logger.appendLine(
+          `[Codacy API] Pattern "${patternId}" re-enabled for repository ${provider}/${organization}/${repository}`
+        )
+      } catch (error) {
+        Logger.error(
+          `[Codacy API] Failed to re-enable pattern "${patternId}": ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+        if (error instanceof CodacyError) {
+          handleError(error, false)
+        } else {
+          handleError(new CodacyError('Failed to re-enable pattern', error as Error, 'API'), false)
+        }
+      }
+    }
+  } catch (error) {
+    Logger.error(
+      `[Codacy API] Failed to disable pattern "${patternId}": ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+    if (error instanceof CodacyError) {
+      handleError(error, false)
+    } else {
+      handleError(new CodacyError('Failed to disable pattern', error as Error, 'API'), false)
+    }
+  }
 }
