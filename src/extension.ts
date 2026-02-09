@@ -147,8 +147,23 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
 
   if (git) {
     // register events
-    git.onDidOpenRepository((repo: GitRepository) => {
-      codacyCloud.open(repo)
+    git.onDidOpenRepository(async (repo: GitRepository) => {
+      await codacyCloud.open(repo)
+      // Configure MCP after repository is opened and params are available
+      if (codacyCloud.params) {
+        configureMCP(codacyCloud.params, isMCPConfigured()).catch((error) => {
+          Logger.warn(`Failed to configure MCP: ${error}`)
+        })
+      } else {
+        Logger.debug('Repository params not yet available, will configure MCP later')
+      }
+    })
+
+    // Configure MCP when repository is fully loaded and params are definitely available
+    codacyCloud.onDidLoadRepository(() => {
+      configureMCP(codacyCloud.params, isMCPConfigured()).catch((error) => {
+        Logger.warn(`Failed to configure MCP after repository load: ${error}`)
+      })
     })
 
     git.onDidCloseRepository((repo: GitRepository) => {
@@ -164,7 +179,13 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
           Logger.debug(`Git API initialized with ${git.repositories.length} repositories`)
-          codacyCloud.open(git.repositories[0])
+          await codacyCloud.open(git.repositories[0])
+          // Configure MCP after repository is opened and params are available
+          if (codacyCloud.params) {
+            await configureMCP(codacyCloud.params, isMCPConfigured())
+          } else {
+            Logger.debug('Repository params not yet available, will configure MCP later')
+          }
         } else {
           Logger.appendLine('Git API initialized but no repositories found')
           codacyCloud.clear()
@@ -265,9 +286,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    // Configure MCP automatically
-    await configureMCP(codacyCloud.params, isMCPConfigured())
-
     await registerCommands(context, codacyCloud)
 
     // add views
@@ -337,7 +355,13 @@ export async function activate(context: vscode.ExtensionContext) {
     // check for open repository
     if (gitProvider.state === 'initialized' && gitProvider.repositories.length > 0) {
       Logger.debug(`Found ${gitProvider.repositories.length} repositories, opening first one`)
-      codacyCloud.open(gitProvider.repositories[0])
+      await codacyCloud.open(gitProvider.repositories[0])
+      // Configure MCP after repository is opened and params are available
+      if (codacyCloud.params) {
+        await configureMCP(codacyCloud.params, isMCPConfigured())
+      } else {
+        Logger.debug('Repository params not yet available, will configure MCP later')
+      }
     } else if (gitProvider.state === 'uninitialized') {
       Logger.debug('Git API is still initializing, will wait for state change event')
     } else {
