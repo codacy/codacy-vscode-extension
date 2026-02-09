@@ -447,7 +447,7 @@ export class IssueActionProvider implements vscode.CodeActionProvider {
         }
         actions.push(seeIssueDetailsAction)
 
-        // add disable pattern action for API issues
+        // add disable pattern action for CLI issues
         const params = this.getParams?.()
         if (params) {
           const disablePatternAction = new vscode.CodeAction(

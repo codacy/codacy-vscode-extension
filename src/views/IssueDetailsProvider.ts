@@ -169,7 +169,7 @@ export const disablePatternFn = async (props?: DisablePatternProps, cli?: Codacy
 
     if (!hasPermissions) {
       const action = await vscode.window.showInformationMessage(
-        "You don't have permission to disable this pattern. Contact your admin or  ask for permissions.",
+        "You don't have permission to disable this pattern. Contact your admin or ask for permissions.",
         'View permissions'
       )
 

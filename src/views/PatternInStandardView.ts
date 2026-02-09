@@ -19,7 +19,7 @@ function escapeHtml(text: string | number): string {
     .replace(/'/g, '&#039;')
 }
 
-export async function showPatternInStandardView(
+export function showPatternInStandardView(
   props: DisablePatternProps,
   pattern: Pattern,
   standards: CodingStandardInfo[],
@@ -68,7 +68,7 @@ export async function showPatternInStandardView(
         encodedOrganization +
         '/policies/coding-standards/edit?id=' +
         encodedId
-      return '<li><a href="' + href + '" target="_blank">Edit "' + escapedName + '"</a></li>'
+      return '<li><a href="' + href + '" target="_blank" rel="noopener noreferrer">Edit "' + escapedName + '"</a></li>'
     })
     .join('')
 
@@ -115,7 +115,7 @@ export async function showPatternInStandardView(
           <button class="refresh-button" aria-label="Refresh issues">Refresh issues</button>
         </div>
         <p class="help-text">
-          Need help? <a href="https://docs.codacy.com/organizations/using-coding-standards/#editing" target="_blank">
+          Need help? <a href="https://docs.codacy.com/organizations/using-coding-standards/#editing" target="_blank" rel="noopener noreferrer">
             Learn how to disable patterns in standards
           </a>
         </p>
