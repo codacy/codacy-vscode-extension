@@ -1,11 +1,11 @@
 import { Api } from './api'
 import * as vscode from 'vscode'
-import { OrganizationService } from './api/client'
+import { OrganizationService, Provider } from './api/client'
 import { CodacyCloud, CodacyCloudState } from './git/CodacyCloud'
 
 const ORGANIZATIONS_ITERATION_LIMIT = 5
 
-const findOrganization = async (provider: 'bb' | 'gh' | 'gl', organization: string, cursor?: string) => {
+const findOrganization = async (provider: Provider, organization: string, cursor?: string) => {
   try {
     let currentCursor = cursor
     let hasMore = true
@@ -45,7 +45,7 @@ const pendingJoinOrganizationStatus = async () => {
   return CodacyCloudState.HasPendingJoinOrganization
 }
 
-export const getRepositoryCodacyCloudStatus = async (provider: 'bb' | 'gh' | 'gl', organization: string) => {
+export const getRepositoryCodacyCloudStatus = async (provider: Provider, organization: string) => {
   const findOrgResult = await findOrganization(provider, organization)
   if (!findOrgResult.success) {
     // Organization not found on Codacy; User needs to add the organization
@@ -191,11 +191,7 @@ export const addRepository = async (codacyCloud: CodacyCloud) => {
   }
 }
 
-export const checkFirstAnalysisStatus = async (
-  provider: 'bb' | 'gh' | 'gl',
-  organization: string,
-  repository: string
-) => {
+export const checkFirstAnalysisStatus = async (provider: Provider, organization: string, repository: string) => {
   try {
     const { data } = await Api.Analysis.getFirstAnalysisOverview(provider, organization, repository)
     return data

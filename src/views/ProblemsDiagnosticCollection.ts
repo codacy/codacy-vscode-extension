@@ -5,7 +5,7 @@ import { CodacyCloud } from '../git/CodacyCloud'
 import { PullRequestIssue } from '../git/PullRequest'
 import { GitProvider } from '../git/GitProvider'
 import { BranchIssue } from '../git/IssuesManager'
-import { CommitIssue, SeverityLevel } from '../api/client'
+import { CommitIssue, Provider, SeverityLevel } from '../api/client'
 import { ProcessedSarifResult } from '../cli'
 import * as path from 'path'
 import Logger from '../common/logger'
@@ -371,7 +371,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
  */
 export class IssueActionProvider implements vscode.CodeActionProvider {
   constructor(
-    private getParams?: () => { provider: string; organization: string; repository: string } | undefined,
+    private getParams?: () => { provider: Provider; organization: string; repository: string } | undefined,
     private cli?: CodacyCli
   ) {}
 
