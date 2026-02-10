@@ -155,8 +155,16 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
 
   if (git) {
     // register events
-    git.onDidOpenRepository((repo: GitRepository) => {
-      codacyCloud.open(repo)
+    git.onDidOpenRepository(async (repo: GitRepository) => {
+      try {
+        await codacyCloud.open(repo)
+        // update MCP after repository is opened and params are available
+        updateMCPConfig(codacyCloud.params).catch((error) => {
+          Logger.warn(`Failed to update MCP config: ${error instanceof Error ? error.message : String(error)}`)
+        })
+      } catch (error) {
+        Logger.error(`Failed to open repository: ${error instanceof Error ? error.message : String(error)}`)
+      }
     })
 
     git.onDidCloseRepository((repo: GitRepository) => {
@@ -172,7 +180,9 @@ const registerGitProvider = async (context: vscode.ExtensionContext, codacyCloud
       if (state === 'initialized') {
         if (git.repositories.length > 0) {
           Logger.debug(`Git API initialized with ${git.repositories.length} repositories`)
-          codacyCloud.open(git.repositories[0])
+          await codacyCloud.open(git.repositories[0])
+          // Update MCP config after repository is opened and params are available
+          await updateMCPConfig(codacyCloud.params)
         } else {
           Logger.appendLine('Git API initialized but no repositories found')
           codacyCloud.clear()
@@ -350,7 +360,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // check for open repository
     if (gitProvider.state === 'initialized' && gitProvider.repositories.length > 0) {
       Logger.debug(`Found ${gitProvider.repositories.length} repositories, opening first one`)
-      codacyCloud.open(gitProvider.repositories[0])
+      await codacyCloud.open(gitProvider.repositories[0])
     } else if (gitProvider.state === 'uninitialized') {
       Logger.debug('Git API is still initializing, will wait for state change event')
     } else {

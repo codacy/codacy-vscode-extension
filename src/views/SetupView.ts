@@ -246,7 +246,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   }
 
   private generateInstructionsFile() {
-    createOrUpdateRules()
+    createOrUpdateRules(this._codacyCloud?.params)
       .then(() => {
         this.updateMCPStatus()
       })
