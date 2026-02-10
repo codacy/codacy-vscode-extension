@@ -1,11 +1,13 @@
-const validProviders: Record<string, 'gh' | 'gl' | 'bb'> = {
+import { Provider } from '../api/client'
+
+const validProviders: Record<string, Provider> = {
   github: 'gh',
   gitlab: 'gl',
   bitbucket: 'bb',
 }
 
 interface GitRemoteInfo {
-  provider: 'gh' | 'gl' | 'bb'
+  provider: Provider
   organization: string
   repository: string
   originalRepository?: string
@@ -15,7 +17,7 @@ interface GitRemoteInfo {
  * Normalize repository name based on provider
  * For GitLab, extracts the last part of group/subgroup/project path
  */
-const normalizeRepositoryName = (provider: 'gh' | 'gl' | 'bb', repository: string): string => {
+const normalizeRepositoryName = (provider: Provider, repository: string): string => {
   if (provider === 'gl') {
     // For GitLab, take the last part of the path
     const parts = repository.split('/')

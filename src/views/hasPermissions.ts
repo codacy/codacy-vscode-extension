@@ -1,8 +1,8 @@
-import { Permission } from '../api/client'
+import { Permission, Provider } from '../api/client'
 import { Api } from '../api'
 
 export const hasPermission = async (
-  provider: string,
+  provider: Provider,
   organization: string,
   allowedByDefault: Permission,
   repositoryPermission?: Permission
