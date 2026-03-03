@@ -196,6 +196,11 @@ export class CodacyCloud implements vscode.Disposable {
                 }
               }
             } catch (error) {
+              Logger.debug(
+                `Failed to load repository with remote ${remoteIdx} (${provider}/${organization}/${repository}): ${
+                  (error as Error).message
+                }`
+              )
               remoteIdx++
             }
           }
@@ -263,7 +268,7 @@ export class CodacyCloud implements vscode.Disposable {
           Logger.error(`Failed to load repository: ${e.message}`)
           this.state = CodacyCloudState.NeedsAuthentication
         } else {
-          handleError(e as Error)
+          handleError(e as Error, true, 'Failed to load repository')
           this.state = CodacyCloudState.NoRepository
         }
       }
@@ -454,7 +459,7 @@ export class CodacyCloud implements vscode.Disposable {
         }, LOAD_RETRY_TIME)
       }
     } catch (e) {
-      handleError(e as Error)
+      handleError(e as Error, true, `Failed to fetch pull requests for ${repo.provider}/${repo.owner}/${repo.name}`)
     }
 
     return this._pullRequests
@@ -516,7 +521,7 @@ export class CodacyCloud implements vscode.Disposable {
         this.branchState = BranchState.OnPullRequestBranch
         this._issuesManager.clear()
       } catch (e) {
-        handleError(e as Error)
+        handleError(e as Error, true, `Failed to load pull request for branch '${this._branch}'`)
       }
     }
 
