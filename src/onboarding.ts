@@ -2,6 +2,7 @@ import { Api } from './api'
 import * as vscode from 'vscode'
 import { OrganizationService, Provider } from './api/client'
 import { CodacyCloud, CodacyCloudState } from './git/CodacyCloud'
+import Logger from './common/logger'
 
 const ORGANIZATIONS_ITERATION_LIMIT = 5
 
@@ -49,7 +50,8 @@ export const getRepositoryCodacyCloudStatus = async (provider: Provider, organiz
   const findOrgResult = await findOrganization(provider, organization)
   if (!findOrgResult.success) {
     // Organization not found on Codacy; User needs to add the organization
-    return CodacyCloudState.NeedsToAddOrganization
+    Logger.error(`Failed to get cloud status: ${findOrgResult.message}`)
+    return CodacyCloudState.OrganizationNotFound
   }
   const { organization: existingOrg } = findOrgResult
 

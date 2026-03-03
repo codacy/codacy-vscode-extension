@@ -26,6 +26,7 @@ export enum CodacyCloudState {
   AnalysisFailed = 'AnalysisFailed',
   Loaded = 'Loaded',
   NoRepository = 'NoRepository',
+  OrganizationNotFound = 'OrganizationNotFound',
 }
 
 export enum PullRequestState {
@@ -225,10 +226,14 @@ export class CodacyCloud implements vscode.Disposable {
           }
 
           const { name: repository, owner, provider } = this._repository.repository
-
-          const { data: organization } = await Api.Organization.getOrganization(provider, owner)
-          this._organization = organization
-
+          try {
+            const { data: organization } = await Api.Organization.getOrganization(provider, owner)
+            this._organization = organization
+          } catch (e) {
+            Logger.error(`Could not fetch organization: ${(e as Error).message}`)
+            this.state = CodacyCloudState.OrganizationNotFound
+            return
+          }
           // does the repository have coverage data?
           const {
             data: { hasCoverageOverview },
@@ -255,7 +260,7 @@ export class CodacyCloud implements vscode.Disposable {
         }
       } catch (e) {
         if (e instanceof OpenAPIError && !Config.apiToken) {
-          console.error(e)
+          Logger.error(`Failed to load repository: ${e.message}`)
           this.state = CodacyCloudState.NeedsAuthentication
         } else {
           handleError(e as Error)
