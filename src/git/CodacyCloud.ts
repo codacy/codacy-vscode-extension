@@ -26,6 +26,7 @@ export enum CodacyCloudState {
   AnalysisFailed = 'AnalysisFailed',
   Loaded = 'Loaded',
   NoRepository = 'NoRepository',
+  OrganizationNotFound = 'OrganizationNotFound',
 }
 
 export enum PullRequestState {
@@ -99,6 +100,7 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public async open(gitRepository: GitRepository) {
+    Logger.appendLine(`Opening repository: ${gitRepository.rootUri.fsPath}`)
     this._cli = await Cli.get(this._params ?? {})
     const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
     const openRepository = async () => {
@@ -139,7 +141,9 @@ export class CodacyCloud implements vscode.Disposable {
                 this._stateChangeDisposable.dispose()
                 this._stateChangeDisposable = undefined
               }
-              openRepository()
+              openRepository().catch((error) => {
+                handleError(error as Error, true, 'Failed to open repository after state change')
+              })
             }
           })
 
@@ -190,11 +194,18 @@ export class CodacyCloud implements vscode.Disposable {
                   return
                 } else {
                   this.state = CodacyCloudState.IsAnalyzing
-                  this.checkRepositoryAnalysisStatus()
+                  this.checkRepositoryAnalysisStatus().catch((error) => {
+                    handleError(error as Error, false, 'Failed to check repository analysis status')
+                  })
                   return
                 }
               }
             } catch (error) {
+              Logger.debug(
+                `Failed to load repository with remote ${remoteIdx} (${provider}/${organization}/${repository}): ${
+                  (error as Error).message
+                }`
+              )
               remoteIdx++
             }
           }
@@ -225,10 +236,14 @@ export class CodacyCloud implements vscode.Disposable {
           }
 
           const { name: repository, owner, provider } = this._repository.repository
-
-          const { data: organization } = await Api.Organization.getOrganization(provider, owner)
-          this._organization = organization
-
+          try {
+            const { data: organization } = await Api.Organization.getOrganization(provider, owner)
+            this._organization = organization
+          } catch (e) {
+            Logger.error(`Could not fetch organization: ${(e as Error).message}`)
+            this.state = CodacyCloudState.OrganizationNotFound
+            return
+          }
           // does the repository have coverage data?
           const {
             data: { hasCoverageOverview },
@@ -255,10 +270,10 @@ export class CodacyCloud implements vscode.Disposable {
         }
       } catch (e) {
         if (e instanceof OpenAPIError && !Config.apiToken) {
-          console.error(e)
+          Logger.error(`Failed to load repository: ${e.message}`)
           this.state = CodacyCloudState.NeedsAuthentication
         } else {
-          handleError(e as Error)
+          handleError(e as Error, true, 'Failed to load repository')
           this.state = CodacyCloudState.NoRepository
         }
       }
@@ -280,6 +295,7 @@ export class CodacyCloud implements vscode.Disposable {
     // Exit if state changed or missing params
     if (this._state !== CodacyCloudState.IsAnalyzing || !this._params) return
     const { provider, organization, repository } = this._params
+    Logger.appendLine(`Checking repository analysis status for ${provider}/${organization}/${repository}`)
 
     const check = async () => {
       try {
@@ -301,7 +317,11 @@ export class CodacyCloud implements vscode.Disposable {
               LOAD_RETRY_TIME / 60000
             } minutes.`
           )
-          this._analysisCheckTimeout = setTimeout(() => this.checkRepositoryAnalysisStatus(), LOAD_RETRY_TIME)
+          this._analysisCheckTimeout = setTimeout(() => {
+            this.checkRepositoryAnalysisStatus().catch((error) => {
+              handleError(error as Error, false, 'Failed to check repository analysis status (scheduled retry)')
+            })
+          }, LOAD_RETRY_TIME)
         } else {
           Logger.appendLine(`Maximum analysis check attempts reached. Stopping automatic checks.`)
           await vscode.window.showWarningMessage(
@@ -320,34 +340,40 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   private async handleBranchChange() {
-    // update pull requests to be up to date
-    await this.refreshPullRequests()
+    Logger.appendLine(`Handling branch change to: ${this._current?.state.HEAD?.name || 'unknown'}`)
+    try {
+      // update pull requests to be up to date
+      await this.refreshPullRequests()
 
-    this._branch = this._current?.state.HEAD?.name
+      this._branch = this._current?.state.HEAD?.name
 
-    if (!this._branch) {
-      Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state.HEAD)}`)
-      this.prState = PullRequestState.NoPullRequest
-      this.branchState = BranchState.OnUnknownBranch
-    }
+      if (!this._branch) {
+        Logger.warn(`No HEAD information found: ${JSON.stringify(this._current?.state.HEAD)}`)
+        this.prState = PullRequestState.NoPullRequest
+        this.branchState = BranchState.OnUnknownBranch
+      }
 
-    // in which kind of branch are we? (PR, analysed, unknown)
-    else if (this._enabledBranches.some((b) => b.name === this._branch)) {
-      Logger.appendLine(
-        `Current branch is an analyzed branch: ${this._branch}. Skipped looking for a pull request. Loading branch issues...`
-      )
-      this.prState = PullRequestState.NoPullRequest
+      // in which kind of branch are we? (PR, analysed, unknown)
+      else if (this._enabledBranches.some((b) => b.name === this._branch)) {
+        Logger.appendLine(
+          `Current branch is an analyzed branch: ${this._branch}. Skipped looking for a pull request. Loading branch issues...`
+        )
+        this.prState = PullRequestState.NoPullRequest
 
-      this.loadIssues()
-    }
+        this.loadIssues()
+      }
 
-    // otherwise, try to find a pull request
-    else {
-      this.loadPullRequest()
+      // otherwise, try to find a pull request
+      else {
+        this.loadPullRequest()
+      }
+    } catch (error) {
+      handleError(error as Error, false, 'Failed to handle branch change')
     }
   }
 
   public loadIssues(retryOnFailure = false) {
+    Logger.appendLine(`Loading issues for branch: ${this._branch}`)
     // if the local branch's HEAD is not the same as the remote branch's HEAD, then the local branch is outdated
     if (this.head?.commit !== this.lastAnalysedCommit?.sha) {
       Logger.appendLine(
@@ -391,9 +417,13 @@ export class CodacyCloud implements vscode.Disposable {
       this.branchState = BranchState.OnUnknownBranch
 
       // trigger the pull requests load
-      this.refreshPullRequests()
+      this.refreshPullRequests().catch((error) => {
+        handleError(error as Error, false, 'Failed to refresh pull requests on branch change')
+      })
 
-      this.handleBranchChange()
+      this.handleBranchChange().catch((error) => {
+        handleError(error as Error, false, 'Failed to handle branch change')
+      })
     }
 
     // check if the user commit changes to the current PR branch and pushed them
@@ -408,7 +438,9 @@ export class CodacyCloud implements vscode.Disposable {
       this._refreshTimeout && clearTimeout(this._refreshTimeout)
       this._refreshTimeout = setTimeout(() => {
         Logger.appendLine(`Up to date with remote, refreshing pull request...`)
-        this._pullRequest?.refresh()
+        this._pullRequest?.refresh().catch((error) => {
+          handleError(error as Error, false, 'Failed to refresh pull request')
+        })
       }, 10000 /* 10 sec */)
     }
 
@@ -445,11 +477,13 @@ export class CodacyCloud implements vscode.Disposable {
       // if any of the pull requests is loading, run a refresh again in N minutes
       if (this._pullRequests.some((pr) => pr.status.value === 'loading')) {
         this._prsRefreshTimeout = setTimeout(() => {
-          this.refreshPullRequests()
+          this.refreshPullRequests().catch((error) => {
+            handleError(error as Error, false, 'Failed to refresh pull requests (scheduled retry)')
+          })
         }, LOAD_RETRY_TIME)
       }
     } catch (e) {
-      handleError(e as Error)
+      handleError(e as Error, true, `Failed to fetch pull requests for ${repo.provider}/${repo.owner}/${repo.name}`)
     }
 
     return this._pullRequests
@@ -457,6 +491,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public async refreshPullRequests() {
     if (this._state !== CodacyCloudState.Loaded || !this._repository) return
+    Logger.appendLine('Refreshing pull requests list')
 
     // we need to make this to run getOrFetchPullRequests in the context of 'this'
     const load = async () => await this.getOrFetchPullRequests()
@@ -467,6 +502,7 @@ export class CodacyCloud implements vscode.Disposable {
   public async loadPullRequest() {
     this._loadTimeout && clearTimeout(this._loadTimeout)
     if (this._state !== CodacyCloudState.Loaded || !this._repository) return
+    Logger.appendLine(`Loading pull request for branch: ${this._branch}`)
 
     const load = async () => {
       try {
@@ -481,7 +517,9 @@ export class CodacyCloud implements vscode.Disposable {
           // try again in N minutes
           if (this._loadAttempts < MAX_LOAD_ATTEMPTS) {
             this._loadTimeout = setTimeout(() => {
-              this.loadPullRequest()
+              this.loadPullRequest().catch((error) => {
+                handleError(error as Error, false, 'Failed to load pull request (retry attempt)')
+              })
             }, LOAD_RETRY_TIME)
             this._loadAttempts++
           }
@@ -491,7 +529,9 @@ export class CodacyCloud implements vscode.Disposable {
 
         if (pr.analysis.pullRequest.number === this._pullRequest?.meta.number) {
           // PR is the same, refresh it
-          this._pullRequest.refresh()
+          this._pullRequest.refresh().catch((error) => {
+            handleError(error as Error, false, 'Failed to refresh pull request')
+          })
         } else {
           // PR is different, create a new one
           this._pullRequest = new PullRequest(pr.analysis, this)
@@ -511,7 +551,7 @@ export class CodacyCloud implements vscode.Disposable {
         this.branchState = BranchState.OnPullRequestBranch
         this._issuesManager.clear()
       } catch (e) {
-        handleError(e as Error)
+        handleError(e as Error, true, `Failed to load pull request for branch '${this._branch}'`)
       }
     }
 
@@ -544,9 +584,14 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public async clear() {
+    Logger.appendLine('Clearing repository state')
     this._current = undefined
     // Clean up the rules file of repository information
-    if (isMCPConfigured()) createOrUpdateRules()
+    if (isMCPConfigured()) {
+      createOrUpdateRules().catch((error) => {
+        handleError(error as Error, false, 'Failed to update rules on clear')
+      })
+    }
     if (!Config.apiToken) {
       this.state = CodacyCloudState.NeedsAuthentication
     } else {
@@ -557,6 +602,7 @@ export class CodacyCloud implements vscode.Disposable {
 
   public refresh() {
     if (!this._current) return
+    Logger.appendLine(`Refreshing repository in state: ${this._state}`)
     switch (this._state) {
       case CodacyCloudState.Loaded:
       case CodacyCloudState.IsAnalyzing:
@@ -650,13 +696,17 @@ export class CodacyCloud implements vscode.Disposable {
       const isCliInstalled = this._cli !== undefined && this._cli.getCliCommand() !== ''
       const isMcpConfigured = isMCPConfigured()
 
-      checkRulesFile().then((hasInstructionsFile) => {
-        Telemetry.track('Guardrails State on Repository Load', {
-          hasCli: isCliInstalled,
-          hasMcp: isMcpConfigured,
-          hasInstructionsFile,
+      checkRulesFile()
+        .then((hasInstructionsFile) => {
+          Telemetry.track('Guardrails State on Repository Load', {
+            hasCli: isCliInstalled,
+            hasMcp: isMcpConfigured,
+            hasInstructionsFile,
+          })
         })
-      })
+        .catch((error) => {
+          Logger.error(`Failed to check rules file for telemetry: ${(error as Error).message}`)
+        })
     }
   }
 
@@ -685,7 +735,9 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public dispose() {
-    this.clear()
+    this.clear().catch((error) => {
+      Logger.error(`Failed to clear repository on dispose: ${(error as Error).message}`)
+    })
     this._disposables.forEach((d) => {
       d.dispose()
     })

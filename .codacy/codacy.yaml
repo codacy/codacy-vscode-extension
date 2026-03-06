@@ -6,5 +6,5 @@ tools:
     - eslint@9.38.0
     - lizard@1.17.31
     - pmd@6.55.0
-    - semgrep@1.78.0
-    - trivy@0.66.0
+    - semgrep@1.16.1
+    - trivy@0.69.2

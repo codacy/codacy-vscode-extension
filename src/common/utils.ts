@@ -16,7 +16,8 @@ export class CodacyError extends Error {
   }
 }
 
-export const handleError = (e: Error, showPopup: boolean = true): void => {
+export const handleError = (e: Error, showPopup: boolean = true, contextMessage?: string): void => {
+  const message = contextMessage ? `${contextMessage} - ` : ''
   const showErrorMessage = async (message: string) => {
     if (!showPopup) return
     const choice = await vscode.window.showErrorMessage(message, 'Show Logs')
@@ -31,21 +32,21 @@ export const handleError = (e: Error, showPopup: boolean = true): void => {
     if (err.body && err.body.message && err.body.actions) {
       const apiError = err.body as ApiError
       Logger.error(
-        `${err.statusText} - ${apiError.message} ${apiError.innerMessage ? `(${apiError.innerMessage})` : ''}`
+        `${message} ${err.statusText} - ${apiError.message} ${apiError.innerMessage ? `(${apiError.innerMessage})` : ''}`
       )
       showErrorMessage(apiError.message).catch(console.error)
     } else {
-      Logger.error(`${err.statusText} - ${err.message}`)
+      Logger.error(`${message} ${err.statusText} - ${err.message}`)
       showErrorMessage(err.message).catch(console.error)
     }
   } else if (e instanceof CodacyError) {
     const err = e as CodacyError
-    Logger.error(`${err.name} - ${err.message}`)
+    Logger.error(`${message} ${err.name} - ${err.message}`)
     if (err.innerException) Logger.debug(`Inner Exception: ${err.innerException.message}`, err.component)
     showErrorMessage(err.message).catch(console.error)
   } else {
     const err = e as Error
-    Logger.error(err.message)
+    Logger.error(`${message} ${err.message}`)
   }
 }
 

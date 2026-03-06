@@ -32,6 +32,7 @@
   let userInfo = null
   let organizationInfo = null
   let repositoryInfo = null
+  let orgError = null
   /**
    * Escapes HTML special characters to prevent XSS attacks.
    * @param {string | undefined | null} str - The string to escape
@@ -50,7 +51,7 @@
   /**
    * Safely sets cloud description with highlighted text using DOM methods.
    * @param {HTMLElement} element - The element to update
-   * @param {{type: 'organization' | 'repository' | 'user', params: {organization?: string, provider?: string, repository?: string, user?: string}}} context - The context to use
+   * @param {{type: 'organization' | 'repository' | 'user' | 'organizationNotFound', params: {organization?: string, provider?: string, repository?: string, user?: string}}} context - The context to use
    */
   function setCloudDescription(element, { type, params }) {
     element.textContent = ''
@@ -61,6 +62,11 @@
             <p class="loading-text">Connecting to Codacy...</p>
           </div>`
     switch (type) {
+      case 'organizationNotFound':
+        textNode.textContent = 'The organization you\'re trying to connect to is not found in Codacy. '
+        linkNode.textContent = `Check your available organizations`
+        linkNode.href = `https://app.codacy.com/organizations`
+        break
       case 'organization':
         if (!params.provider || !params.organization) {
           element.innerHTML = loadingHtml
@@ -134,7 +140,8 @@
         userInfo = message.userInfo
         organizationInfo = message.organizationInfo
         repositoryInfo = message.repositoryInfo
-        handleLoginStateChange(isLoggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo)
+        orgError = message.orgError
+        handleLoginStateChange(isLoggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo, orgError)
         break
       case 'mcpStatusChanged':
         isMCPInstalled = message.isMCPInstalled
@@ -236,6 +243,14 @@
     } = elements
     const { organizationName, organizationProvider, repositoryName, userName, billing } = connectionInfo
     switch (state) {
+      case 'organizationNotFound':
+        cloudIcon.src = iconUris.warning
+        addOrgButton.style.display = 'none'
+        addRepoButton.style.display = 'none'
+        noOrgDescription.style.display = 'none'
+        upgradeBox.style.display = 'none'
+        setCloudDescription(cloudDescription, { type: 'organizationNotFound', params: { } })
+        break
       case 'needsToAddOrganization':
         addOrgButton.style.display = 'inline-block'
         noOrgDescription.style.display = 'inline-block'
@@ -293,8 +308,9 @@
    * @param {Object|null} userInfo
    * @param {Object|null} organizationInfo
    * @param {Object|null} repositoryInfo
+   * @param {string|null} orgError
    */
-  function handleLoginStateChange(loggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo) {
+  function handleLoginStateChange(loggedIn, isOrgInCodacy, isRepoInCodacy, userInfo, organizationInfo, repositoryInfo, orgError) {
     const upgradeBox = document.getElementById('upgrade-box')
     const upgradeButton = document.getElementById('upgrade-button')
     /** @type {HTMLImageElement | null} */
@@ -334,6 +350,9 @@
         handleLoginOrgStates(elements, connectionInfo, 'needsToAddRepository')
       } else {
         handleLoginOrgStates(elements, connectionInfo, 'needsToAddOrganization')
+      }
+      if (orgError) {
+        handleLoginOrgStates(elements, connectionInfo, 'organizationNotFound')
       }
     } else {
       showLoggedOutState(elements)

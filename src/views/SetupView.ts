@@ -176,6 +176,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
       const organizationInfo = this._codacyCloud?.organizationWithMeta
       const repositoryInfo = this._codacyCloud?.repository
+      const orgError = this._codacyCloud?.state === CodacyCloudState.OrganizationNotFound
 
       let userInfo = undefined
       if (isLoggedIn) {
@@ -201,6 +202,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         userInfo,
         organizationInfo,
         repositoryInfo,
+        orgError,
       })
     }
   }

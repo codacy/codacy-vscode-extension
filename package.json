@@ -196,6 +196,11 @@
       },
       {
         "view": "codacy:cloud-status",
+        "contents": "The organization you're trying to connect to is not found in Codacy. Please check the organization name and try again.",
+        "when": "Codacy:CodacyCloudStateContext == OrganizationNotFound"
+      },
+      {
+        "view": "codacy:cloud-status",
         "contents": "You are not part of this organization in Codacy.\n[Join organization](command:codacy.joinOrganization)",
         "when": "Codacy:CodacyCloudStateContext == NeedsToJoinOrganization"
       },
