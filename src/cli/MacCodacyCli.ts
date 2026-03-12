@@ -137,8 +137,11 @@ export class MacCodacyCli extends CodacyCli {
       // Initialize codacy-cli after update
       await this.initialize()
     } catch (error) {
-      Logger.error(`Failed to update Codacy CLI: ${error}`)
-      throw new Error(`Failed to update CLI: ${error}`)
+      const errorMessage =
+        typeof error === 'string' ? error : ((error as Error)?.message ?? String(error ?? 'Unknown error'))
+      const messageStrippedOfToken = errorMessage?.replace(this._accountToken || '', '***')
+      Logger.error(`Failed to update Codacy CLI: ${messageStrippedOfToken}`)
+      throw new Error(`Failed to update CLI: ${messageStrippedOfToken}`)
     }
   }
 
