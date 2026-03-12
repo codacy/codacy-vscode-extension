@@ -1,14 +1,23 @@
 import * as vscode from 'vscode'
+import { Config } from './config'
 import Logger from './logger'
 import { ApiError, OpenAPIError } from '../api/client'
 import Telemetry from './telemetry'
+
+export const cleanErrorMessage = (error: unknown, token: string | undefined): string => {
+  const errorMessage =
+    typeof error === 'string' ? error : ((error as Error)?.message ?? String(error ?? 'Unknown error'))
+  const messageStrippedOfToken = errorMessage?.replace(token || '', '***')
+  return messageStrippedOfToken || 'Unknown error'
+}
 
 export class CodacyError extends Error {
   public readonly innerException?: Error
   public readonly component?: string
 
-  constructor(message: string, _innerException?: Error, _component?: string) {
-    super(message)
+  constructor(message: string, _innerException?: Error, _component?: string, token?: string) {
+    const cleanedErrorMessage = cleanErrorMessage(message, token ?? Config.apiToken)
+    super(cleanedErrorMessage)
 
     this.name = 'CodacyError'
     this.innerException = _innerException

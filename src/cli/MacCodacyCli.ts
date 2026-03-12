@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
-import { CodacyError } from '../common/utils'
+import { cleanErrorMessage, CodacyError } from '../common/utils'
 
 import { CODACY_FOLDER_NAME, CodacyCli } from './CodacyCli'
 import Logger from '../common/logger'
@@ -137,11 +137,9 @@ export class MacCodacyCli extends CodacyCli {
       // Initialize codacy-cli after update
       await this.initialize()
     } catch (error) {
-      const errorMessage =
-        typeof error === 'string' ? error : ((error as Error)?.message ?? String(error ?? 'Unknown error'))
-      const messageStrippedOfToken = errorMessage?.replace(this._accountToken || '', '***')
-      Logger.error(`Failed to update Codacy CLI: ${messageStrippedOfToken}`)
-      throw new Error(`Failed to update CLI: ${messageStrippedOfToken}`)
+      const cleanedErrorMessage = cleanErrorMessage(error, this._accountToken)
+      Logger.error(`Failed to update Codacy CLI: ${cleanedErrorMessage}`)
+      throw new Error(`Failed to update CLI: ${cleanedErrorMessage}`)
     }
   }
 
@@ -183,7 +181,8 @@ export class MacCodacyCli extends CodacyCli {
         // initialize codacy-cli
         await this.execAsync(`${this.getCliCommand()} init`, initParams)
       } catch (error) {
-        throw new Error(`Failed to initialize CLI: ${error}`)
+        const cleanedErrorMessage = cleanErrorMessage(error, this._accountToken)
+        throw new Error(`Failed to initialize CLI: ${cleanedErrorMessage}`)
       }
 
       // install dependencies
