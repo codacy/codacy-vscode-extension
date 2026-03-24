@@ -18,11 +18,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Clone Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
         with:
           fetch-depth: 0
       - name: Setup Node version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
         with:
           node-version: 20
       - name: Install dependencies
@@ -59,7 +59,7 @@ jobs:
         run: vsce publish --packagePath "./releases/codacy-$RELEASE_VERSION.vsix" --no-git-tag-version --no-update-package-json -p ${{ secrets.VSC_MKTP_PAT }}
       - name: Publish to Open VSX Registry
         continue-on-error: true
-        uses: HaaLeo/publish-vscode-extension@v1
+        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
         with:
           preRelease: false
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
@@ -72,7 +72,7 @@ jobs:
           export GIT_TAG=$(git describe --tags --abbrev=0)
           echo "GIT_TAG=$GIT_TAG" >> $GITHUB_ENV
       - name: GitHub Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           artifacts: './releases/codacy-*'
           bodyFile: ${{ github.workspace }}-CHANGELOG.txt
@@ -80,7 +80,7 @@ jobs:
           prerelease: false
       - name: Send Slack notification
         id: slack
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
           payload: |
             {
