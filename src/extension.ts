@@ -3,6 +3,7 @@ import * as os from 'os'
 import { CommandType, wrapExtensionCommand } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
+import { configureAxiosProxy } from './common/proxy'
 import { GitProvider } from './git/GitProvider'
 import { CodacyCloud } from './git/CodacyCloud'
 import { PullRequestSummaryTree } from './views/PullRequestSummaryTree'
@@ -220,6 +221,15 @@ export async function activate(context: vscode.ExtensionContext) {
     })
     context.globalState.update('codacy.hasBeenActivated', true)
   }
+
+  // Re-apply proxy settings when the VS Code http configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('http')) {
+        configureAxiosProxy()
+      }
+    })
+  )
 
   // Listen for workspace folder changes
   context.subscriptions.push(
