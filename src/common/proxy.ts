@@ -8,12 +8,10 @@ function resolveProxyUrl(): string | undefined {
   // VS Code setting takes precedence; an empty string means "no proxy"
   const vscodeProxy = vscode.workspace.getConfiguration('http').get<string>('proxy')
   if (vscodeProxy !== undefined) {
-    return vscodeProxy || undefined
+    return vscodeProxy
   }
 
-  return (
-    process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || undefined
-  )
+  return process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy
 }
 
 function resolveStrictSSL(): boolean {
