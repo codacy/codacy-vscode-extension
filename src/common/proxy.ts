@@ -78,6 +78,7 @@ export class ProxiedSegmentHTTPClient implements HTTPClient {
     const response = await axios.post(options.url, options.data, {
       headers: options.headers,
       timeout: options.httpRequestTimeout,
+      validateStatus: () => true,
     })
     return { status: response.status, statusText: response.statusText }
   }

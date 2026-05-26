@@ -210,6 +210,9 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(new SupportTree(context))
   const setupViewProvider = activateWebview(context)
 
+  // Apply proxy settings before any outbound calls (telemetry, API, etc.)
+  configureAxiosProxy()
+
   // Initialize telemetry with anonymous ID
   Telemetry.init(context)
 
