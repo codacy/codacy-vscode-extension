@@ -25,22 +25,27 @@ function makeHttpConfig(opts: { proxy?: string; proxyStrictSSL?: boolean; proxyA
 suite('configureAxiosProxy', () => {
   let sandbox: SinonSandbox
   let savedEnv: Record<string, string | undefined>
+  let initialInterceptorHandlerCount: number
 
   setup(() => {
     sandbox = createSandbox()
+    initialInterceptorHandlerCount = (axios.interceptors.request as any).handlers.length
     savedEnv = {
       NODE_TLS_REJECT_UNAUTHORIZED: process.env['NODE_TLS_REJECT_UNAUTHORIZED'],
       HTTPS_PROXY: process.env['HTTPS_PROXY'],
       https_proxy: process.env['https_proxy'],
       HTTP_PROXY: process.env['HTTP_PROXY'],
       http_proxy: process.env['http_proxy'],
+      NO_PROXY: process.env['NO_PROXY'],
+      no_proxy: process.env['no_proxy'],
     }
-    // Start clean
     delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
     delete process.env['HTTPS_PROXY']
     delete process.env['https_proxy']
     delete process.env['HTTP_PROXY']
     delete process.env['http_proxy']
+    delete process.env['NO_PROXY']
+    delete process.env['no_proxy']
   })
 
   teardown(() => {
@@ -48,7 +53,13 @@ suite('configureAxiosProxy', () => {
     axios.defaults.httpsAgent = undefined
     axios.defaults.httpAgent = undefined
     axios.defaults.proxy = undefined
-    // Restore env vars
+    // Eject any interceptors added during this test
+    const handlers = (axios.interceptors.request as any).handlers as Array<any>
+    for (let i = initialInterceptorHandlerCount; i < handlers.length; i++) {
+      if (handlers[i] !== null) {
+        axios.interceptors.request.eject(i)
+      }
+    }
     for (const [k, v] of Object.entries(savedEnv)) {
       if (v === undefined) {
         delete process.env[k]
@@ -61,10 +72,20 @@ suite('configureAxiosProxy', () => {
   function stubConfig(opts: { proxy?: string; proxyStrictSSL?: boolean; proxyAuthorization?: string | null }) {
     sandbox.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string) => {
       if (section === 'http') return makeHttpConfig(opts)
-      // proxy.ts only calls getConfiguration('http'); return a no-op for anything else
       return makeHttpConfig({})
     })
   }
+
+  function activeInterceptorCount(): number {
+    return ((axios.interceptors.request as any).handlers as Array<any>).filter(Boolean).length
+  }
+
+  function getLastInterceptorFn(): ((config: any) => any) | undefined {
+    const handlers = (axios.interceptors.request as any).handlers as Array<{ fulfilled: (c: any) => any } | null>
+    return [...handlers].reverse().find(Boolean)?.fulfilled
+  }
+
+  // --- proxy agent setup ---
 
   test('sets httpsOverHttp and HttpProxyAgent for an http:// proxy', () => {
     stubConfig({ proxy: 'http://proxy.example.com:8080' })
@@ -189,5 +210,103 @@ suite('configureAxiosProxy', () => {
 
     const httpsAgent = axios.defaults.httpsAgent as any
     assert.strictEqual(httpsAgent.options.proxy.port, 443)
+  })
+
+  test('normalizes a protocol-less proxy URL before parsing', () => {
+    stubConfig({ proxy: 'proxy.example.com:8080' })
+    configureAxiosProxy()
+
+    const httpsAgent = axios.defaults.httpsAgent as any
+    assert.ok(httpsAgent, 'httpsAgent must be set for a bare host:port proxy')
+    assert.strictEqual(httpsAgent.options.proxy.host, 'proxy.example.com')
+    assert.strictEqual(httpsAgent.options.proxy.port, 8080)
+  })
+
+  // --- NO_PROXY ---
+
+  test('registers a request interceptor when NO_PROXY is set', () => {
+    process.env['NO_PROXY'] = 'internal.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    const before = activeInterceptorCount()
+    configureAxiosProxy()
+
+    assert.strictEqual(activeInterceptorCount(), before + 1)
+  })
+
+  test('interceptor clears agents for a host that matches NO_PROXY', () => {
+    process.env['NO_PROXY'] = 'internal.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    configureAxiosProxy()
+
+    const fn = getLastInterceptorFn()!
+    const config = { url: 'https://internal.example.com/api', httpsAgent: {}, httpAgent: {}, proxy: false as const }
+    const result = fn(config)
+
+    assert.strictEqual(result.httpsAgent, undefined)
+    assert.strictEqual(result.httpAgent, undefined)
+    assert.strictEqual(result.proxy, undefined)
+  })
+
+  test('interceptor leaves agents intact for a host that does not match NO_PROXY', () => {
+    process.env['NO_PROXY'] = 'internal.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    configureAxiosProxy()
+
+    const fn = getLastInterceptorFn()!
+    const agent = {}
+    const config = { url: 'https://app.codacy.com/api', httpsAgent: agent, httpAgent: agent, proxy: false as const }
+    const result = fn(config)
+
+    assert.strictEqual(result.httpsAgent, agent)
+    assert.strictEqual(result.httpAgent, agent)
+  })
+
+  test('interceptor bypasses proxy for subdomains of a NO_PROXY entry', () => {
+    process.env['NO_PROXY'] = '.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    configureAxiosProxy()
+
+    const fn = getLastInterceptorFn()!
+    const result = fn({ url: 'https://sub.example.com/api', httpsAgent: {}, proxy: false as const })
+
+    assert.strictEqual(result.httpsAgent, undefined)
+  })
+
+  test('interceptor bypasses proxy for all hosts when NO_PROXY is *', () => {
+    process.env['NO_PROXY'] = '*'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    configureAxiosProxy()
+
+    const fn = getLastInterceptorFn()!
+    const result = fn({ url: 'https://anything.com/api', httpsAgent: {}, proxy: false as const })
+
+    assert.strictEqual(result.httpsAgent, undefined)
+  })
+
+  test('no_proxy lowercase env var is respected', () => {
+    process.env['no_proxy'] = 'internal.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    const before = activeInterceptorCount()
+    configureAxiosProxy()
+
+    assert.strictEqual(activeInterceptorCount(), before + 1)
+  })
+
+  test('no interceptor registered when NO_PROXY is not set', () => {
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    const before = activeInterceptorCount()
+    configureAxiosProxy()
+
+    assert.strictEqual(activeInterceptorCount(), before)
+  })
+
+  test('re-calling configureAxiosProxy replaces the NO_PROXY interceptor rather than accumulating', () => {
+    process.env['NO_PROXY'] = 'internal.example.com'
+    stubConfig({ proxy: 'http://proxy.example.com:8080' })
+    const before = activeInterceptorCount()
+    configureAxiosProxy()
+    configureAxiosProxy()
+
+    assert.strictEqual(activeInterceptorCount(), before + 1)
   })
 })
