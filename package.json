@@ -78,7 +78,7 @@
             "title": "Install Local Analysis",
             "description": "Get instant feedback as you type by analyzing your code locally.\n\n[Install Codacy CLI](command:codacy.installCLI)\n\nInstalls all required dependencies: Node, Python, Java",
             "media": {
-              "image": {  
+              "image": {
                 "light": "resources/walkthrough/light/local-analysis.svg",
                 "dark": "resources/walkthrough/dark/local-analysis.svg",
                 "hc": "resources/walkthrough/dark/local-analysis.svg",
@@ -586,6 +586,7 @@
     "@types/sarif": "2.1.7",
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
+    "@types/tunnel": "^0.0.7",
     "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",

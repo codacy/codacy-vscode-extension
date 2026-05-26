@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { HttpsProxyAgent } from 'https-proxy-agent'
+import * as tunnel from 'tunnel'
 import { HttpProxyAgent } from 'http-proxy-agent'
 import axios from 'axios'
 import type { HTTPClient, HTTPClientRequest, HTTPResponse } from '@segment/analytics-node'
@@ -33,21 +33,39 @@ export function configureAxiosProxy(): void {
   if (proxyUrl) {
     const strictSSL = resolveStrictSSL()
     const authHeader = resolveProxyAuthorization()
-    const extraHeaders = authHeader ? { 'Proxy-Authorization': authHeader } : undefined
 
-    axios.defaults.httpsAgent = new HttpsProxyAgent(proxyUrl, {
-      rejectUnauthorized: strictSSL,
-      ...(extraHeaders ? { headers: extraHeaders } : {}),
-    })
-    axios.defaults.httpAgent = new HttpProxyAgent(proxyUrl, {
-      rejectUnauthorized: strictSSL,
-    })
+    const parsed = new URL(proxyUrl)
+    const proxyHost = parsed.hostname
+    const proxyPort = parseInt(parsed.port || (parsed.protocol === 'https:' ? '443' : '80'), 10)
+    const proxyHeaders = authHeader ? { 'Proxy-Authorization': authHeader } : undefined
+    const proxyOpts = { host: proxyHost, port: proxyPort, ...(proxyHeaders ? { headers: proxyHeaders } : {}) }
+
+    // Branch on the proxy protocol so TLS proxies work too.
+    if (parsed.protocol === 'https:') {
+      axios.defaults.httpsAgent = tunnel.httpsOverHttps({ rejectUnauthorized: strictSSL, proxy: proxyOpts })
+      axios.defaults.httpAgent = tunnel.httpOverHttps({ proxy: proxyOpts })
+    } else {
+      axios.defaults.httpsAgent = tunnel.httpsOverHttp({ rejectUnauthorized: strictSSL, proxy: proxyOpts })
+      axios.defaults.httpAgent = new HttpProxyAgent(proxyUrl)
+    }
     // Disable axios's built-in proxy parsing so the agents take full control
     axios.defaults.proxy = false
+
+    // Per-connection rejectUnauthorized on the tunnel agent is not sufficient
+    // in all Node.js versions to suppress TLS errors from an intercepting
+    // proxy cert. Mirror the VS Code proxyStrictSSL setting via the
+    // process-level flag so it is reliably honoured.
+    if (!strictSSL) {
+      process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0'
+    } else {
+      delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
+    }
   } else {
     axios.defaults.httpsAgent = undefined
     axios.defaults.httpAgent = undefined
     axios.defaults.proxy = undefined
+    // Restore TLS verification when proxy is removed or strictSSL is re-enabled
+    delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
   }
 }
 
