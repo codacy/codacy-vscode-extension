@@ -8,6 +8,7 @@ import { get, set } from 'lodash'
 import { CodacyCli } from '../cli/CodacyCli'
 import Logger from '../common/logger'
 import { CodacyError, Config } from '../common'
+import { buildProxyEnv } from '../common/proxy'
 import { RepositoryParams } from '../git/CodacyCloud'
 import { createWindsurfWorkflows } from './createWorkflows'
 import { checkRulesFile, createOrUpdateRules } from './createRules'
@@ -218,6 +219,16 @@ type MCPServerConfiguration = {
   env?: Record<string, string>
 }
 
+function buildMCPEnv(apiToken?: string): Record<string, string> | undefined {
+  const env: Record<string, string> = { ...buildProxyEnv() }
+
+  if (apiToken) {
+    env.CODACY_ACCOUNT_TOKEN = apiToken
+  }
+
+  return Object.keys(env).length > 0 ? env : undefined
+}
+
 export const notifyMCPInstallation = async (params?: RepositoryParams) => {
   const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.instructionsFile')
   const hasInstructionsFile = await checkRulesFile()
@@ -250,11 +261,7 @@ export async function configureMCP(params?: RepositoryParams, isUpdate = false) 
     const codacyServer: MCPServerConfiguration = {
       command: 'npx',
       args: ['-y', '@codacy/codacy-mcp@latest'],
-      env: apiToken
-        ? {
-            CODACY_ACCOUNT_TOKEN: apiToken,
-          }
-        : undefined,
+      env: buildMCPEnv(apiToken),
     }
     if (ide === 'vscode' || ide === 'insiders') {
       if (vscode.lm && 'registerMcpServerDefinitionProvider' in vscode.lm) {
@@ -302,6 +309,13 @@ export class CodacyMcpProvider implements vscode.McpServerDefinitionProvider {
   constructor(context: vscode.ExtensionContext) {
     context.subscriptions.push(this._onDidChangeMcpServerDefinitions)
     context.subscriptions.push(Config.onDidConfigChange(() => this._onDidChangeMcpServerDefinitions.fire()))
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('http')) {
+          this._onDidChangeMcpServerDefinitions.fire()
+        }
+      })
+    )
   }
 
   provideMcpServerDefinitions(): vscode.McpServerDefinition[] {
@@ -311,17 +325,8 @@ export class CodacyMcpProvider implements vscode.McpServerDefinitionProvider {
     const extensionRoot = path.resolve(__dirname, '..')
     const mcpPath = path.join(extensionRoot, 'node_modules', '@codacy', 'codacy-mcp', 'dist', 'index.js')
 
-    return [
-      new vscode.McpStdioServerDefinition(
-        vscode.l10n.t('Codacy MCP Server'),
-        'node',
-        [mcpPath],
-        Config.apiToken
-          ? {
-              CODACY_ACCOUNT_TOKEN: Config.apiToken,
-            }
-          : undefined
-      ),
-    ]
+    const env = buildMCPEnv(Config.apiToken)
+
+    return [new vscode.McpStdioServerDefinition(vscode.l10n.t('Codacy MCP Server'), 'node', [mcpPath], env)]
   }
 }

@@ -53,6 +53,31 @@ function normalizeProxyUrl(url: string): string {
 let noProxyInterceptorId: number | null = null
 
 /**
+ * Returns proxy-related env vars suitable for passing to a subprocess (e.g. an MCP server).
+ * Translates VS Code proxy settings into standard env var form.
+ */
+export function buildProxyEnv(): Record<string, string> {
+  const env: Record<string, string> = {}
+
+  const proxyUrl = resolveProxyUrl()
+  if (proxyUrl) {
+    env.HTTPS_PROXY = proxyUrl
+    env.HTTP_PROXY = proxyUrl
+
+    if (!resolveStrictSSL()) {
+      env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+    }
+  }
+
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy
+  if (noProxy) {
+    env.NO_PROXY = noProxy
+  }
+
+  return env
+}
+
+/**
  * Applies proxy settings from VS Code config and environment variables to the global axios instance
  */
 export function configureAxiosProxy(): void {

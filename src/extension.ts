@@ -230,6 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('http')) {
         configureAxiosProxy()
+        updateMCPConfig()
       }
     })
   )
