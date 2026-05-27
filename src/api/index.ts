@@ -23,8 +23,10 @@ import {
 import { Config } from '../common/config'
 import { Tools } from '../codacy/Tools'
 import { detectEditor } from '../auth'
+import { configureAxiosProxy } from '../common/proxy'
 
 export const initializeApi = () => {
+  configureAxiosProxy()
   const ide = detectEditor()
 
   // set up OpenAPI client

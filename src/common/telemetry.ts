@@ -4,6 +4,7 @@ import { EventProperties } from '@segment/analytics-core'
 import { Organization, User } from '../api/client'
 import { SEGMENT_WRITE_KEY } from '../env-secrets'
 import { v4 as uuidv4 } from 'uuid'
+import { ProxiedSegmentHTTPClient } from './proxy'
 
 class TelemetryClient {
   private analytics: Analytics | undefined
@@ -13,7 +14,10 @@ class TelemetryClient {
 
   constructor() {
     if (SEGMENT_WRITE_KEY) {
-      this.analytics = new Analytics({ writeKey: SEGMENT_WRITE_KEY })
+      this.analytics = new Analytics({
+        writeKey: SEGMENT_WRITE_KEY,
+        httpClient: new ProxiedSegmentHTTPClient(),
+      })
     }
   }
 
