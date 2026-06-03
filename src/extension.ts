@@ -361,11 +361,14 @@ export async function activate(context: vscode.ExtensionContext) {
       })
     )
 
-    // listen for workspace configuration changes to handle dev mode changes
+    // listen for workspace configuration changes
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('codacy.cli.devMode')) {
           Config.updateDevMode()
+        }
+        if (e.affectsConfiguration('http')) {
+          updateMCPConfig(codacyCloud.params)
         }
       })
     )
