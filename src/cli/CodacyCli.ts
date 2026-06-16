@@ -3,6 +3,7 @@ export const CODACY_FOLDER_NAME = '.codacy'
 import { exec } from 'child_process'
 import { Config } from '../common'
 import Logger from '../common/logger'
+import { buildCliProxyEnv } from '../common/proxy'
 import { ProcessedSarifResult } from './utils'
 import * as path from 'path'
 
@@ -163,6 +164,7 @@ export abstract class CodacyCli {
           cwd: this.rootPath,
           maxBuffer: MAX_BUFFER_SIZE, // To solve: stdout maxBuffer exceeded
           encoding: 'utf-8',
+          env: { ...process.env, ...buildCliProxyEnv() },
         },
         (error, stdout, stderr) => {
           if (error) {
