@@ -547,6 +547,11 @@
           "title": "Enable development mode",
           "description": "When enabled, the extension will no longer initialize the Codacy CLI automatically. Enabling this option may result in a degraded user experience.",
           "default": false
+        },
+        "codacy.proxy.caCertPath": {
+          "type": "string",
+          "title": "Custom CA Certificate Path",
+          "markdownDescription": "Path to a custom CA certificate file (PEM format), e.g. for a corporate proxy. **Only needed if your CA certificate isn't already trusted by the OS.** Certificates in the OS trust store are used automatically, so this is mainly for: a certificate provided as a file that was never imported into the OS trust store, or when system certificate trust is unavailable or disabled. Setting this also passes the certificate to the Codacy CLI, which runs as a separate process. You can alternatively use the `NODE_EXTRA_CA_CERTS` environment variable, but note that environment variables are not available when VS Code is launched from a GUI (Dock, taskbar, launcher) rather than a terminal — this setting always works."
         }
       }
     },
