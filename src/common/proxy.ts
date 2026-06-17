@@ -23,6 +23,12 @@ function resolveProxyAuthorization(): string | undefined {
 }
 
 function resolveNoProxy(): string[] {
+  // VS Code setting takes precedence over env vars
+  const vscodeNoProxy = vscode.workspace.getConfiguration('http').get<string[]>('noProxy')
+  if (vscodeNoProxy !== undefined && vscodeNoProxy.length > 0) {
+    return vscodeNoProxy
+  }
+
   const raw = process.env.NO_PROXY || process.env.no_proxy || ''
   return raw
     .split(',')
@@ -69,9 +75,30 @@ export function buildProxyEnv(): Record<string, string> {
     }
   }
 
-  const noProxy = process.env.NO_PROXY || process.env.no_proxy
-  if (noProxy) {
-    env.NO_PROXY = noProxy
+  const noProxyList = resolveNoProxy()
+  if (noProxyList.length > 0) {
+    env.NO_PROXY = noProxyList.join(',')
+  }
+
+  return env
+}
+
+/**
+ * Returns proxy-related env vars suitable for passing to the Codacy CLI subprocess.
+ * Extends buildProxyEnv() with CLI-specific variable names:
+ * - CODACY_CLI_INSECURE instead of NODE_TLS_REJECT_UNAUTHORIZED
+ * - SSL_CERT_FILE mapped from NODE_EXTRA_CA_CERTS
+ */
+export function buildCliProxyEnv(): Record<string, string> {
+  const env = buildProxyEnv()
+
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED !== undefined) {
+    delete env.NODE_TLS_REJECT_UNAUTHORIZED
+    env.CODACY_CLI_INSECURE = 'true'
+  }
+
+  if (process.env.NODE_EXTRA_CA_CERTS) {
+    env.SSL_CERT_FILE = process.env.NODE_EXTRA_CA_CERTS
   }
 
   return env
