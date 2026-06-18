@@ -122,6 +122,20 @@ function normalizeProxyUrl(url: string): string {
 let noProxyInterceptorId: number | null = null
 
 /**
+ * Mirrors the proxyStrictSSL setting onto the process-level
+ * NODE_TLS_REJECT_UNAUTHORIZED flag. Per-connection rejectUnauthorized on the
+ * agent is not reliable across all Node versions, so the env flag is used as
+ * the authoritative switch (and cleared when strict SSL is enabled).
+ */
+function applyStrictSSLEnv(strictSSL: boolean): void {
+  if (!strictSSL) {
+    process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0'
+  } else {
+    delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
+  }
+}
+
+/**
  * Returns proxy-related env vars suitable for passing to a subprocess (e.g. an MCP server).
  * Translates VS Code proxy settings into standard env var form.
  */
@@ -227,15 +241,7 @@ export function configureAxiosProxy(): void {
     // Disable axios's built-in proxy parsing so the agents take full control
     axios.defaults.proxy = false
 
-    // Per-connection rejectUnauthorized on the tunnel agent is not sufficient
-    // in all Node.js versions to suppress TLS errors from an intercepting
-    // proxy cert. Mirror the VS Code proxyStrictSSL setting via the
-    // process-level flag so it is reliably honoured.
-    if (!strictSSL) {
-      process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0'
-    } else {
-      delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
-    }
+    applyStrictSSLEnv(strictSSL)
 
     const noProxyList = resolveNoProxy()
     if (noProxyList.length > 0) {
@@ -249,12 +255,15 @@ export function configureAxiosProxy(): void {
       })
     }
   } else {
+    const strictSSL = resolveStrictSSL()
     // Apply extra CA certs for transparent/system-level proxies even without an explicit proxy URL.
-    axios.defaults.httpsAgent = ca ? new https.Agent({ ca }) : undefined
+    axios.defaults.httpsAgent = ca ? new https.Agent({ ca, rejectUnauthorized: strictSSL }) : undefined
     axios.defaults.httpAgent = undefined
     axios.defaults.proxy = undefined
-    // Restore TLS verification when proxy is removed or strictSSL is re-enabled
-    delete process.env['NODE_TLS_REJECT_UNAUTHORIZED']
+    // Mirror proxyStrictSSL even without an explicit proxy URL: the agent is
+    // undefined when no extra CA cert is configured, so the process-level flag
+    // is what actually honours the setting here.
+    applyStrictSSLEnv(strictSSL)
   }
 }
 
