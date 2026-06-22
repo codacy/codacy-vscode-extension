@@ -31,7 +31,7 @@ export class SupportTree extends vscode.Disposable implements vscode.TreeDataPro
           'book',
           'https://docs.codacy.com/codacy-guardrails/codacy-guardrails-getting-started/'
         ),
-        new SupportTreeNode('Contact support', 'mail', 'https://codacy.zendesk.com/hc/en-us/requests/new'),
+        new SupportTreeNode('Contact support', 'mail', 'https://portal.usepylon.com/codacy/forms/vscode-plugin-form'),
         new SupportTreeNode('Give feedback', 'feedback', 'https://tally.so/r/meyROJ'),
         new SupportTreeNode(
           'Review extension',
