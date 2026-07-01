@@ -43,61 +43,6 @@ export const newRulesTemplate = (
     })
   }
 
-  const codacyCLISettingsPath = path.join(
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
-    '.codacy',
-    'codacy.yaml'
-  )
-
-  const enigmaRules: Rule[] = []
-  if (fs.existsSync(codacyCLISettingsPath)) {
-    const codacyCLITools = fs.readFileSync(codacyCLISettingsPath, 'utf8')
-    if (codacyCLITools.includes('enigma')) {
-      enigmaRules.push({
-        when: 'When user asks to create a rule',
-        scope: 'general',
-        enforce: [
-          'To add a new rule for code analysis, follow these steps:',
-          '- Create or edit a file named `enigma.yaml` in the root of the project.',
-          '- Each rule should be listed under the `rules:` key as an item in a YAML list.',
-          `- Example rule format:
-  \`\`\`yaml
-  rules:,
-    - Id: python_hardcoded_password,
-      Pattern: $PASSWORD = $VALUE,
-      Description: Detects hardcoded passwords in string variable declarations,
-      Category: Security,
-      MetaTags:,
-        - Id: PASSWORD,
-          Regex: ...,
-        - Id: VALUE,
-          Regex: ...,
-      Languages:,
-        - python,
-  \`\`\``,
-          'Pattern Field',
-          '- The `Pattern` is NOT a regex. It is a literal code pattern, but you can use MetaTags (like `$PASSWORD` or `$VALUE`) as placeholders.',
-          '- MetaTags must start with a `$` and be defined in the `MetaTags` section.',
-          'MetaTags',
-          '- Every MetaTag used in the `Pattern` must have a definition under `MetaTags`.',
-          '- Each MetaTag must have an `Id` and a `Regex`.',
-          '- The `Regex` must be Perl-compatible (PCRE), but negative lookaheads are NOT supported. Please always wrap in double quotes.',
-          'Languages:  List the programming languages this rule applies to under `Languages`.',
-          'Testing Your Rule: After creating or editing a rule, test it by running the codacy_cli_analyze tool with:',
-          '- rootPath set to the project root',
-          '- no file',
-          '- tool set to "codacy-enigma-cli"',
-          'Check the output for any parsing errors and fix them if needed.',
-          'Summary - All rules must:',
-          '- Be in `enigma.yaml` at the project root',
-          '- Define all MetaTags used in the Pattern',
-          '- Use only supported regex features in MetaTags',
-          '- Be tested for parsing errors using the CLI',
-        ],
-      })
-    }
-  }
-
   const commonRules: Rule[] = [
     {
       when: 'CRITICAL: After ANY successful `edit_file` or `reapply` operation',
@@ -197,7 +142,7 @@ export const newRulesTemplate = (
   return {
     name: 'Codacy Rules',
     description: "Configuration for AI behavior when interacting with Codacy's MCP Server",
-    rules: [...repositoryRules, ...commonRules, ...enigmaRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
+    rules: [...repositoryRules, ...commonRules].filter((rule) => !excludedScopes?.includes(rule.scope)),
   }
 }
 
