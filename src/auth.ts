@@ -40,15 +40,19 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
         const response = await Api.Account.createUserApiToken()
         accountToken = response.token
       }
+      Config.storeApiToken(accountToken)
     } catch (error) {
       Logger.error(`Failed to get user API tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       if (temporaryTokenId) {
         Logger.appendLine(`Deleting temporary token...`)
-        await Api.Account.deleteUserApiToken(temporaryTokenId)
+        try {
+          await Api.Account.deleteUserApiToken(temporaryTokenId)
+        } catch (error) {
+          Logger.error(`Failed to delete temporary token: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
       }
     }
-    Config.storeApiToken(accountToken)
   }
 }
 
