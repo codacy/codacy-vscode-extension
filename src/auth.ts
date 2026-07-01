@@ -34,11 +34,26 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
     try {
       const response = await Api.Account.getUserApiTokens()
       const tokens = response.data
-      accountToken = tokens.length === 1 ? undefined : tokens[0].token
       temporaryTokenId = tokens.find((token) => token.token === temporaryToken)?.id
+
+      // Pick a token that isn't the temporary one and won't expire within the next hour
+      // (a token without `expiresAt` never expires and is always valid).
+      const oneHourFromNow = Date.now() + 60 * 60 * 1000
+      accountToken = tokens.find(
+        (token) =>
+          token.token !== temporaryToken && (!token.expiresAt || new Date(token.expiresAt).getTime() > oneHourFromNow)
+      )?.token
       if (!accountToken) {
-        const response = await Api.Account.createUserApiToken()
-        accountToken = response.token
+        try {
+          const response = await Api.Account.createUserApiToken()
+          Logger.debug(`Created new account token`)
+          accountToken = response.token
+        } catch (error) {
+          Logger.error(
+            `Failed to create new account token: ${error instanceof Error ? error.message : 'Unknown error'}`
+          )
+          throw error
+        }
       }
       Config.storeApiToken(accountToken)
     } catch (error) {
