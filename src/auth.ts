@@ -44,12 +44,11 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
       Logger.error(`Failed to get user API tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       if (temporaryTokenId) {
-        Logger.appendLine(`Deleting temporary token... ${temporaryToken}`)
+        Logger.appendLine(`Deleting temporary token...`)
         await Api.Account.deleteUserApiToken(temporaryTokenId)
       }
     }
     Config.storeApiToken(accountToken)
-    Logger.appendLine(`Codacy API token stored successfully: ${accountToken}`)
   }
 }
 

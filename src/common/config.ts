@@ -43,8 +43,11 @@ export class Config {
     Config._instance._isTemporaryToken = !!value && isTemporary
 
     if (value) {
-      if (Config._instance._apiToken && !isTemporary) Logger.appendLine('Storing API token...')
-      await Config._instance._secretStorage.store('codacy.apiToken', value)
+      // Temporary token is only needed in-memory to exchange for a permanent token.
+      if (!isTemporary) {
+        Logger.appendLine('Storing API token...')
+        await Config._instance._secretStorage.store('codacy.apiToken', value)
+      }
     } else {
       if (Config._instance._apiToken) Logger.appendLine('Removing API token...')
       await Config._instance._secretStorage.delete('codacy.apiToken')
