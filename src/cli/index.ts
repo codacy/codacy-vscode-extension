@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import { Config } from '../common'
 import { CodacyCli } from './CodacyCli'
 import { MacCodacyCli } from './MacCodacyCli'
 import { LinuxCodacyCli } from './LinuxCodacyCli'
@@ -46,7 +47,9 @@ export class Cli {
     } else if (
       options.provider !== this.cliInstance.provider ||
       options.organization !== this.cliInstance.organization ||
-      options.repository !== this.cliInstance.repository
+      options.repository !== this.cliInstance.repository ||
+      this.cliInstance._accountToken !== Config.apiToken
+      // this.cliInstance._accountToken !== Config.apiToken : we added this to ensure we create a new instance of the CLI when the real token is stored and the temporary token is deleted
     ) {
       // If the options have changed, create a new instance
       this.cliInstance = null

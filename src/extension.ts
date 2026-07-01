@@ -350,7 +350,8 @@ export async function activate(context: vscode.ExtensionContext) {
           if (user) Telemetry.identify(user, codacyCloud.organization)
         })
 
-        if (gitProvider?.repositories.length) {
+        // Skip opening the repository (which triggers a CLI update/config reset) when we only have a temporary token
+        if (!Config.isTemporaryToken && gitProvider?.repositories.length) {
           codacyCloud.open(gitProvider.repositories[0])
         }
 

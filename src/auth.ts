@@ -2,9 +2,10 @@ import * as vscode from 'vscode'
 import { Config } from './common/config'
 import { parseGitRemote } from './common/parseGitRemote'
 import Logger from './common/logger'
+import { Api } from './api'
 
 export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements vscode.UriHandler {
-  public handleUri(uri: vscode.Uri): void {
+  public async handleUri(uri: vscode.Uri): Promise<void> {
     this.fire(uri)
 
     const query = new URLSearchParams(uri.query)
@@ -17,12 +18,38 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
       return
     }
 
-    Config.storeApiToken(token)
+    Config.storeApiToken(token, true)
+
+    await this.getToken(token)
   }
 
   public static register(): vscode.Disposable {
     const handler = new AuthUriHandler()
     return vscode.window.registerUriHandler(handler)
+  }
+
+  private async getToken(temporaryToken: string): Promise<void> {
+    let accountToken
+    let temporaryTokenId
+    try {
+      const response = await Api.Account.getUserApiTokens()
+      const tokens = response.data
+      accountToken = tokens.length === 1 ? undefined : tokens[0].token
+      temporaryTokenId = tokens.find((token) => token.token === temporaryToken)?.id
+      if (!accountToken) {
+        const response = await Api.Account.createUserApiToken()
+        accountToken = response.token
+      }
+    } catch (error) {
+      Logger.error(`Failed to get user API tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      if (temporaryTokenId) {
+        Logger.appendLine(`Deleting temporary token... ${temporaryToken}`)
+        await Api.Account.deleteUserApiToken(temporaryTokenId)
+      }
+    }
+    Config.storeApiToken(accountToken)
+    Logger.appendLine(`Codacy API token stored successfully: ${accountToken}`)
   }
 }
 

@@ -4,6 +4,7 @@ import Logger from './logger'
 export class Config {
   private _wsConfig: vscode.WorkspaceConfiguration | undefined
   private _apiToken: string | undefined
+  private _isTemporaryToken: boolean = false
   private _onboardingSkipped: boolean | undefined
   private _devMode: boolean | undefined
 
@@ -35,13 +36,14 @@ export class Config {
     return Config._instance
   }
 
-  public static async storeApiToken(value: string | undefined) {
+  public static async storeApiToken(value: string | undefined, isTemporary: boolean = false) {
     if (!Config._instance) return
 
     Config._instance._apiToken = value
+    Config._instance._isTemporaryToken = !!value && isTemporary
 
     if (value) {
-      if (Config._instance._apiToken) Logger.appendLine('Storing API token...')
+      if (Config._instance._apiToken && !isTemporary) Logger.appendLine('Storing API token...')
       await Config._instance._secretStorage.store('codacy.apiToken', value)
     } else {
       if (Config._instance._apiToken) Logger.appendLine('Removing API token...')
@@ -71,6 +73,10 @@ export class Config {
 
   public static get apiToken(): string | undefined {
     return Config._instance?._apiToken
+  }
+
+  public static get isTemporaryToken(): boolean {
+    return Config._instance?._isTemporaryToken === true
   }
 
   public static get devMode(): boolean {
