@@ -31,10 +31,9 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
   private async getToken(temporaryToken: string): Promise<void> {
     let accountToken
     let temporaryTokenId
-    let tokens
     try {
       const response = await Api.Account.getUserApiTokens()
-      tokens = response.data
+      const tokens = response.data
       temporaryTokenId = tokens.find((token) => token.token === temporaryToken)?.id
 
       // Pick a token that isn't the temporary one and won't expire within the next hour
@@ -53,6 +52,7 @@ export class AuthUriHandler extends vscode.EventEmitter<vscode.Uri> implements v
           Logger.error(
             `Failed to create new account token: ${error instanceof Error ? error.message : 'Unknown error'}`
           )
+          throw error
         }
       }
       Config.storeApiToken(accountToken)
