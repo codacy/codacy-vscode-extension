@@ -148,7 +148,7 @@ export function isMCPConfigured(): boolean {
 }
 
 export async function configureGuardrails(cli?: CodacyCli, params?: RepositoryParams) {
-  await cli?.install()
+  await cli?.setup()
   await configureMCP(params)
 }
 

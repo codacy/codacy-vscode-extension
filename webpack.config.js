@@ -19,10 +19,19 @@ const extensionConfig = {
     filename: 'extension.js',
     libraryTarget: 'commonjs2'
   },
-  externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
-    // modules added here also need to be added in the .vscodeignore file
-  },
+  externals: [
+    { vscode: 'commonjs vscode' }, // the vscode-module is created on-the-fly and must be excluded. 📖 -> https://webpack.js.org/configuration/externals/
+    // The Codacy analysis runner + its 30+ tool adapter packages are required from
+    // node_modules at runtime (the whole node_modules ships — see .vscodeignore) rather
+    // than bundled. This also keeps the adapters' lazy dynamic import() calls as runtime
+    // requires. @codacy/codacy-mcp is unaffected (it is spawned, never imported).
+    function ({ request }, callback) {
+      if (request && /^@codacy\//.test(request)) {
+        return callback(null, 'commonjs ' + request)
+      }
+      callback()
+    },
+  ],
   resolve: {
     // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
     extensions: ['.ts', '.js']

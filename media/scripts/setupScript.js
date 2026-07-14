@@ -26,7 +26,7 @@
   let isLoggedIn = false
   let isMCPInstalled = false
   let hasInstructionFile = false
-  let isCLIInstalled = false
+  let isLocalAnalysisReady = false
   let isOrgInCodacy = false
   let isRepoInCodacy = false
   let userInfo = null
@@ -148,11 +148,11 @@
         hasInstructionFile = message.hasInstructionFile
         handleMCPStatusChange(isMCPInstalled, hasInstructionFile)
         break
-      case 'cliStatusChanged':
-        isCLIInstalled = message.isCLIInstalled
+      case 'localAnalysisStatusChanged':
+        isLocalAnalysisReady = message.isLocalAnalysisReady
         isOrgInCodacy = message.isOrgInCodacy
         isRepoInCodacy = message.isRepoInCodacy
-        handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy)
+        handleLocalAnalysisStatusChange(isLocalAnalysisReady, isOrgInCodacy, isRepoInCodacy)
         break
       default:
         break
@@ -488,11 +488,11 @@
       })
     }
 
-    // Install CLI button
+    // Set up local analysis button
     const installCliButton = document.getElementById('install-cli-button')
     if (installCliButton) {
       installCliButton.addEventListener('click', function () {
-        vscode.postMessage({ type: 'installCLI' })
+        vscode.postMessage({ type: 'setupLocalAnalysis' })
       })
     }
 
@@ -620,12 +620,12 @@
 
   /**
    * Handles the CLI status changes
-   * @param {boolean} isCLIInstalled
+   * @param {boolean} isLocalAnalysisReady
    * @param {boolean} isOrgInCodacy
    * @param {boolean} isRepoInCodacy
    * @returns {void}
    */
-  function handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy) {
+  function handleLocalAnalysisStatusChange(isLocalAnalysisReady, isOrgInCodacy, isRepoInCodacy) {
     /** @type {HTMLImageElement | null} */
     const cliIcon = /** @type {HTMLImageElement | null} */ (document.getElementById('cli-icon'))
     const cliDescription = document.getElementById('cli-description')
@@ -654,7 +654,7 @@
         addOrganizationSection.style.display = 'none'
         addRepositorySection.style.display = 'none'
       }
-      if (isCLIInstalled) {
+      if (isLocalAnalysisReady) {
         showInstalledCLIState(elements)
         if (isOrgInCodacy && isRepoInCodacy) {
           handleCLIOrgStates(elements, 'isInCodacy')

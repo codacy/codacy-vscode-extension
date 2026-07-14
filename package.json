@@ -75,8 +75,8 @@
           },
           {
             "id": "codacy.walkthrough.localAnalysis",
-            "title": "Install Local Analysis",
-            "description": "Get instant feedback as you type by analyzing your code locally.\n\n[Install Codacy CLI](command:codacy.installCLI)\n\nInstalls all required dependencies: Node, Python, Java",
+            "title": "Set Up Local Analysis",
+            "description": "Get instant feedback as you type by analyzing your code locally.\n\n[Set up local analysis](command:codacy.setupLocalAnalysis)\n\nInstalls all required dependencies: Node, Python, Java",
             "media": {
               "image": {
                 "light": "resources/walkthrough/light/local-analysis.svg",
@@ -87,7 +87,7 @@
               "altText": "Terminal showing Codacy CLI analyzing code"
             },
             "completionEvents": [
-              "onContext:codacy:cliInstalled"
+              "onContext:codacy:localAnalysisReady"
             ]
           },
           {
@@ -236,23 +236,18 @@
       },
       {
         "view": "codacy:mcp",
-        "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/).\n[Install Guardrails](command:codacy.configureGuardrails)\n\nGets everything set up by installing Codacy CLI, setting up Codacy MCP Server, and adding the necessary agent rules files.\n\nYou can also choose to [only install the MCP Server](command:codacy.configureMCP)",
-        "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
-      },
-      {
-        "view": "codacy:mcp",
-        "contents": "Set up Codacy MCP Server to get access to Codacy information from your agent.\n[Install MCP Server](command:codacy.configureMCP)\n\nTo control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/), you need to be able to install the Codacy CLI (macOS, Linux, or Windows via WSL 2).",
-        "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:canInstallCLI"
+        "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/).\n[Install Guardrails](command:codacy.configureGuardrails)\n\nGets everything set up by setting up local analysis, the Codacy MCP Server, and adding the necessary agent rules files.\n\nYou can also choose to [only install the MCP Server](command:codacy.configureMCP)",
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured && !codacy:localAnalysisReady && !codacy:localAnalysisSetupInProgress"
       },
       {
         "view": "codacy:mcp",
         "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/). Install the missing components to get started.",
-        "when": "(codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled) || (!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling && codacy:mcpConfigured)"
+        "when": "(codacy:supportsMCP && !codacy:mcpConfigured && codacy:localAnalysisReady) || (!codacy:localAnalysisReady && !codacy:localAnalysisSetupInProgress && codacy:mcpConfigured)"
       },
       {
         "view": "codacy:mcp",
         "contents": "Control your AI generated code with [Codacy Guardrails](https://www.codacy.com/guardrails/).",
-        "when": "codacy:supportsMCP && codacy:mcpConfigured && codacy:canInstallCLI && codacy:cliInstalled"
+        "when": "codacy:supportsMCP && codacy:mcpConfigured && codacy:localAnalysisReady"
       },
       {
         "view": "codacy:mcp",
@@ -272,22 +267,22 @@
       {
         "view": "codacy:mcp",
         "contents": "$(warning) MCP Server not found. [Install MCP Server](command:codacy.configureMCP)",
-        "when": "codacy:supportsMCP && !codacy:mcpConfigured && codacy:cliInstalled && !codacy:cliInstalling"
+        "when": "codacy:supportsMCP && !codacy:mcpConfigured && codacy:localAnalysisReady && !codacy:localAnalysisSetupInProgress"
       },
       {
         "view": "codacy:mcp",
-        "contents": "$(check) Codacy CLI is installed. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
-        "when": "codacy:canInstallCLI && codacy:cliInstalled"
+        "contents": "$(check) Local analysis is ready. [Go to settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
+        "when": "codacy:localAnalysisReady"
       },
       {
         "view": "codacy:mcp",
-        "contents": "$(warning) Development mode is enabled. [Reinstall dependencies](command:codacy.installCLIDependencies).",
-        "when": "codacy:canInstallCLI && codacy:cliInstalled && codacy:devMode"
+        "contents": "$(warning) Development mode is enabled. [Reinstall dependencies](command:codacy.reinstallDependencies).",
+        "when": "codacy:localAnalysisReady && codacy:devMode"
       },
       {
         "view": "codacy:mcp",
-        "contents": "$(warning) Codacy CLI not found. [Install CLI](command:codacy.installCLI)",
-        "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+        "contents": "$(warning) Local analysis not set up. [Set up local analysis](command:codacy.setupLocalAnalysis)",
+        "when": "codacy:supportsMCP && codacy:mcpConfigured && !codacy:localAnalysisReady && !codacy:localAnalysisSetupInProgress"
       },
       {
         "view": "codacy:mcp",
@@ -295,18 +290,13 @@
       },
       {
         "view": "codacy:cli",
-        "contents": "Install Codacy CLI to analyze your code locally and get instant feedback as you type.\n[Install Codacy CLI](command:codacy.installCLI)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI && !codacy:cliInstalling"
+        "contents": "Set up local analysis to analyze your code locally and get instant feedback as you type.\n[Set up local analysis](command:codacy.setupLocalAnalysis)\n\nSets everything up in your IDE so you're ready to go, including any dependencies you need (like Node, Python, or Java). Customize how it works in the [extension settings](command:workbench.action.openSettings?%22@ext:codacy-app.codacy%20cli%22).",
+        "when": "!codacy:localAnalysisReady && !codacy:localAnalysisSetupInProgress"
       },
       {
         "view": "codacy:cli",
-        "contents": "Codacy CLI is only available on Windows via [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install).",
-        "when": "codacy:windowsDetected && !codacy:canInstallCLI"
-      },
-      {
-        "view": "codacy:cli",
-        "contents": "$(loading~spin) Installing Codacy CLI...",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI && codacy:cliInstalling"
+        "contents": "$(loading~spin) Setting up local analysis...",
+        "when": "!codacy:localAnalysisReady && codacy:localAnalysisSetupInProgress"
       }
     ],
     "commands": [
@@ -420,10 +410,10 @@
         "when": "codacy:supportsMCP && codacy:mcpConfigured"
       },
       {
-        "command": "codacy.installCLI",
-        "title": "Install Codacy CLI",
+        "command": "codacy.setupLocalAnalysis",
+        "title": "Set up local analysis",
         "category": "Codacy commands",
-        "when": "!codacy:cliInstalled && codacy:canInstallCLI"
+        "when": "!codacy:localAnalysisReady"
       },
       {
         "command": "codacy.configurePatterns",
@@ -459,8 +449,8 @@
           "when": "codacy:supportsMCP && codacy:mcpConfigured"
         },
         {
-          "command": "codacy.installCLI",
-          "when": "!codacy:cliInstalled && codacy:canInstallCLI"
+          "command": "codacy.setupLocalAnalysis",
+          "when": "!codacy:localAnalysisReady"
         }
       ],
       "view/title": [
@@ -612,6 +602,7 @@
     "webpack-cli": "^5.1.1"
   },
   "dependencies": {
+    "@codacy/analysis-cli": "^0.12.0",
     "@codacy/codacy-mcp": "^0.6.19",
     "@eslint/js": "^9.39.2",
     "@segment/analytics-node": "^1.1.3",

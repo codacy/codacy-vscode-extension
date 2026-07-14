@@ -693,7 +693,7 @@ export class CodacyCloud implements vscode.Disposable {
         organization_id: this._organization?.organization.identifier,
       })
 
-      const isCliInstalled = this._cli !== undefined && this._cli.getCliCommand() !== ''
+      const isCliInstalled = this._cli !== undefined && this._cli.isInitialized()
       const isMcpConfigured = isMCPConfigured()
 
       checkRulesFile()

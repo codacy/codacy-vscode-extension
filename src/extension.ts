@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import * as os from 'os'
 import { CommandType, wrapExtensionCommand } from './common/utils'
 import Logger from './common/logger'
 import { initializeApi } from './api'
@@ -101,10 +100,10 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.cliIssue.seeDetails': seeCliIssueDetailsCommand,
     'codacy.issue.disablePattern': disablePatternCommand,
     'codacy.cliIssue.disablePattern': disableCliPatternCommand,
-    'codacy.installCLI': async () => {
-      await codacyCloud.cli?.install()
+    'codacy.setupLocalAnalysis': async () => {
+      await codacyCloud.cli?.setup()
     },
-    'codacy.installCLIDependencies': async () => {
+    'codacy.reinstallDependencies': async () => {
       await codacyCloud.cli?.installDependencies()
     },
     'codacy.configureMCP': async () => {
@@ -260,8 +259,6 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.env.appName.toLowerCase().includes('code') &&
       !!(vscode.extensions.getExtension('github.copilot-chat') || vscode.extensions.getExtension('Github.copilot'))
   )
-
-  await vscode.commands.executeCommand('setContext', 'codacy:windowsDetected', os.platform() === 'win32')
 
   if (hasWorkspaceFolder) {
     Logger.appendLine('Codacy extension activated with workspace folder')
