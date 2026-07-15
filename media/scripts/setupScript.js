@@ -1,4 +1,3 @@
-//@ts-check
 /// <reference lib="dom" />
 
 /* global acquireVsCodeApi, document, window */
@@ -10,7 +9,7 @@
  * @property {function(Object): void} setState
  */
 
-/**
+/** 
  * @typedef {Object} IconUris
  * @property {string} finished
  * @property {string} unfinished
