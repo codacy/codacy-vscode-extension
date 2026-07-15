@@ -32,6 +32,11 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private _isLocalAnalysisComplete = false
   private _isMCPComplete = false
 
+  // Track automatic local analysis initialization
+  private _localAnalysisSetupAttempted = false
+  private _localAnalysisSetupInProgress = false
+  private _localAnalysisSetupFailed = false
+
   private static readonly TOTAL_SETUP_ITEMS = 3
 
   constructor(
@@ -157,7 +162,9 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private updateBadge() {
     if (!this._view) return
 
-    const completedCount = [this._isCloudComplete, this._isLocalAnalysisComplete, this._isMCPComplete].filter(Boolean).length
+    const completedCount = [this._isCloudComplete, this._isLocalAnalysisComplete, this._isMCPComplete].filter(
+      Boolean
+    ).length
     const pendingCount = SetupViewProvider.TOTAL_SETUP_ITEMS - completedCount
 
     currentPendingCount = pendingCount
@@ -228,22 +235,84 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private get cli() {
+    return this._codacyCloud?.cli ?? Cli.cliInstance ?? undefined
+  }
+
   private updateLocalAnalysisStatus() {
-    if (this._view) {
-      const isLocalAnalysisReady = !!Cli.cliInstance?.isInitialized()
-      const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
-      const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
+    if (!this._view) return
 
-      // Local analysis is complete once the repo is initialized
-      this._isLocalAnalysisComplete = isLocalAnalysisReady
-      this.updateBadge()
+    const isLocalAnalysisReady = !!this.cli?.isInitialized()
 
-      this._view.webview.postMessage({
-        type: 'localAnalysisStatusChanged',
-        isLocalAnalysisReady,
-        isOrgInCodacy,
-        isRepoInCodacy,
-      })
+    // Kick off automatic initialization the first time we find it not ready, so the
+    // user doesn't have to click a button. The setup runs in the background while the
+    // webview shows a spinner; the button only appears if this fails (or can't run).
+    if (
+      !isLocalAnalysisReady &&
+      this.cli &&
+      !this._localAnalysisSetupInProgress &&
+      !this._localAnalysisSetupAttempted
+    ) {
+      void this.autoSetupLocalAnalysis()
+      return
+    }
+
+    this.postLocalAnalysisStatus()
+  }
+
+  /**
+   * Computes the current local analysis state and pushes it to the webview.
+   * `status` drives which UI the webview renders (spinner / installed / retry button).
+   */
+  private postLocalAnalysisStatus() {
+    if (!this._view) return
+
+    const isLocalAnalysisReady = !!this.cli?.isInitialized()
+    const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
+    const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
+
+    // Local analysis is complete once the repo is initialized
+    this._isLocalAnalysisComplete = isLocalAnalysisReady
+    this.updateBadge()
+
+    let status: 'ready' | 'in-progress' | 'error' | 'idle'
+    if (isLocalAnalysisReady) {
+      status = 'ready'
+    } else if (this._localAnalysisSetupInProgress) {
+      status = 'in-progress'
+    } else if (this._localAnalysisSetupFailed) {
+      status = 'error'
+    } else {
+      status = 'idle'
+    }
+
+    this._view.webview.postMessage({
+      type: 'localAnalysisStatusChanged',
+      status,
+      isLocalAnalysisReady,
+      isOrgInCodacy,
+      isRepoInCodacy,
+    })
+  }
+
+  /** Initializes local analysis automatically in the background (no notifications). */
+  private async autoSetupLocalAnalysis() {
+    const cli = this.cli
+    if (!cli) return
+
+    this._localAnalysisSetupAttempted = true
+    this._localAnalysisSetupInProgress = true
+    this._localAnalysisSetupFailed = false
+    this.postLocalAnalysisStatus()
+
+    try {
+      await cli.setup({ showSuccessMessage: false })
+    } catch (error) {
+      this._localAnalysisSetupFailed = true
+      Logger.error(`Automatic local analysis setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      this._localAnalysisSetupInProgress = false
+      this.postLocalAnalysisStatus()
     }
   }
 
@@ -308,14 +377,27 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async setupLocalAnalysis() {
+    const cli = this.cli
+    if (!cli) {
+      vscode.window.showErrorMessage('Local analysis is not available for this workspace.')
+      return
+    }
+
+    this._localAnalysisSetupInProgress = true
+    this._localAnalysisSetupFailed = false
+    this.postLocalAnalysisStatus()
+
     try {
-      await this._codacyCloud?.cli?.setup()
-      this.updateLocalAnalysisStatus()
+      await cli.setup()
     } catch (error) {
+      this._localAnalysisSetupFailed = true
       Logger.error(`Failed to set up local analysis: ${error instanceof Error ? error.message : 'Unknown error'}`)
       vscode.window.showErrorMessage(
         `Failed to set up local analysis: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
+    } finally {
+      this._localAnalysisSetupInProgress = false
+      this.postLocalAnalysisStatus()
     }
   }
 
@@ -422,11 +504,15 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
               </button>
             </div>
           </div>
-          <p id="cli-description">Get instant feedback as you type by analyzing your code locally.</p>
-          <button id="install-cli-button">Set up local analysis</button>
+          <p id="cli-description" style="display: none;">Get instant feedback as you type by analyzing your code locally.</p>
+          <div id="cli-loading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Setting up local analysis...</p>
+          </div>
+          <button id="install-cli-button" style="display: none;">Set up local analysis</button>
           <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
           <p id="add-repository-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-repository-button">Add this repository to Codacy</button></p>
-          <p id="dependencies-description">Installs required dependencies: Node, Python, Java</p>
+          <p id="dependencies-description" style="display: none;">Installs required dependencies: Node, Python, Java</p>
         </div>
       </div>
     </li>

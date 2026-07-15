@@ -156,10 +156,17 @@ export class CodacyCli {
   }
 
   /**
-   * User-facing "set up local analysis" action: generates the repository config and
-   * downloads any tool dependencies, with progress UI.
+   * "Set up local analysis" action: generates the repository config and downloads any
+   * tool dependencies, with progress UI.
+   *
+   * @param options.showSuccessMessage Whether to surface the "ready!" notification on
+   *   success. The setup view drives this initialization automatically in the
+   *   background, so it opts out of the notification and shows an inline spinner
+   *   instead.
    */
-  public async setup(): Promise<void> {
+  public async setup(options: { showSuccessMessage?: boolean } = {}): Promise<void> {
+    const { showSuccessMessage = true } = options
+
     await vscode.commands.executeCommand('setContext', 'codacy:localAnalysisSetupInProgress', true)
 
     await vscode.window.withProgress(
@@ -171,7 +178,9 @@ export class CodacyCli {
       async () => {
         try {
           await this.initialize()
-          vscode.window.showInformationMessage('Codacy local analysis is ready!')
+          if (showSuccessMessage) {
+            vscode.window.showInformationMessage('Codacy local analysis is ready!')
+          }
         } catch (error) {
           const cleanedErrorMessage = cleanErrorMessage(error, this._accountToken)
           Logger.error(`Failed to set up Codacy local analysis: ${cleanedErrorMessage}`)
