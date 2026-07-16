@@ -171,30 +171,6 @@ export function buildProxyEnv(): Record<string, string> {
 }
 
 /**
- * Returns proxy-related env vars suitable for passing to the Codacy CLI subprocess.
- * Extends buildProxyEnv() with CLI-specific variable names:
- * - CODACY_CLI_INSECURE instead of NODE_TLS_REJECT_UNAUTHORIZED
- * - SSL_CERT_FILE instead of NODE_EXTRA_CA_CERTS
- */
-export function buildCliProxyEnv(): Record<string, string> {
-  const env = buildProxyEnv()
-
-  if (env.NODE_TLS_REJECT_UNAUTHORIZED !== undefined) {
-    delete env.NODE_TLS_REJECT_UNAUTHORIZED
-    env.CODACY_CLI_INSECURE = 'true'
-  }
-
-  // The CLI is not a Node process, so translate the Node-style var to the one
-  // the CLI honours.
-  if (env.NODE_EXTRA_CA_CERTS !== undefined) {
-    env.SSL_CERT_FILE = env.NODE_EXTRA_CA_CERTS
-    delete env.NODE_EXTRA_CA_CERTS
-  }
-
-  return env
-}
-
-/**
  * Applies proxy settings from VS Code config and environment variables to the global axios instance
  */
 export function configureAxiosProxy(): void {
