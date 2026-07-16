@@ -266,7 +266,6 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         // Run the local analysis (the runner takes the plain path — no shell quoting)
         const results = await this._codacyCloud.cli?.analyze({ file: pathToFile })
 
-        Logger.appendLine(JSON.stringify(results))
         this._currentCliIssues[originalPath] = results || []
 
         this.updateDocumentDiagnostics(document)

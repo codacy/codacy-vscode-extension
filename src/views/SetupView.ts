@@ -131,7 +131,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
           this.installMCP(true)
           break
         case 'refreshCLIStatus':
-          this.updateLocalAnalysisStatus()
+          void this.runLocalAnalysisSetup()
           break
         case 'openCLISettings':
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy.cli')
@@ -253,7 +253,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       !this._localAnalysisSetupInProgress &&
       !this._localAnalysisSetupAttempted
     ) {
-      void this.autoSetupLocalAnalysis()
+      void this.runLocalAnalysisSetup()
       return
     }
 
@@ -295,11 +295,18 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     })
   }
 
-  /** Initializes local analysis automatically in the background (no notifications). */
-  private async autoSetupLocalAnalysis() {
+  /**
+   * Runs local analysis setup in the background (no notifications).
+   *
+   * This drives `cli.setup()` → `initialize()`, which regenerates the config when the
+   * repo's identification state has changed (e.g. remote↔local), and is therefore also
+   * the path used by the manual "refresh" action. No-ops while a setup is already
+   * running so a refresh click mid-setup doesn't double-run.
+   */
+  private async runLocalAnalysisSetup() {
     const cli = this.cli
     if (!cli) return
-
+    //|| this._localAnalysisSetupInProgress
     this._localAnalysisSetupAttempted = true
     this._localAnalysisSetupInProgress = true
     this._localAnalysisSetupFailed = false
@@ -309,7 +316,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       await cli.setup({ showSuccessMessage: false })
     } catch (error) {
       this._localAnalysisSetupFailed = true
-      Logger.error(`Automatic local analysis setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      Logger.error(`Local analysis setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       this._localAnalysisSetupInProgress = false
       this.postLocalAnalysisStatus()

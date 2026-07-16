@@ -13,13 +13,13 @@ import {
   readCodacyConfig,
   createLogger,
 } from '@codacy/analysis-runner'
+import { registerBuiltinAdapters, loadUnsupportedPatterns } from '@codacy/analysis-adapters'
 import type { Logger as RunnerLogger, CodacyConfig } from '@codacy/tooling'
 
 import { Config } from '../common/config'
 import { buildProxyEnv } from '../common/proxy'
 import { cleanErrorMessage, CodacyError } from '../common/utils'
 import Logger from '../common/logger'
-import { registerBuiltinAdapters } from './adapters'
 import { ProcessedSarifResult, processSarifResults } from './utils'
 
 export const CODACY_FOLDER_NAME = '.codacy'
@@ -138,7 +138,18 @@ export class CodacyCli {
     }
 
     const descriptors = getRegisteredDescriptors()
-    const { config } = await initAutoConfig(this.rootPath, adapters, descriptors)
+    // `loadUnsupportedPatterns` (from the adapters preset) gates stack-specific
+    // patterns during auto-detection. The intermediate optional args (filters,
+    // onDiscoveryComplete, rawFilterString) are left at their defaults.
+    const { config } = await initAutoConfig(
+      this.rootPath,
+      adapters,
+      descriptors,
+      undefined,
+      undefined,
+      undefined,
+      loadUnsupportedPatterns
+    )
     return config
   }
 

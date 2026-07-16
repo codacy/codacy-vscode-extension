@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as assert from 'assert'
 import { getRegisteredDescriptors } from '@codacy/analysis-runner'
-import { registerBuiltinAdapters } from '../../../cli/adapters'
+import { registerBuiltinAdapters } from '@codacy/analysis-adapters'
 import { CodacyCli } from '../../../cli/CodacyCli'
 import { processSarifResults } from '../../../cli/utils'
 
