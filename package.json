@@ -598,9 +598,9 @@
     "webpack-cli": "^5.1.1"
   },
   "dependencies": {
-    "@codacy/analysis-adapters": "^0.13.0",
-    "@codacy/analysis-runner": "^0.13.0",
-    "@codacy/tooling": "^0.13.0",
+    "@codacy/analysis-adapters": "^0.14.0",
+    "@codacy/analysis-runner": "^0.14.0",
+    "@codacy/tooling": "^0.14.0",
     "@codacy/codacy-mcp": "^0.6.19",
     "@eslint/js": "^9.39.2",
     "@segment/analytics-node": "^1.1.3",

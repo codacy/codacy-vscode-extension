@@ -6,7 +6,7 @@ import { SinonSandbox, createSandbox } from 'sinon'
 import * as vscode from 'vscode'
 import axios from 'axios'
 import { HttpProxyAgent } from 'http-proxy-agent'
-import { configureAxiosProxy } from '../../../common/proxy'
+import { configureAxiosProxy, buildProxyConfig } from '../../../common/proxy'
 
 function makeHttpConfig(opts: { proxy?: string; proxyStrictSSL?: boolean; proxyAuthorization?: string | null }) {
   return {
@@ -308,5 +308,87 @@ suite('configureAxiosProxy', () => {
     configureAxiosProxy()
 
     assert.strictEqual(activeInterceptorCount(), before + 1)
+  })
+})
+
+suite('buildProxyConfig', () => {
+  let sandbox: SinonSandbox
+  let savedEnv: Record<string, string | undefined>
+
+  const PROXY_ENV_KEYS = [
+    'HTTPS_PROXY',
+    'https_proxy',
+    'HTTP_PROXY',
+    'http_proxy',
+    'NO_PROXY',
+    'no_proxy',
+    'NODE_EXTRA_CA_CERTS',
+  ]
+
+  setup(() => {
+    sandbox = createSandbox()
+    savedEnv = Object.fromEntries(PROXY_ENV_KEYS.map((k) => [k, process.env[k]]))
+    PROXY_ENV_KEYS.forEach((k) => delete process.env[k])
+  })
+
+  teardown(() => {
+    sandbox.restore()
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  })
+
+  // Stubs both the `http.*` (proxy) and `codacy.*` (proxy.caCertPath) config sections.
+  function stubConfig(opts: {
+    proxy?: string
+    proxyStrictSSL?: boolean
+    noProxy?: string[]
+    caCertPath?: string
+  }) {
+    sandbox.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string) => {
+      return {
+        get: <T>(key: string, defaultValue?: T): T | undefined => {
+          if (section === 'http') {
+            if (key === 'proxy') return opts.proxy as unknown as T
+            if (key === 'proxyStrictSSL')
+              return (opts.proxyStrictSSL !== undefined ? opts.proxyStrictSSL : defaultValue) as T
+            if (key === 'noProxy') return (opts.noProxy ?? defaultValue) as T
+          }
+          if (section === 'codacy' && key === 'proxy.caCertPath') return opts.caCertPath as unknown as T
+          return defaultValue
+        },
+        has: () => false,
+        inspect: () => undefined,
+        update: async () => {},
+      } as unknown as vscode.WorkspaceConfiguration
+    })
+  }
+
+  test('returns an empty object when nothing is configured', () => {
+    stubConfig({})
+    assert.deepStrictEqual(buildProxyConfig(), {})
+  })
+
+  test('maps a single proxy URL to both http and https schemes', () => {
+    stubConfig({ proxy: 'http://proxy.corp:8080' })
+    const config = buildProxyConfig()
+    assert.strictEqual(config.httpProxy, 'http://proxy.corp:8080')
+    assert.strictEqual(config.httpsProxy, 'http://proxy.corp:8080')
+  })
+
+  test('maps the noProxy list', () => {
+    stubConfig({ proxy: 'http://proxy.corp:8080', noProxy: ['app.codacy.com', '.internal'] })
+    assert.deepStrictEqual(buildProxyConfig().noProxy, ['app.codacy.com', '.internal'])
+  })
+
+  test('sets insecure only when proxyStrictSSL is false', () => {
+    stubConfig({ proxyStrictSSL: false })
+    assert.strictEqual(buildProxyConfig().insecure, true)
+
+    sandbox.restore()
+    sandbox = createSandbox()
+    stubConfig({ proxyStrictSSL: true })
+    assert.strictEqual(buildProxyConfig().insecure, undefined)
   })
 })

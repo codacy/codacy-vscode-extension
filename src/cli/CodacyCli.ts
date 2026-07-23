@@ -9,15 +9,20 @@ import {
   initAutoConfig,
   initRemoteConfig,
   configureApiToken,
+  configureProxy,
   writeCodacyConfig,
   readCodacyConfig,
+  readBaselineConfig,
+  writeBaselineConfig,
+  updateConfigIncremental,
+  mergeConfigs,
   createLogger,
 } from '@codacy/analysis-runner'
 import { registerBuiltinAdapters, loadUnsupportedPatterns } from '@codacy/analysis-adapters'
 import type { Logger as RunnerLogger, CodacyConfig } from '@codacy/tooling'
 
 import { Config } from '../common/config'
-import { buildProxyEnv } from '../common/proxy'
+import { buildProxyEnv, buildProxyConfig } from '../common/proxy'
 import { cleanErrorMessage, CodacyError } from '../common/utils'
 import Logger from '../common/logger'
 import { ProcessedSarifResult, processSarifResults } from './utils'
@@ -100,15 +105,20 @@ export class CodacyCli {
   /**
    * Makes proxy / CA settings visible to the runner and the tools it spawns.
    *
-   * Tool subprocesses inherit `process.env`, so setting the standard proxy vars
-   * here routes their network access. Node-level TLS vars (NODE_EXTRA_CA_CERTS) are
-   * read at process startup, so they primarily benefit spawned child processes
-   * rather than the extension host's own requests.
+   * Two layers, because the runner runs in-process here but also spawns tools:
+   *  - Tool subprocesses inherit `process.env`, so the standard proxy vars route
+   *    their network access. Node-level TLS vars (NODE_EXTRA_CA_CERTS) are read
+   *    at process startup, so they only benefit spawned child processes.
+   *  - The runner's own outbound `fetch` (Codacy API calls and tool/runtime
+   *    downloads) goes through undici's global dispatcher, which does not read
+   *    proxy env vars. `configureProxy` installs that dispatcher from the resolved
+   *    VS Code settings — mirroring how {@link buildConfig} calls `configureApiToken`.
    */
   private applyProxyEnv(): void {
     if (this._proxyEnvApplied) return
     this._proxyEnvApplied = true
     Object.assign(process.env, buildProxyEnv())
+    configureProxy(buildProxyConfig())
   }
 
   /** Runner logger that forwards human-readable messages to the extension output. */
@@ -254,13 +264,82 @@ export class CodacyCli {
     await this.installDependencies()
   }
 
-  /** Rebuilds the Codacy config from the current identification state and writes it. */
+  /**
+   * Writes the live config plus its baseline snapshot.
+   *
+   * The baseline (`codacy.config.baseline.json`, committed alongside the config) is
+   * always the *exact generator output* — never the merged/edited result — so the
+   * next {@link updateConfig} can tell a user-disabled pattern apart from a
+   * default-off one. On a full regenerate `config === baseline`; on an incremental
+   * update `config` is the merge result while `baseline` is the fresh generation.
+   */
+  private async writeConfigAndBaseline(config: CodacyConfig, baseline: CodacyConfig): Promise<void> {
+    // writeCodacyConfig writes the live config to `.codacy/codacy.config.json`
+    // (creating the directory if needed) and also ensures `.codacy/.gitignore`, so
+    // the generated tool configs under `.codacy/generated/` stay untracked.
+    await writeCodacyConfig(this.rootPath, config)
+    // writeBaselineConfig writes the generator-output snapshot to
+    // `.codacy/codacy.config.baseline.json` — a sibling of the config that is meant
+    // to be committed. It has no `.codacy/` side effects (no .gitignore handling);
+    // it just persists the exact `next` so the following updateConfig() can diff
+    // against it and tell user-disabled patterns apart from default-off ones.
+    await writeBaselineConfig(this.rootPath, baseline)
+    this.updateReadyContext()
+  }
+
+  /**
+   * Rebuilds the Codacy config from scratch, discarding any local edits (the
+   * `--reset` path). Used for first-time init and when the identification state
+   * changes (remote↔local), where the previous config no longer applies.
+   */
   private async regenerateConfig(): Promise<void> {
     const config = await this.buildConfig()
-    // writeCodacyConfig also ensures `.codacy/.gitignore` so generated tool configs
-    // stay untracked.
-    await writeCodacyConfig(this.rootPath, config)
-    this.updateReadyContext()
+    await this.writeConfigAndBaseline(config, config)
+  }
+
+  /**
+   * Incrementally updates the config, preserving local edits — the `update-config`
+   * default. Re-runs the original init mode to produce `next`, then three-way merges
+   * it into the current config against the committed baseline: newly-detected
+   * languages/frameworks add tools/patterns, stack elements that disappeared are
+   * removed, and user edits (disabled patterns, tuned parameters, custom excludes)
+   * survive.
+   *
+   * - Remote configs are authoritative: they are re-synced wholesale from Codacy
+   *   Cloud, with no local-edit preservation.
+   * - When no baseline snapshot exists (a config predating baselines), we cannot
+   *   distinguish user-disabled patterns from default-off ones, so we fall back to
+   *   an additive merge (edits kept, stale tools not pruned) and warn.
+   */
+  private async updateConfig(): Promise<void> {
+    const next = await this.buildConfig()
+
+    if (next.metadata?.source === 'remote') {
+      await this.writeConfigAndBaseline(next, next)
+      return
+    }
+
+    const [base, current] = await Promise.all([
+      readBaselineConfig(this.rootPath).catch(() => null),
+      readCodacyConfig(this.rootPath).catch(() => null),
+    ])
+
+    let result: CodacyConfig
+    if (base && current) {
+      result = updateConfigIncremental(base, current, next)
+    } else if (current) {
+      Logger.warn(
+        'No Codacy config baseline snapshot found; performing an additive merge ' +
+          '(local edits are kept, but tools for a removed language/framework are not pruned).'
+      )
+      // dest = current so the user's edits win; preferDestParameters keeps their
+      // tuned parameters over freshly-generated defaults.
+      result = mergeConfigs(next, current, { preferDestParameters: true })
+    } else {
+      result = next
+    }
+
+    await this.writeConfigAndBaseline(result, next)
   }
 
   public async analyze(options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null> {
@@ -314,13 +393,14 @@ export class CodacyCli {
       return
     }
 
-    Logger.debug(`Regenerating Codacy config after change to ${filePath}`)
+    Logger.debug(`Updating Codacy config after change to ${filePath}`)
 
     try {
-      // The runner has no per-file discovery; regenerate the whole config so newly
-      // introduced languages/frameworks pick up the right tooling.
-      await this.regenerateConfig()
-      Logger.debug(`Codacy config regenerated for ${filePath}`)
+      // The runner has no per-file discovery, so re-run the full discovery and merge
+      // it into the existing config: newly introduced languages/frameworks pick up
+      // the right tooling while the user's local edits are preserved.
+      await this.updateConfig()
+      Logger.debug(`Codacy config updated for ${filePath}`)
     } catch (error: unknown) {
       if (error instanceof CodacyError) {
         throw error

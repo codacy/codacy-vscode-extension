@@ -7,6 +7,7 @@ import * as tunnel from 'tunnel'
 import { HttpProxyAgent } from 'http-proxy-agent'
 import axios from 'axios'
 import type { HTTPClient, HTTPClientRequest, HTTPResponse } from '@segment/analytics-node'
+import type { ProxyConfig } from '@codacy/analysis-runner'
 import Logger from './logger'
 
 function resolveProxyUrl(): string | undefined {
@@ -168,6 +169,46 @@ export function buildProxyEnv(): Record<string, string> {
   }
 
   return env
+}
+
+/**
+ * Builds the proxy/TLS overrides for `@codacy/analysis-runner`'s `configureProxy`.
+ *
+ * Unlike {@link buildProxyEnv} (which targets spawned subprocesses via env vars),
+ * this drives the runner's own in-process `fetch` traffic — Codacy API calls and
+ * tool/runtime downloads. Those go through undici's global dispatcher, which does
+ * not read proxy env vars, so the resolved VS Code settings are passed explicitly.
+ *
+ * Returns only the keys that are actually configured; an empty object makes
+ * `configureProxy` a no-op.
+ */
+export function buildProxyConfig(): Partial<ProxyConfig> {
+  const config: Partial<ProxyConfig> = {}
+
+  const proxyUrl = resolveProxyUrl()
+  if (proxyUrl) {
+    // The extension exposes a single proxy URL for both schemes.
+    config.httpProxy = proxyUrl
+    config.httpsProxy = proxyUrl
+  }
+
+  const noProxyList = resolveNoProxy()
+  if (noProxyList.length > 0) {
+    config.noProxy = noProxyList
+  }
+
+  const caCertPath = resolveReadableCACertPath()
+  if (caCertPath) {
+    config.caCertPath = caCertPath
+  }
+
+  // Mirrors the `http.proxyStrictSSL` setting. Disabling verification is a last
+  // resort for MITM proxies where the corporate CA can't be trusted directly.
+  if (!resolveStrictSSL()) {
+    config.insecure = true
+  }
+
+  return config
 }
 
 /**
