@@ -613,6 +613,12 @@
   },
   "overrides": {
     "qs": "6.14.1",
-    "jws": "3.2.3"
+    "jws": "3.2.3",
+    "eslint-plugin-no-unsanitized": {
+      "eslint": "^8.46.0 || ^9 || ^10"
+    },
+    "@shopify/eslint-plugin": {
+      "eslint": "^8.56.0 || ^9"
+    }
   }
 }
