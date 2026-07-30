@@ -443,10 +443,13 @@ export class CodacyCli {
       return false
     }
 
-    // Resolve the path to check for path traversal attempts
+    // Resolve the path to check for path traversal attempts. Comparing the relative
+    // path (instead of a string prefix) avoids matching sibling directories that merely
+    // share a prefix with the root, e.g. /workspace/project vs /workspace/project-other.
     const resolvedPath = path.resolve(this.rootPath, filePath)
-    const normalizedRoot = path.normalize(this.rootPath)
-    if (!resolvedPath.startsWith(normalizedRoot)) {
+    const relativeToRoot = path.relative(this.rootPath, resolvedPath)
+    const escapesRoot = relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)
+    if (escapesRoot) {
       Logger.warn(`Path traversal attempt detected: ${filePath} resolves outside workspace`)
       return false
     }

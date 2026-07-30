@@ -80,6 +80,10 @@ suite('CLI Tests', () => {
       assert.throws(() => (cli as any).toRepoRelativePath('../../etc/passwd'))
     })
 
+    test('rejects a sibling directory sharing a prefix with the workspace root', () => {
+      assert.throws(() => (cli as any).toRepoRelativePath(`${mockRootPath}-sibling/file.js`))
+    })
+
     test('rejects paths containing null bytes', () => {
       assert.throws(() => (cli as any).toRepoRelativePath('src/index\0.ts'))
     })
