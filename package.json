@@ -578,7 +578,7 @@
     "@types/sinon": "^10.0.16",
     "@types/temp": "^0.9.1",
     "@types/tunnel": "^0.0.7",
-    "@types/vscode": "^1.102.0",
+    "@types/vscode": "1.102.0",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",
     "@vscode/test-electron": "^2.3.4",
