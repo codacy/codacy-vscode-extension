@@ -306,7 +306,6 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private async runLocalAnalysisSetup() {
     const cli = this.cli
     if (!cli) return
-    //|| this._localAnalysisSetupInProgress
     this._localAnalysisSetupAttempted = true
     this._localAnalysisSetupInProgress = true
     this._localAnalysisSetupFailed = false
