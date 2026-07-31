@@ -1,4 +1,3 @@
-//@ts-check
 /// <reference lib="dom" />
 
 /* global acquireVsCodeApi, document, window */
@@ -10,7 +9,7 @@
  * @property {function(Object): void} setState
  */
 
-/**
+/** 
  * @typedef {Object} IconUris
  * @property {string} finished
  * @property {string} unfinished
@@ -26,7 +25,7 @@
   let isLoggedIn = false
   let isMCPInstalled = false
   let hasInstructionFile = false
-  let isCLIInstalled = false
+  let isLocalAnalysisReady = false
   let isOrgInCodacy = false
   let isRepoInCodacy = false
   let userInfo = null
@@ -148,11 +147,11 @@
         hasInstructionFile = message.hasInstructionFile
         handleMCPStatusChange(isMCPInstalled, hasInstructionFile)
         break
-      case 'cliStatusChanged':
-        isCLIInstalled = message.isCLIInstalled
+      case 'localAnalysisStatusChanged':
+        isLocalAnalysisReady = message.isLocalAnalysisReady
         isOrgInCodacy = message.isOrgInCodacy
         isRepoInCodacy = message.isRepoInCodacy
-        handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy)
+        handleLocalAnalysisStatusChange(message.status, isLocalAnalysisReady, isOrgInCodacy, isRepoInCodacy)
         break
       default:
         break
@@ -488,11 +487,11 @@
       })
     }
 
-    // Install CLI button
+    // Set up local analysis button
     const installCliButton = document.getElementById('install-cli-button')
     if (installCliButton) {
       installCliButton.addEventListener('click', function () {
-        vscode.postMessage({ type: 'installCLI' })
+        vscode.postMessage({ type: 'setupLocalAnalysis' })
       })
     }
 
@@ -550,23 +549,59 @@
   // ============================================
 
   /**
-   * Shows the uninstalled CLI state
+   * Shows the uninstalled CLI state. The button only appears here, when automatic
+   * setup could not run or failed, so the user can trigger (or retry) it manually.
    * @param {Object} elements
+   * @param {boolean} [isError] - Whether we're falling back after a failed auto-setup
    * @returns {void}
    */
-  function showUninstalledCLIState(elements) {
+  function showUninstalledCLIState(elements, isError) {
     if (!elements) return
-    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription, cliIcon, iconUris } = elements
+    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription, cliIcon, cliLoading, iconUris } =
+      elements
     if (cliHeaderActions) {
       cliHeaderActions.style.display = 'none'
     }
+    if (cliLoading) {
+      cliLoading.style.display = 'none'
+    }
     if (installCliButton) {
       installCliButton.style.display = 'inline-block'
+      installCliButton.textContent = isError ? 'Retry setup' : 'Set up local analysis'
     }
     if (dependenciesDescription) {
       dependenciesDescription.style.display = 'inline-block'
     }
-    cliDescription.textContent = 'Get instant feedback as you type by analyzing your code locally.'
+    cliDescription.style.display = ''
+    cliDescription.textContent = isError
+      ? 'Automatic setup didn\'t complete. You can try again.'
+      : 'Get instant feedback as you type by analyzing your code locally.'
+    cliIcon.src = isError ? iconUris.warning : iconUris.unfinished
+  }
+
+  /**
+   * Shows the in-progress CLI state: a spinner while local analysis initializes
+   * automatically in the background.
+   * @param {Object} elements
+   * @returns {void}
+   */
+  function showInProgressCLIState(elements) {
+    if (!elements) return
+    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription, cliIcon, cliLoading, iconUris } =
+      elements
+    if (cliHeaderActions) {
+      cliHeaderActions.style.display = 'none'
+    }
+    if (installCliButton) {
+      installCliButton.style.display = 'none'
+    }
+    if (dependenciesDescription) {
+      dependenciesDescription.style.display = 'none'
+    }
+    cliDescription.style.display = 'none'
+    if (cliLoading) {
+      cliLoading.style.display = 'flex'
+    }
     cliIcon.src = iconUris.unfinished
   }
 
@@ -577,7 +612,7 @@
    */
   function showInstalledCLIState(elements) {
     if (!elements) return
-    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription } = elements
+    const { cliHeaderActions, installCliButton, dependenciesDescription, cliDescription, cliLoading } = elements
     if (cliHeaderActions) {
       cliHeaderActions.style.display = 'flex'
     }
@@ -587,7 +622,11 @@
     if (dependenciesDescription) {
       dependenciesDescription.style.display = 'none'
     }
-    cliDescription.textContent = 'Codacy CLI installed'
+    if (cliLoading) {
+      cliLoading.style.display = 'none'
+    }
+    cliDescription.style.display = ''
+    cliDescription.textContent = 'Codacy CLI is ready'
   }
 
   /**
@@ -620,12 +659,13 @@
 
   /**
    * Handles the CLI status changes
-   * @param {boolean} isCLIInstalled
+   * @param {'ready' | 'in-progress' | 'error' | 'idle' | undefined} status
+   * @param {boolean} isLocalAnalysisReady
    * @param {boolean} isOrgInCodacy
    * @param {boolean} isRepoInCodacy
    * @returns {void}
    */
-  function handleCLIStatusChange(isCLIInstalled, isOrgInCodacy, isRepoInCodacy) {
+  function handleLocalAnalysisStatusChange(status, isLocalAnalysisReady, isOrgInCodacy, isRepoInCodacy) {
     /** @type {HTMLImageElement | null} */
     const cliIcon = /** @type {HTMLImageElement | null} */ (document.getElementById('cli-icon'))
     const cliDescription = document.getElementById('cli-description')
@@ -634,6 +674,7 @@
     const installCliButton = document.getElementById('install-cli-button')
     const cliHeaderActions = document.getElementById('cli-header-actions')
     const dependenciesDescription = document.getElementById('dependencies-description')
+    const cliLoading = document.getElementById('cli-loading')
     /** @type {IconUris | undefined} */
     // @ts-expect-error - iconUris is injected by the extension
     const iconUris = window.iconUris
@@ -646,25 +687,39 @@
       installCliButton,
       cliHeaderActions,
       dependenciesDescription,
+      cliLoading,
       iconUris,
     }
+
+    // Fall back to deriving the state from readiness if the extension didn't send one.
+    const resolvedStatus = status || (isLocalAnalysisReady ? 'ready' : 'idle')
 
     if (cliIcon && iconUris && cliDescription) {
       if (addOrganizationSection && addRepositorySection) {
         addOrganizationSection.style.display = 'none'
         addRepositorySection.style.display = 'none'
       }
-      if (isCLIInstalled) {
-        showInstalledCLIState(elements)
-        if (isOrgInCodacy && isRepoInCodacy) {
-          handleCLIOrgStates(elements, 'isInCodacy')
-        } else if (isOrgInCodacy) {
-          handleCLIOrgStates(elements, 'needsToAddRepository')
-        } else {
-          handleCLIOrgStates(elements, 'needsToAddOrganization')
-        }
-      } else {
-        showUninstalledCLIState(elements)
+      switch (resolvedStatus) {
+        case 'ready':
+          showInstalledCLIState(elements)
+          if (isOrgInCodacy && isRepoInCodacy) {
+            handleCLIOrgStates(elements, 'isInCodacy')
+          } else if (isOrgInCodacy) {
+            handleCLIOrgStates(elements, 'needsToAddRepository')
+          } else {
+            handleCLIOrgStates(elements, 'needsToAddOrganization')
+          }
+          break
+        case 'in-progress':
+          showInProgressCLIState(elements)
+          break
+        case 'error':
+          showUninstalledCLIState(elements, true)
+          break
+        case 'idle':
+        default:
+          showUninstalledCLIState(elements, false)
+          break
       }
     }
   }

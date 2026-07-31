@@ -218,13 +218,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       // Skip if analysis is already running
       if (this._isAnalysisRunning) return
 
-      // Check for the presence of the .codacy/codacy.yaml file to know if the CLI is initialized
+      // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
       const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-      const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.yaml')
+      const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.config.json')
 
       const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
 
-      if (!this._codacyCloud.cli?.getCliCommand() || !codacyCLIConfigExists) return
+      if (!this._codacyCloud.cli?.isInitialized() || !codacyCLIConfigExists) return
 
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath
@@ -263,8 +263,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
           await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), content)
         }
 
-        // Run the local analysis
-        const results = await this._codacyCloud.cli?.analyze({ file: `'${pathToFile}'` })
+        // Run the local analysis (the runner takes the plain path — no shell quoting)
+        const results = await this._codacyCloud.cli?.analyze({ file: pathToFile })
 
         this._currentCliIssues[originalPath] = results || []
 

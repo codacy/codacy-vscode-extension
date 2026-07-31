@@ -1,41 +1,11 @@
 import * as vscode from 'vscode'
 import { Config } from '../common'
 import { CodacyCli } from './CodacyCli'
-import { MacCodacyCli } from './MacCodacyCli'
-import { LinuxCodacyCli } from './LinuxCodacyCli'
-import { WinWSLCodacyCli } from './WinWSLCodacyCli'
-import { WinCodacyCli } from './WinCodacyCli'
-
-import { exec } from 'child_process'
 
 export type CliOptions = {
   provider?: string
   organization?: string
   repository?: string
-}
-
-async function execWindowsCmdAsync(command: string): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    exec(
-      command,
-      {
-        encoding: 'buffer',
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
-        if (stderr && !stdout) {
-          reject(new Error(stderr.toString('utf16le')))
-          return
-        }
-
-        resolve({ stdout: stdout.toString('utf16le'), stderr: stderr.toString('utf16le') })
-      }
-    )
-  })
 }
 
 export class Cli {
@@ -64,25 +34,10 @@ export class Cli {
     const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
 
     const { provider, organization, repository } = options
-    const platform = process.platform
 
-    if (platform === 'darwin') {
-      this.cliInstance = new MacCodacyCli(rootPath, provider, organization, repository)
-    } else if (platform === 'linux') {
-      this.cliInstance = new LinuxCodacyCli(rootPath, provider, organization, repository)
-    } else if (platform === 'win32') {
-      // is WSL installed?
-      const { stdout } = await execWindowsCmdAsync('wsl --status')
-      const hasWSL = stdout.includes('Default Distribution')
-
-      this.cliInstance = hasWSL
-        ? new WinWSLCodacyCli(rootPath, provider, organization, repository)
-        : new WinCodacyCli(rootPath, provider, organization, repository)
-    }
-
-    if (!this.cliInstance) {
-      throw new Error(`Unsupported platform: ${platform}`)
-    }
+    // A single implementation now works on every platform (the analyzer ships with
+    // the extension as a Node library — no shell script, no WSL).
+    this.cliInstance = new CodacyCli(rootPath, provider, organization, repository)
 
     // set Cli command if found
     await this.cliInstance.preflightCodacyCli(false)

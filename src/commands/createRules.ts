@@ -46,7 +46,7 @@ export const newRulesTemplate = (
   const codacyCLISettingsPath = path.join(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
     '.codacy',
-    'codacy.yaml'
+    'codacy.config.json'
   )
 
   const enigmaRules: Rule[] = []

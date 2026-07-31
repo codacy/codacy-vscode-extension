@@ -29,8 +29,13 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
 
   // Track setup completion status
   private _isCloudComplete = false
-  private _isCLIComplete = false
+  private _isLocalAnalysisComplete = false
   private _isMCPComplete = false
+
+  // Track automatic local analysis initialization
+  private _localAnalysisSetupAttempted = false
+  private _localAnalysisSetupInProgress = false
+  private _localAnalysisSetupFailed = false
 
   private static readonly TOTAL_SETUP_ITEMS = 3
 
@@ -62,7 +67,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     // Send initial status to webview and update badge
     this.updateLoginState()
     this.updateMCPStatus()
-    this.updateCLIStatus()
+    this.updateLocalAnalysisStatus()
 
     // Track disposables for cleanup
     const disposables: vscode.Disposable[] = []
@@ -79,7 +84,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
       disposables.push(
         this._codacyCloud.onDidChangeState(() => {
           this.updateLoginState()
-          this.updateCLIStatus()
+          this.updateLocalAnalysisStatus()
         })
       )
     }
@@ -99,7 +104,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
           this.updateMCPStatus()
           break
         case 'checkCLIStatus':
-          this.updateCLIStatus()
+          this.updateLocalAnalysisStatus()
           break
         case 'connectToCodacy':
           this.connectToCodacy()
@@ -116,8 +121,8 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
         case 'installMCP':
           this.installMCP()
           break
-        case 'installCLI':
-          this.installCLI()
+        case 'setupLocalAnalysis':
+          this.setupLocalAnalysis()
           break
         case 'openMCPSettings':
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy')
@@ -126,7 +131,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
           this.installMCP(true)
           break
         case 'refreshCLIStatus':
-          this.updateCLIStatus()
+          void this.runLocalAnalysisSetup()
           break
         case 'openCLISettings':
           vscode.commands.executeCommand('workbench.action.openSettings', 'codacy.cli')
@@ -145,7 +150,7 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     try {
       await codacyAuth()
       this.updateLoginState()
-      this.updateCLIStatus()
+      this.updateLocalAnalysisStatus()
     } catch (error) {
       Logger.error(`Failed to connect to Codacy: ${error instanceof Error ? error.message : 'Unknown error'}`)
       vscode.window.showErrorMessage(
@@ -157,7 +162,9 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
   private updateBadge() {
     if (!this._view) return
 
-    const completedCount = [this._isCloudComplete, this._isCLIComplete, this._isMCPComplete].filter(Boolean).length
+    const completedCount = [this._isCloudComplete, this._isLocalAnalysisComplete, this._isMCPComplete].filter(
+      Boolean
+    ).length
     const pendingCount = SetupViewProvider.TOTAL_SETUP_ITEMS - completedCount
 
     currentPendingCount = pendingCount
@@ -228,22 +235,90 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private updateCLIStatus() {
-    if (this._view) {
-      const isCLIInstalled = !!Cli.cliInstance?.getCliCommand()
-      const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
-      const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
+  private get cli() {
+    return this._codacyCloud?.cli ?? Cli.cliInstance ?? undefined
+  }
 
-      // CLI is complete when installed
-      this._isCLIComplete = isCLIInstalled
-      this.updateBadge()
+  private updateLocalAnalysisStatus() {
+    if (!this._view) return
 
-      this._view.webview.postMessage({
-        type: 'cliStatusChanged',
-        isCLIInstalled,
-        isOrgInCodacy,
-        isRepoInCodacy,
-      })
+    const isLocalAnalysisReady = !!this.cli?.isInitialized()
+
+    // Kick off automatic initialization the first time we find it not ready, so the
+    // user doesn't have to click a button. The setup runs in the background while the
+    // webview shows a spinner; the button only appears if this fails (or can't run).
+    if (
+      !isLocalAnalysisReady &&
+      this.cli &&
+      !this._localAnalysisSetupInProgress &&
+      !this._localAnalysisSetupAttempted
+    ) {
+      void this.runLocalAnalysisSetup()
+      return
+    }
+
+    this.postLocalAnalysisStatus()
+  }
+
+  /**
+   * Computes the current local analysis state and pushes it to the webview.
+   * `status` drives which UI the webview renders (spinner / installed / retry button).
+   */
+  private postLocalAnalysisStatus() {
+    if (!this._view) return
+
+    const isLocalAnalysisReady = !!this.cli?.isInitialized()
+    const isOrgInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddOrganization
+    const isRepoInCodacy = this._codacyCloud?.state !== CodacyCloudState.NeedsToAddRepository
+
+    // Local analysis is complete once the repo is initialized
+    this._isLocalAnalysisComplete = isLocalAnalysisReady
+    this.updateBadge()
+
+    let status: 'ready' | 'in-progress' | 'error' | 'idle'
+    if (isLocalAnalysisReady) {
+      status = 'ready'
+    } else if (this._localAnalysisSetupInProgress) {
+      status = 'in-progress'
+    } else if (this._localAnalysisSetupFailed) {
+      status = 'error'
+    } else {
+      status = 'idle'
+    }
+
+    this._view.webview.postMessage({
+      type: 'localAnalysisStatusChanged',
+      status,
+      isLocalAnalysisReady,
+      isOrgInCodacy,
+      isRepoInCodacy,
+    })
+  }
+
+  /**
+   * Runs local analysis setup in the background (no notifications).
+   *
+   * This drives `cli.setup()` → `initialize()`, which regenerates the config when the
+   * repo's identification state has changed (e.g. remote↔local), and is therefore also
+   * the path used by the manual "refresh" action. No-ops while a setup is already
+   * running so a refresh click mid-setup doesn't double-run.
+   */
+  private async runLocalAnalysisSetup() {
+    const cli = this.cli
+    if (!cli) return
+    this._localAnalysisSetupAttempted = true
+    this._localAnalysisSetupInProgress = true
+    this._localAnalysisSetupFailed = false
+    this.postLocalAnalysisStatus()
+
+    try {
+      await cli.setup({ showSuccessMessage: false })
+    } catch (error) {
+      this._localAnalysisSetupFailed = true
+      Logger.error(`Local analysis setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      this._localAnalysisSetupInProgress = false
+      this.postLocalAnalysisStatus()
     }
   }
 
@@ -307,15 +382,28 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async installCLI() {
+  private async setupLocalAnalysis() {
+    const cli = this.cli
+    if (!cli) {
+      vscode.window.showErrorMessage('Local analysis is not available for this workspace.')
+      return
+    }
+
+    this._localAnalysisSetupInProgress = true
+    this._localAnalysisSetupFailed = false
+    this.postLocalAnalysisStatus()
+
     try {
-      await this._codacyCloud?.cli?.install()
-      this.updateCLIStatus()
+      await cli.setup()
     } catch (error) {
-      Logger.error(`Failed to install CLI: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      this._localAnalysisSetupFailed = true
+      Logger.error(`Failed to set up local analysis: ${error instanceof Error ? error.message : 'Unknown error'}`)
       vscode.window.showErrorMessage(
-        `Failed to install CLI: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to set up local analysis: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
+    } finally {
+      this._localAnalysisSetupInProgress = false
+      this.postLocalAnalysisStatus()
     }
   }
 
@@ -422,11 +510,15 @@ export class SetupViewProvider implements vscode.WebviewViewProvider {
               </button>
             </div>
           </div>
-          <p id="cli-description">Get instant feedback as you type by analyzing your code locally.</p>
-          <button id="install-cli-button">Install Codacy CLI</button>
+          <p id="cli-description" style="display: none;">Get instant feedback as you type by analyzing your code locally.</p>
+          <div id="cli-loading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Setting up local analysis...</p>
+          </div>
+          <button id="install-cli-button" style="display: none;">Set up local analysis</button>
           <p id="add-organization-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-organization-button">Add this organization to Codacy</button></p>
           <p id="add-repository-section" style="display: none;">To customize the analysis, <button class="link-btn" id="add-repository-button">Add this repository to Codacy</button></p>
-          <p id="dependencies-description">Installs required dependencies: Node, Python, Java</p>
+          <p id="dependencies-description" style="display: none;">Installs required dependencies: Node, Python, Java</p>
         </div>
       </div>
     </li>
