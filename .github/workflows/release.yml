@@ -24,7 +24,9 @@ jobs:
       - name: Setup Node version
         uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
         with:
-          node-version: 20
+          node-version: 24
+      - name: Upgrade npm
+        run: npm install -g npm@latest
       - name: Install dependencies
         run: npm install
       - name: Install VSCE
