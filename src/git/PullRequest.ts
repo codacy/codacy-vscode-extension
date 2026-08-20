@@ -151,6 +151,15 @@ export class PullRequest extends PullRequestInfo {
 
     // load PR delta issues
     this._issues = []
+
+    // a pull request Codacy couldn't resolve the commits of has nothing to diff
+    if (!this._headCommit || !this._baseCommit) {
+      Logger.debug(
+        `Skipping delta issues for pull request #${this._prWithAnalysis.pullRequest.number}: missing head or common ancestor commit`
+      )
+      return
+    }
+
     let nextCursor: string | undefined
     try {
       do {
