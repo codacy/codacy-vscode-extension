@@ -12,7 +12,7 @@ body {
   padding: 12px;
   border-width: 1px 1px 0;
   border-style: solid;
-  border-color: var(--vscode-input-border);
+  border-color: var(--vscode-panel-border, var(--vscode-editorWidget-border, transparent));
 }
 
 li:last-of-type .setup-item, #upgrade-box {
@@ -112,7 +112,7 @@ li:last-of-type .setup-item, #upgrade-box {
 .loading-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid var(--vscode-input-border);
+  border: 2px solid var(--vscode-panel-border, var(--vscode-editorWidget-border, transparent));
   border-top-color: var(--vscode-focusBorder);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
