@@ -43,12 +43,6 @@ export const newRulesTemplate = (
     })
   }
 
-  const codacyCLISettingsPath = path.join(
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
-    '.codacy',
-    'codacy.config.json'
-  )
-
   const commonRules: Rule[] = [
     {
       when: 'CRITICAL: After ANY successful `edit_file` or `reapply` operation',
