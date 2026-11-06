@@ -14,8 +14,14 @@ on:
           - major
 
 jobs:
-  release:
+  # Builds the VSIX. Runs every third-party install script (npm install), so it gets
+  # no publishing authority: no OIDC token and read-only contents.
+  build:
     runs-on: macos-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Clone Repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
@@ -28,35 +34,83 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Install VSCE
-        run: npm install -g @vscode/vsce
+        run: npm install -g @vscode/vsce@4.1.0
       - name: Set up secrets
         run: |
           rm -f src/env-secrets.ts
           echo "export const SEGMENT_WRITE_KEY = '${{ secrets.SEGMENT_WRITE_KEY }}'" >> src/env-secrets.ts
       - name: Create Changelog
         run: |
-          git log $(git describe --tags --abbrev=0)..HEAD --oneline &> ${{ github.workspace }}-CHANGELOG.txt
-          cat ${{ github.workspace }}-CHANGELOG.txt
-      - name: Get Current Version Number
-        run: |
-          CURRENT_VERSION=$(git describe --tags --abbrev=0 | sed 's/v//')
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          mkdir -p releases
+          git log $(git describe --tags --abbrev=0)..HEAD --oneline &> releases/CHANGELOG.txt
+          cat releases/CHANGELOG.txt
       - name: Compile New Version
+        id: version
         env:
           RELEASE_TYPE: ${{ github.event.inputs.releaseType }}
         run: |
-          RELEASE_VERSION=$(npx semver $CURRENT_VERSION -i $RELEASE_TYPE) 
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 | sed 's/v//')
+          RELEASE_VERSION=$(npx semver $CURRENT_VERSION -i $RELEASE_TYPE)
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
-          echo "Bump to v$RELEASE_VERSION"
+          echo "version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "Bump $CURRENT_VERSION to v$RELEASE_VERSION"
       - name: Version Package
-        run: |
-          git status
-          npm version $RELEASE_VERSION --no-git-tag-version
-          git tag -a v$RELEASE_VERSION -m "v$RELEASE_VERSION"
+        run: npm version $RELEASE_VERSION --no-git-tag-version
       - name: Package Extension
         run: vsce package $RELEASE_VERSION --no-git-tag-version --no-update-package-json -o "./releases/codacy-$RELEASE_VERSION.vsix"
+      - name: Upload VSIX
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: releases/
+          if-no-files-found: error
+
+  # The only job that can obtain Marketplace credentials. It runs no repository code
+  # and no dependency install scripts: it downloads the built VSIX and publishes it.
+  publish-marketplace:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      # Request a GitHub OIDC token for Marketplace Trusted Publishing (vsce --oidc).
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Setup Node version
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
+        with:
+          node-version: 20
+      - name: Install VSCE
+        run: npm install -g --ignore-scripts @vscode/vsce@4.1.0
+      - name: Download VSIX
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: releases/
       - name: Publish to Visual Studio Marketplace
-        run: vsce publish --packagePath "./releases/codacy-$RELEASE_VERSION.vsix" --no-git-tag-version --no-update-package-json -p ${{ secrets.VSC_MKTP_PAT }}
+        # Trusted Publishing: exchanges the job's GitHub OIDC token for a short-lived
+        # Marketplace credential. Needs a policy on the codacy-app publisher naming
+        # codacy/codacy-vscode-extension and this workflow file (release.yml).
+        run: vsce publish --packagePath "./releases/codacy-$RELEASE_VERSION.vsix" --no-git-tag-version --no-update-package-json --oidc
+
+  # Runs only after the Marketplace publish succeeded, so a failed publish never
+  # leaves a version tag behind and a re-run computes the same version.
+  release:
+    needs: [build, publish-marketplace]
+    runs-on: ubuntu-latest
+    permissions:
+      # Push the version tag and create the GitHub release.
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+      - name: Download VSIX
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: releases/
       - name: Publish to Open VSX Registry
         continue-on-error: true
         uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1
@@ -64,19 +118,19 @@ jobs:
           preRelease: false
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           extensionFile: ./releases/codacy-${{ env.RELEASE_VERSION }}.vsix
-      - name: Push Tags
+      - name: Push Tag
+        # Tags the commit the build job checked out (github.sha).
         run: |
-          git log -1 --stat
-          git push origin main --tags
-      - run: |
-          export GIT_TAG=$(git describe --tags --abbrev=0)
-          echo "GIT_TAG=$GIT_TAG" >> $GITHUB_ENV
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$RELEASE_VERSION" -m "v$RELEASE_VERSION"
+          git push origin "v$RELEASE_VERSION"
       - name: GitHub Release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           artifacts: './releases/codacy-*'
-          bodyFile: ${{ github.workspace }}-CHANGELOG.txt
-          tag: ${{ env.GIT_TAG }}
+          bodyFile: ./releases/CHANGELOG.txt
+          tag: v${{ env.RELEASE_VERSION }}
           prerelease: false
       - name: Send Slack notification
         id: slack
