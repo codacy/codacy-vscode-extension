@@ -89,6 +89,43 @@ suite('Branch overview on enabled branches', () => {
     )
   })
 
+  test('discards the result when the branch changes during the request', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    sinon.stub(AnalysisService, 'getRepositoryWithAnalysis').callsFake((() => {
+      // the user switches branch while the request is in flight
+      ;(cloud as any)._branch = 'master'
+      return Promise.resolve({ data: { lastAnalysedCommit: { sha: FEATURE_SHA } } })
+    }) as any)
+
+    await cloud.loadIssues()
+
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
+    assert.ok((cloud.branchIssues.refresh as any).notCalled)
+  })
+
+  test('keeps the state and retries when the commit lookup fails', async () => {
+    const clock = sinon.useFakeTimers()
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    const getRepo = sinon.stub(AnalysisService, 'getRepositoryWithAnalysis')
+    getRepo.onFirstCall().rejects(new Error('network down'))
+    getRepo.onSecondCall().resolves({ data: { lastAnalysedCommit: { sha: FEATURE_SHA } } } as any)
+
+    await cloud.loadIssues()
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
+
+    await clock.tickAsync(2 * 60 * 1000)
+
+    assert.ok(getRepo.calledTwice)
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranch)
+  })
+
+  test('refreshEnabledBranches throws when asked to, for the initial load', async () => {
+    checkout('master', DEFAULT_SHA, [])
+    sinon.stub(RepositoryService, 'listRepositoryBranches').rejects(new Error('boom'))
+
+    await assert.rejects(cloud.refreshEnabledBranches({ throwOnError: true }), /boom/)
+  })
+
   test('refreshEnabledBranches keeps the previous list when the request fails', async () => {
     checkout('master', DEFAULT_SHA, [branch('master', true)])
     sinon.stub(RepositoryService, 'listRepositoryBranches').rejects(new Error('boom'))
