@@ -30,6 +30,9 @@ import { ProcessedSarifResult, processSarifResults } from './utils'
 export const CODACY_FOLDER_NAME = '.codacy'
 export const CODACY_CONFIG_FILE = 'codacy.config.json'
 
+/** Tail of the serialized {@link CodacyCli.initialize} calls (shared by all instances). */
+let initializeQueue: Promise<void> = Promise.resolve()
+
 /**
  * Drives Codacy local analysis in-process via `@codacy/analysis-runner`.
  *
@@ -226,10 +229,12 @@ export class CodacyCli {
   public async installDependencies(): Promise<void> {
     this.applyProxyEnv()
     try {
-      // "auto-install" downloads any missing runtimes/tools before analysis.
+      // "install" downloads any missing runtimes/tools for the configured tool set
+      // and returns without analyzing. ("auto-install" would go on to analyze every
+      // file in the repository, which on large repos froze the extension host.)
       await runnerAnalyze({
         repositoryRoot: this.rootPath,
-        mode: 'auto-install',
+        mode: 'install',
         logger: this.createRunnerLogger(),
       })
     } catch (error) {
@@ -238,18 +243,34 @@ export class CodacyCli {
     }
   }
 
-  public async initialize(): Promise<void> {
+  /**
+   * Makes sure the repository has a config and its tools are installed.
+   *
+   * Calls are serialized across instances: `CodacyCloud.open` creates one CLI
+   * instance before the repository is identified and another after, and both run
+   * this on the same `.codacy/` folder.
+   */
+  public initialize(): Promise<void> {
+    const run = initializeQueue.then(() => this.doInitialize())
+    initializeQueue = run.catch(() => undefined)
+    return run
+  }
+
+  private async doInitialize(): Promise<void> {
     const devMode = Config.devMode
     const configExists = this.configExists()
 
     let needsInitialization = !configExists
 
     if (configExists && !devMode) {
-      // Regenerate if the repo's identification state no longer matches the config
-      // (e.g. it was created remotely but we now lack a token, or vice versa).
+      // Upgrade a locally-detected config to the remote one once the repository is
+      // identified. Never go the other way: an instance without identification
+      // (created before the repository is resolved, or after logging out) must keep
+      // a remote config as is. Downgrading it made the config flip remote → local →
+      // remote on every startup, re-initializing each time.
       const config = await readCodacyConfig(this.rootPath).catch(() => null)
       const isRemote = config?.metadata?.source === 'remote'
-      if (isRemote !== this.hasIdentification()) {
+      if (!isRemote && this.hasIdentification()) {
         needsInitialization = true
       }
     }
@@ -355,8 +376,9 @@ export class CodacyCli {
   }
 
   public async analyze(options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null> {
-    await this.preflightCodacyCli(true)
-
+    // No preflight here: setup and re-initialization happen on repository open and
+    // from the setup view. Running them before every analysis regenerated the config
+    // and re-installed tools on each save.
     if (!this.isInitialized()) {
       throw new Error('Codacy is not initialized. Please install the Codacy CLI first.')
     }
@@ -394,10 +416,11 @@ export class CodacyCli {
   }
 
   public async configDiscover(filePath: string): Promise<void> {
-    await this.preflightCodacyCli(true)
-
+    // A new file only refines an existing config; it must not trigger first-time
+    // setup (and its tool install) on its own.
     if (!this.isInitialized()) {
-      throw new Error('Codacy is not initialized. Please install the Codacy CLI first.')
+      Logger.debug(`Codacy local analysis is not set up. Skipping config discover for ${filePath}.`)
+      return
     }
 
     if (await this.shouldSkipReconfig()) {

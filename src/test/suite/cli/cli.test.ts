@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as assert from 'assert'
-import { getRegisteredDescriptors } from '@codacy/analysis-runner'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+import { createCodacyConfig, getRegisteredDescriptors, writeCodacyConfig } from '@codacy/analysis-runner'
 import { registerBuiltinAdapters } from '@codacy/analysis-adapters'
 import { CodacyCli } from '../../../cli/CodacyCli'
 import { processSarifResults } from '../../../cli/utils'
@@ -61,6 +64,107 @@ suite('CLI Tests', () => {
       assert.strictEqual(results[0].tool, 'eslint')
       assert.strictEqual(results[0].filePath, 'src/index.ts')
       assert.strictEqual(results[0].rule?.id, 'no-unused-vars')
+    })
+  })
+
+  suite('Initialization lifecycle', () => {
+    let tmpRoot: string
+
+    /** Stubs the expensive steps and records which of them ran. */
+    const instrument = (cli: CodacyCli) => {
+      const calls: string[] = []
+      ;(cli as any).regenerateConfig = async () => {
+        calls.push('regenerate')
+      }
+      ;(cli as any).installDependencies = async () => {
+        calls.push('install')
+      }
+      ;(cli as any).setup = async () => {
+        calls.push('setup')
+      }
+      ;(cli as any).preflightCodacyCli = async () => {
+        calls.push('preflight')
+      }
+      return calls
+    }
+
+    const writeConfig = async (source: 'remote' | 'local') => {
+      await writeCodacyConfig(tmpRoot, createCodacyConfig({ source, languages: [], tools: [] }))
+    }
+
+    setup(() => {
+      tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codacy-cli-test-'))
+    })
+
+    teardown(() => {
+      fs.rmSync(tmpRoot, { recursive: true, force: true })
+    })
+
+    test('keeps a remote config when the instance has no identification', async () => {
+      await writeConfig('remote')
+      const cli = new CodacyCli(tmpRoot)
+      const calls = instrument(cli)
+
+      await cli.initialize()
+
+      assert.deepStrictEqual(calls, [])
+    })
+
+    test('upgrades a local config to remote once the repository is identified', async () => {
+      await writeConfig('local')
+      const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
+      ;(cli as any)._accountToken = 'token'
+      const calls = instrument(cli)
+
+      await cli.initialize()
+
+      assert.deepStrictEqual(calls, ['regenerate', 'install'])
+    })
+
+    test('leaves a matching remote config alone', async () => {
+      await writeConfig('remote')
+      const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
+      ;(cli as any)._accountToken = 'token'
+      const calls = instrument(cli)
+
+      await cli.initialize()
+
+      assert.deepStrictEqual(calls, [])
+    })
+
+    test('serializes concurrent initialize calls across instances', async () => {
+      const events: string[] = []
+      const slowInstance = (name: string) => {
+        const cli = new CodacyCli(tmpRoot)
+        ;(cli as any).doInitialize = async () => {
+          events.push(`${name}:start`)
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          events.push(`${name}:end`)
+        }
+        return cli
+      }
+
+      await Promise.all([slowInstance('a').initialize(), slowInstance('b').initialize()])
+
+      assert.deepStrictEqual(events, ['a:start', 'a:end', 'b:start', 'b:end'])
+    })
+
+    test('analyze does not run setup or re-initialization', async () => {
+      const cli = new CodacyCli(tmpRoot)
+      const calls = instrument(cli)
+
+      await assert.rejects(() => cli.analyze({ file: path.join(tmpRoot, 'index.ts') }))
+
+      assert.deepStrictEqual(calls, [])
+    })
+
+    test('configDiscover is a no-op before local analysis is set up', async () => {
+      const cli = new CodacyCli(tmpRoot)
+      const calls = instrument(cli)
+
+      await cli.configDiscover(path.join(tmpRoot, 'new-file.ts'))
+
+      assert.deepStrictEqual(calls, [])
     })
   })
 
