@@ -53,13 +53,10 @@ suite('configureAxiosProxy', () => {
     axios.defaults.httpsAgent = undefined
     axios.defaults.httpAgent = undefined
     axios.defaults.proxy = undefined
-    // Eject any interceptors added during this test
+    // Drop any interceptors added during this test. eject() takes the id returned by use(),
+    // not an array index, so truncate the handlers array instead.
     const handlers = (axios.interceptors.request as any).handlers as Array<any>
-    for (let i = initialInterceptorHandlerCount; i < handlers.length; i++) {
-      if (handlers[i] !== null) {
-        axios.interceptors.request.eject(i)
-      }
-    }
+    handlers.splice(initialInterceptorHandlerCount)
     for (const [k, v] of Object.entries(savedEnv)) {
       if (v === undefined) {
         delete process.env[k]
