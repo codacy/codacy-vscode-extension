@@ -93,11 +93,8 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
     'codacy.pr.checkout': (node: PullRequestNode) => {
       codacyCloud.checkout(node.pullRequest)
     },
-    'codacy.pullRequests.refresh': async () => {
-      await codacyCloud.refreshPullRequests()
-      await codacyCloud.refreshCurrentBranch()
-    },
-    'codacy.branchIssues.refresh': () => codacyCloud.refreshCurrentBranch(),
+    'codacy.pullRequests.refresh': () => codacyCloud.refreshPullRequests(),
+    'codacy.branchIssues.refresh': () => codacyCloud.branchIssues.refresh(),
     'codacy.showOutput': () => Logger.outputChannel.show(),
     'codacy.issue.seeDetails': seeIssueDetailsCommand,
     'codacy.cliIssue.seeDetails': seeCliIssueDetailsCommand,
