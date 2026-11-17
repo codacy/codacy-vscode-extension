@@ -67,6 +67,7 @@ export class CodacyCloud implements vscode.Disposable {
   private _pullRequests: PullRequestInfo[] = []
   private _prState: PullRequestState = PullRequestState.NoPullRequest
   private _branchState: BranchState = BranchState.OnUnknownBranch
+  private _branchLoadGeneration = 0
   private _issuesManager = new IssuesManager(this)
 
   private _onDidChangeState = new vscode.EventEmitter<CodacyCloudState>()
@@ -374,10 +375,13 @@ export class CodacyCloud implements vscode.Disposable {
    * When `throwOnError` is false, a failed request keeps the previous list.
    */
   public async refreshEnabledBranches({ throwOnError = false } = {}) {
-    if (!this._repository) return
-    const { name: repository, owner, provider } = this._repository.repository
+    const current = this._repository
+    if (!current) return
+    const { name: repository, owner, provider } = current.repository
     try {
       const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(provider, owner, repository, true)
+      // drop the response if the user switched repository while the request was in flight
+      if (this._repository !== current) return
       this._enabledBranches = enabledBranches
     } catch (error) {
       if (throwOnError) throw error
@@ -405,6 +409,7 @@ export class CodacyCloud implements vscode.Disposable {
     }
 
     Logger.appendLine(`Branch '${branch}' was ${wasEnabled ? 'disabled' : 'enabled'} on Codacy, reloading it`)
+    this.invalidatePendingBranchLoads()
     this._pullRequest = undefined
     this._onDidUpdatePullRequest.fire(undefined)
     this.prState = PullRequestState.NoPullRequest
@@ -416,13 +421,21 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   /**
-   * Returns the SHA of the last analysed commit of the current branch.
-   * The repository-level `lastAnalysedCommit` belongs to the default branch,
-   * so any other enabled branch is fetched separately.
+   * Makes every pending branch-issues load and scheduled retry discard its result.
+   * Called whenever the current branch's view is reset.
+   */
+  private invalidatePendingBranchLoads() {
+    this._branchLoadGeneration++
+    this._refreshTimeout && clearTimeout(this._refreshTimeout)
+  }
+
+  /**
+   * Fetches the SHA of the last analysed commit of the current branch, including
+   * the default branch, so a refresh sees analyses that finished after the extension loaded.
    */
   private async getBranchLastAnalysedCommitSha(): Promise<string | undefined> {
     const branch = this._enabledBranches.find((b) => b.name === this._branch)
-    if (!this._repository || !branch || branch.isDefault) return this.lastAnalysedCommit?.sha
+    if (!this._repository || !branch) return undefined
 
     const { name: repository, owner, provider } = this._repository.repository
     const { data } = await Api.Analysis.getRepositoryWithAnalysis(provider, owner, repository, branch.name)
@@ -432,10 +445,16 @@ export class CodacyCloud implements vscode.Disposable {
   public async loadIssues(retryOnFailure = false, attempt = 0) {
     const branch = this._branch
     const repository = this._repository
+    const generation = this._branchLoadGeneration
     Logger.appendLine(`Loading issues for branch: ${branch}`)
 
-    // the request below is async: drop its result if the user switched branch or repository meanwhile
-    const isStale = () => this._branch !== branch || this._repository !== repository
+    // the request below is async: drop its result if, meanwhile, the user switched branch or
+    // repository, the view was reset, or the branch was disabled on Codacy
+    const isStale = () =>
+      this._branch !== branch ||
+      this._repository !== repository ||
+      this._branchLoadGeneration !== generation ||
+      !this._enabledBranches.some((b) => b.name === branch)
 
     let lastAnalysedSha: string | undefined
     try {
@@ -503,6 +522,7 @@ export class CodacyCloud implements vscode.Disposable {
       this.prState = PullRequestState.NoPullRequest
 
       // clean up the issues and branch state
+      this.invalidatePendingBranchLoads()
       this._issuesManager.clear()
       this.branchState = BranchState.OnUnknownBranch
 

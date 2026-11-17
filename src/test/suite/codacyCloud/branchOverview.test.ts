@@ -65,14 +65,49 @@ suite('Branch overview on enabled branches', () => {
     assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranchOutdated)
   })
 
-  test('default branch uses the repository last analysed commit without another request', async () => {
-    checkout('master', DEFAULT_SHA, [branch('master', true)])
-    const getRepo = sinon.stub(AnalysisService, 'getRepositoryWithAnalysis')
+  test('default branch fetches a fresh last analysed commit instead of the cached one', async () => {
+    const NEW_DEFAULT_SHA = 'b0b0b0b000000000000000000000000000000000'
+    // cached repository analysis still points at DEFAULT_SHA; HEAD is at the newly analysed commit
+    checkout('master', NEW_DEFAULT_SHA, [branch('master', true)])
+    const getRepo = sinon
+      .stub(AnalysisService, 'getRepositoryWithAnalysis')
+      .resolves({ data: { lastAnalysedCommit: { sha: NEW_DEFAULT_SHA } } } as any)
 
     await cloud.loadIssues()
 
-    assert.ok(getRepo.notCalled)
+    assert.ok(getRepo.calledOnceWith('gh', 'org', 'repo', 'master'))
     assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranch)
+  })
+
+  test('discards the result when the branch is disabled during the request', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    sinon.stub(AnalysisService, 'getRepositoryWithAnalysis').callsFake((() => {
+      // the branch is disabled on Codacy and the view reset while the request is in flight
+      ;(cloud as any)._enabledBranches = [branch('master', true)]
+      return Promise.resolve({ data: { lastAnalysedCommit: { sha: FEATURE_SHA } } })
+    }) as any)
+
+    await cloud.loadIssues()
+
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
+    assert.ok((cloud.branchIssues.refresh as any).notCalled)
+  })
+
+  test('refreshEnabledBranches drops the response when the repository changes during the request', async () => {
+    checkout('master', DEFAULT_SHA, [branch('master', true)])
+    sinon.stub(RepositoryService, 'listRepositoryBranches').callsFake((() => {
+      // the user opens another repository while the request is in flight
+      ;(cloud as any)._repository = { repository: { name: 'other', owner: 'org', provider: 'gh' } }
+      ;(cloud as any)._enabledBranches = [branch('main', true)]
+      return Promise.resolve({ data: [branch('master', true), branch('replicate-master', false)] })
+    }) as any)
+
+    await cloud.refreshEnabledBranches()
+
+    assert.deepStrictEqual(
+      cloud.enabledBranches.map((b) => b.name),
+      ['main']
+    )
   })
 
   test('refreshEnabledBranches picks up a branch enabled after load', async () => {
