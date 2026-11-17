@@ -75,6 +75,45 @@ suite('Branch overview on enabled branches', () => {
     assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranch)
   })
 
+  test('discards the result when the branch changes during the request', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    sinon.stub(AnalysisService, 'getRepositoryWithAnalysis').callsFake((() => {
+      ;(cloud as any)._branch = 'master'
+      return Promise.resolve({ data: { lastAnalysedCommit: { sha: FEATURE_SHA } } })
+    }) as any)
+
+    await cloud.loadIssues()
+
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
+  })
+
+  test('keeps the state when the last analysed commit request fails', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    sinon.stub(AnalysisService, 'getRepositoryWithAnalysis').rejects(new Error('network down'))
+
+    await cloud.loadIssues()
+
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
+  })
+
+  test('refreshEnabledBranches ignores a response superseded by a later refresh', async () => {
+    checkout('master', DEFAULT_SHA, [branch('master', true)])
+    let resolveFirst: (value: any) => void = () => undefined
+    const list = sinon.stub(RepositoryService, 'listRepositoryBranches')
+    list.onFirstCall().returns(new Promise((resolve) => (resolveFirst = resolve)) as any)
+    list.onSecondCall().resolves({ data: [branch('master', true), branch('replicate-master', false)] } as any)
+
+    const first = cloud.refreshEnabledBranches()
+    await cloud.refreshEnabledBranches()
+    resolveFirst({ data: [branch('master', true)] })
+    await first
+
+    assert.deepStrictEqual(
+      cloud.enabledBranches.map((b) => b.name),
+      ['master', 'replicate-master']
+    )
+  })
+
   test('refreshEnabledBranches picks up a branch enabled after load', async () => {
     checkout('master', DEFAULT_SHA, [branch('master', true)])
     sinon

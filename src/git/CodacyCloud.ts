@@ -58,6 +58,7 @@ export class CodacyCloud implements vscode.Disposable {
   private _repository: RepositoryWithAnalysis | undefined
   private _organization: OrganizationWithMeta | undefined
   private _enabledBranches: Branch[] = []
+  private _enabledBranchesRequest = 0
   private _expectCoverage: boolean | undefined
   private _params: RepositoryParams | undefined
   private _state: CodacyCloudState = CodacyCloudState.Initializing
@@ -258,6 +259,7 @@ export class CodacyCloud implements vscode.Disposable {
           )
 
           this._expectCoverage = hasCoverageOverview
+          this._enabledBranchesRequest++ // supersede refreshes still in flight for a previous repository
           this._enabledBranches = enabledBranches
 
           this._disposables.push(this._current.state.onDidChange(this.handleStateChange.bind(this)))
@@ -382,8 +384,11 @@ export class CodacyCloud implements vscode.Disposable {
   public async refreshEnabledBranches() {
     if (!this._repository) return
     const { name: repository, owner, provider } = this._repository.repository
+    const request = ++this._enabledBranchesRequest
     try {
       const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(provider, owner, repository, true)
+      // ignore a response superseded by a later refresh (which also covers a repository switch)
+      if (request !== this._enabledBranchesRequest) return
       this._enabledBranches = enabledBranches
     } catch (error) {
       Logger.warn(`Could not refresh enabled branches: ${(error as Error).message}`)
@@ -405,14 +410,21 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   public async loadIssues(retryOnFailure = false) {
-    Logger.appendLine(`Loading issues for branch: ${this._branch}`)
+    const branch = this._branch
+    const repository = this._repository
+    Logger.appendLine(`Loading issues for branch: ${branch}`)
 
     let lastAnalysedSha: string | undefined
     try {
       lastAnalysedSha = await this.getBranchLastAnalysedCommitSha()
     } catch (error) {
-      handleError(error as Error, false, `Failed to load the last analysed commit for branch '${this._branch}'`)
+      // leave the state as is rather than comparing HEAD with an unknown commit
+      handleError(error as Error, false, `Failed to load the last analysed commit for branch '${branch}'`)
+      return
     }
+
+    // the user switched branch or repository while the request was in flight
+    if (this._branch !== branch || this._repository !== repository) return
 
     // if the local branch's HEAD is not the same as the remote branch's HEAD, then the local branch is outdated
     if (this.head?.commit !== lastAnalysedSha) {
