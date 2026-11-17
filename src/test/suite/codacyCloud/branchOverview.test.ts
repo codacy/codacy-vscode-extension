@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as assert from 'assert'
 import { SinonSandbox, createSandbox } from 'sinon'
-import { BranchState, CodacyCloud } from '../../../git/CodacyCloud'
+import { BranchState, CodacyCloud, CodacyCloudState } from '../../../git/CodacyCloud'
 import { AnalysisService, Branch, RepositoryService } from '../../../api/client'
 
 const DEFAULT_SHA = '72173f2000000000000000000000000000000000'
@@ -117,6 +117,37 @@ suite('Branch overview on enabled branches', () => {
 
     assert.ok(getRepo.calledTwice)
     assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranch)
+  })
+
+  test('refreshCurrentBranch shows the overview when the current branch gets enabled', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true)])
+    ;(cloud as any)._state = CodacyCloudState.Loaded
+    sinon
+      .stub(RepositoryService, 'listRepositoryBranches')
+      .resolves({ data: [branch('master', true), branch('replicate-master', false)] } as any)
+    sinon
+      .stub(AnalysisService, 'getRepositoryWithAnalysis')
+      .resolves({ data: { lastAnalysedCommit: { sha: FEATURE_SHA } } } as any)
+    const loadPr = sinon.stub(cloud, 'loadPullRequest').resolves()
+
+    await cloud.refreshCurrentBranch()
+
+    assert.ok(loadPr.notCalled)
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnAnalysedBranch)
+  })
+
+  test('refreshCurrentBranch falls back to the pull request when the current branch gets disabled', async () => {
+    checkout('replicate-master', FEATURE_SHA, [branch('master', true), branch('replicate-master', false)])
+    ;(cloud as any)._state = CodacyCloudState.Loaded
+    ;(cloud as any)._branchState = BranchState.OnAnalysedBranch
+    sinon.stub(RepositoryService, 'listRepositoryBranches').resolves({ data: [branch('master', true)] } as any)
+    const loadPr = sinon.stub(cloud, 'loadPullRequest').resolves()
+
+    await cloud.refreshCurrentBranch()
+
+    assert.ok(loadPr.calledOnce)
+    assert.ok((cloud.branchIssues.refresh as any).notCalled)
+    assert.strictEqual((cloud as any)._branchState, BranchState.OnUnknownBranch)
   })
 
   test('refreshEnabledBranches throws when asked to, for the initial load', async () => {

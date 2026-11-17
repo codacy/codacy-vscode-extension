@@ -386,6 +386,36 @@ export class CodacyCloud implements vscode.Disposable {
   }
 
   /**
+   * Explicit refresh of the checked-out branch: re-reads the enabled branches and,
+   * if the branch was enabled or disabled on Codacy, switches between the branch
+   * overview and the pull request view without a branch switch.
+   */
+  public async refreshCurrentBranch() {
+    if (this._state !== CodacyCloudState.Loaded || !this._repository || !this._branch) return
+    const branch = this._branch
+    const isEnabled = () => this._enabledBranches.some((b) => b.name === branch)
+
+    const wasEnabled = isEnabled()
+    await this.refreshEnabledBranches()
+    if (this._branch !== branch) return
+
+    if (wasEnabled === isEnabled()) {
+      if (wasEnabled) await this.loadIssues()
+      return
+    }
+
+    Logger.appendLine(`Branch '${branch}' was ${wasEnabled ? 'disabled' : 'enabled'} on Codacy, reloading it`)
+    this._pullRequest = undefined
+    this._onDidUpdatePullRequest.fire(undefined)
+    this.prState = PullRequestState.NoPullRequest
+    this._issuesManager.clear()
+    this.branchState = BranchState.OnUnknownBranch
+
+    if (isEnabled()) await this.loadIssues()
+    else await this.loadPullRequest()
+  }
+
+  /**
    * Returns the SHA of the last analysed commit of the current branch.
    * The repository-level `lastAnalysedCommit` belongs to the default branch,
    * so any other enabled branch is fetched separately.
