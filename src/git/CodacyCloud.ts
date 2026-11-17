@@ -249,8 +249,8 @@ export class CodacyCloud implements vscode.Disposable {
             data: { hasCoverageOverview },
           } = await Api.Repository.listCoverageReports(provider, owner, repository)
 
-          // get all enabled branches
-          await this.refreshEnabledBranches()
+          // get all enabled branches (a failure here fails the repository load)
+          await this.refreshEnabledBranches({ throwOnError: true })
 
           this._expectCoverage = hasCoverageOverview
 
@@ -371,15 +371,16 @@ export class CodacyCloud implements vscode.Disposable {
 
   /**
    * Re-reads the branches enabled on Codacy for the current repository.
-   * Keeps the previous list if the request fails.
+   * When `throwOnError` is false, a failed request keeps the previous list.
    */
-  public async refreshEnabledBranches() {
+  public async refreshEnabledBranches({ throwOnError = false } = {}) {
     if (!this._repository) return
     const { name: repository, owner, provider } = this._repository.repository
     try {
       const { data: enabledBranches } = await Api.Repository.listRepositoryBranches(provider, owner, repository, true)
       this._enabledBranches = enabledBranches
     } catch (error) {
+      if (throwOnError) throw error
       Logger.warn(`Could not refresh enabled branches: ${(error as Error).message}`)
     }
   }
@@ -398,14 +399,38 @@ export class CodacyCloud implements vscode.Disposable {
     return data.lastAnalysedCommit?.sha
   }
 
-  public async loadIssues(retryOnFailure = false) {
-    Logger.appendLine(`Loading issues for branch: ${this._branch}`)
+  public async loadIssues(retryOnFailure = false, attempt = 0) {
+    const branch = this._branch
+    const repository = this._repository
+    Logger.appendLine(`Loading issues for branch: ${branch}`)
+
+    // the request below is async: drop its result if the user switched branch or repository meanwhile
+    const isStale = () => this._branch !== branch || this._repository !== repository
 
     let lastAnalysedSha: string | undefined
     try {
       lastAnalysedSha = await this.getBranchLastAnalysedCommitSha()
     } catch (error) {
-      handleError(error as Error, false, `Failed to load the last analysed commit for branch '${this._branch}'`)
+      if (isStale()) return
+      handleError(error as Error, false, `Failed to load the last analysed commit for branch '${branch}'`)
+
+      // keep the current state and try again later, instead of comparing HEAD with an unknown commit
+      if (attempt < MAX_LOAD_ATTEMPTS) {
+        this._refreshTimeout && clearTimeout(this._refreshTimeout)
+        this._refreshTimeout = setTimeout(() => {
+          if (isStale()) return
+          Logger.appendLine(`Retrying to load the last analysed commit for branch '${branch}'...`)
+          this.loadIssues(retryOnFailure, attempt + 1).catch((e) =>
+            handleError(e as Error, false, 'Failed to load branch issues')
+          )
+        }, LOAD_RETRY_TIME)
+      }
+      return
+    }
+
+    if (isStale()) {
+      Logger.appendLine(`Branch changed while loading '${branch}', discarding its result`)
+      return
     }
 
     // if the local branch's HEAD is not the same as the remote branch's HEAD, then the local branch is outdated
@@ -422,6 +447,7 @@ export class CodacyCloud implements vscode.Disposable {
         // try again in N minutes
         this._refreshTimeout && clearTimeout(this._refreshTimeout)
         this._refreshTimeout = setTimeout(() => {
+          if (isStale()) return
           Logger.appendLine(`Retrying to load branch issues...`)
           this.loadIssues().catch((error) => handleError(error as Error, false, 'Failed to load branch issues'))
         }, LOAD_RETRY_TIME)
