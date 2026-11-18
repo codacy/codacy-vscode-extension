@@ -6,7 +6,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { createCodacyConfig, getRegisteredDescriptors, writeCodacyConfig } from '@codacy/analysis-runner'
 import { registerBuiltinAdapters } from '@codacy/analysis-adapters'
-import { CodacyCli } from '../../../cli/CodacyCli'
+import { CodacyCli, onToolsInstalled } from '../../../cli/CodacyCli'
 import { processSarifResults } from '../../../cli/utils'
 
 suite('CLI Tests', () => {
@@ -77,6 +77,9 @@ suite('CLI Tests', () => {
       ;(cli as any).regenerateConfig = async () => {
         calls.push('regenerate')
       }
+      ;(cli as any).updateConfig = async () => {
+        calls.push('update')
+      }
       ;(cli as any).installDependencies = async () => {
         calls.push('install')
       }
@@ -122,15 +125,43 @@ suite('CLI Tests', () => {
       assert.deepStrictEqual(calls, ['regenerate', 'install'])
     })
 
-    test('leaves a matching remote config alone', async () => {
+    test('refreshes a matching remote config once per session, without reset or install', async () => {
       await writeConfig('remote')
       const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
       ;(cli as any)._accountToken = 'token'
       const calls = instrument(cli)
 
       await cli.initialize()
+      await cli.initialize()
+
+      assert.deepStrictEqual(calls, ['update'])
+    })
+
+    test('refreshConfig pulls the remote config again', async () => {
+      await writeConfig('remote')
+      const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
+      ;(cli as any)._accountToken = 'token'
+      const calls = instrument(cli)
+
+      await cli.initialize()
+      await cli.refreshConfig()
+
+      assert.deepStrictEqual(calls, ['update', 'update'])
+    })
+
+    test('keeps the remote config when refreshing it fails', async () => {
+      await writeConfig('remote')
+      const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
+      ;(cli as any)._accountToken = 'token'
+      const calls = instrument(cli)
+      ;(cli as any).updateConfig = async () => {
+        throw new Error('offline')
+      }
+
+      await cli.initialize()
 
       assert.deepStrictEqual(calls, [])
+      assert.ok(fs.existsSync(path.join(tmpRoot, '.codacy', 'codacy.config.json')))
     })
 
     test('serializes concurrent initialize calls across instances', async () => {
@@ -256,6 +287,42 @@ suite('CLI Tests', () => {
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       assert.strictEqual(installs, 1)
+    })
+
+    test('signals when a background install makes a tool available', async () => {
+      const cli = new CodacyCli(mockRootPath)
+      const installedResult = {
+        capability: { ready: [{ toolId: 'bg-new-1' }], unavailable: [], checkedAt: '' },
+        errors: [],
+      }
+      ;(cli as any).installDependencies = async () => installedResult
+      let fired = 0
+      const subscription = onToolsInstalled(() => fired++)
+      try {
+        ;(cli as any).installMissingToolsInBackground(resultWith([unavailable('bg-new-1')]))
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      } finally {
+        subscription.dispose()
+      }
+
+      assert.strictEqual(fired, 1)
+    })
+
+    test('retries tools whose background install crashed', async () => {
+      const cli = new CodacyCli(mockRootPath)
+      let installs = 0
+      ;(cli as any).installDependencies = async () => {
+        installs++
+        throw new Error('runner crashed')
+      }
+      const result = resultWith([unavailable('bg-crash-1')])
+
+      ;(cli as any).installMissingToolsInBackground(result)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      ;(cli as any).installMissingToolsInBackground(result)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      assert.strictEqual(installs, 2)
     })
 
     test('does not install when only cloud-only tools are unavailable', async () => {

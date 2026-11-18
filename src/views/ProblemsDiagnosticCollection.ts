@@ -11,7 +11,7 @@ import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 import { StatusBar } from './StatusBar'
-import { CodacyCli } from '../cli/CodacyCli'
+import { CodacyCli, onToolsInstalled } from '../cli/CodacyCli'
 
 const patternSeverityToDiagnosticSeverity = (severity: SeverityLevel): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -133,6 +133,18 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     })
 
     if (onDidChangeTextDocument) this._subscriptions.push(onDidChangeTextDocument)
+
+    // A background install made a tool available: analyze the active file again so
+    // its findings show up without waiting for the next change.
+    this._subscriptions.push(
+      onToolsInstalled(async () => {
+        const document = vscode.window.activeTextEditor?.document
+        if (!document || document.uri.scheme !== 'file') return
+        const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
+        if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && document.isDirty)) return
+        await this.runAnalysisAndUpdateDiagnostics(document)
+      })
+    )
 
     // Listen for file deletions and clear diagnostics for deleted files
     this._subscriptions.push(

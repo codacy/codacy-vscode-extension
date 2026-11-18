@@ -49,6 +49,17 @@ const installAttemptedToolIds = new Set<string>()
 /** Tools the user was already told about this session (see {@link CodacyCli.notifyToolsNeedingManualInstall}). */
 const manualInstallNotifiedToolIds = new Set<string>()
 
+/** Repositories whose remote config was refreshed from Codacy Cloud this session. */
+const remoteConfigRefreshedRoots = new Set<string>()
+
+const toolsInstalledEmitter = new vscode.EventEmitter<void>()
+
+/**
+ * Fires when a background install made a tool available, so open files can be
+ * analyzed again with it instead of waiting for the next save.
+ */
+export const onToolsInstalled = toolsInstalledEmitter.event
+
 /**
  * Drives Codacy local analysis in-process via `@codacy/analysis-runner`.
  *
@@ -242,7 +253,7 @@ export class CodacyCli {
     )
   }
 
-  public async installDependencies(): Promise<void> {
+  public async installDependencies(): Promise<AnalysisResult> {
     this.applyProxyEnv()
     try {
       // "install" downloads any missing runtimes/tools for the configured tool set
@@ -256,6 +267,7 @@ export class CodacyCli {
       // Whatever is still unavailable after an install attempt is not retried this session.
       result.capability.unavailable.forEach((tool) => installAttemptedToolIds.add(tool.toolId))
       this.notifyToolsNeedingManualInstall(result)
+      return result
     } catch (error) {
       const cleanedErrorMessage = cleanErrorMessage(error, this._accountToken)
       throw new Error(`Failed to install dependencies: ${cleanedErrorMessage}`)
@@ -280,11 +292,20 @@ export class CodacyCli {
     )
     if (missing.length === 0) return
 
-    missing.forEach((tool) => installAttemptedToolIds.add(tool.toolId))
-    Logger.debug(`Installing unavailable tools: ${missing.map((tool) => tool.toolId).join(', ')}`)
-    enqueueSetup(() => this.installDependencies()).catch((error) =>
+    const missingIds = new Set(missing.map((tool) => tool.toolId))
+    missingIds.forEach((toolId) => installAttemptedToolIds.add(toolId))
+    Logger.debug(`Installing unavailable tools: ${[...missingIds].join(', ')}`)
+    enqueueSetup(async () => {
+      const installed = await this.installDependencies()
+      if (installed?.capability.ready.some((tool) => missingIds.has(tool.toolId))) {
+        toolsInstalledEmitter.fire()
+      }
+    }).catch((error) => {
+      // The install step itself failed, not a single tool (whose failure is reported
+      // by notifyToolsNeedingManualInstall). Let the next analysis try again.
+      missingIds.forEach((toolId) => installAttemptedToolIds.delete(toolId))
       Logger.warn(`Background tool install failed: ${cleanErrorMessage(error, this._accountToken)}`)
-    )
+    })
   }
 
   /**
@@ -341,6 +362,31 @@ export class CodacyCli {
     return enqueueSetup(() => this.doInitialize())
   }
 
+  /**
+   * Like {@link initialize}, but pulls the remote config from Codacy Cloud again
+   * even if it was already refreshed this session. Used when the user asks for a
+   * refresh after changing the repository's configuration on Codacy.
+   */
+  public refreshConfig(): Promise<void> {
+    remoteConfigRefreshedRoots.delete(this.rootPath)
+    return this.initialize()
+  }
+
+  /**
+   * Re-syncs a remote config from Codacy Cloud. On failure (e.g. offline) the
+   * existing config is kept, since it is still valid for local analysis.
+   */
+  private async refreshRemoteConfig(): Promise<void> {
+    try {
+      await this.updateConfig()
+      Logger.debug('Refreshed the remote Codacy config')
+    } catch (error) {
+      Logger.warn(
+        `Could not refresh the Codacy config from Codacy Cloud, keeping the current one: ${cleanErrorMessage(error, this._accountToken)}`
+      )
+    }
+  }
+
   private async doInitialize(): Promise<void> {
     const devMode = Config.devMode
     const configExists = this.configExists()
@@ -357,6 +403,14 @@ export class CodacyCli {
       const isRemote = config?.metadata?.source === 'remote'
       if (!isRemote && this.hasIdentification()) {
         needsInitialization = true
+      }
+
+      // A remote config can change on Codacy Cloud (tools or patterns turned on or
+      // off). Pull it once per session, as an incremental re-sync: no reset, and no
+      // install step (tools it adds are installed after the next analysis).
+      if (isRemote && this.hasIdentification() && !remoteConfigRefreshedRoots.has(this.rootPath)) {
+        remoteConfigRefreshedRoots.add(this.rootPath)
+        await this.refreshRemoteConfig()
       }
     }
 
