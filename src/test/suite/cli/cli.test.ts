@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as assert from 'assert'
+import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -165,6 +166,111 @@ suite('CLI Tests', () => {
       await cli.configDiscover(path.join(tmpRoot, 'new-file.ts'))
 
       assert.deepStrictEqual(calls, [])
+    })
+  })
+
+  suite('Codacy folder', () => {
+    test('recognizes files inside .codacy/ and nothing else', () => {
+      const cli = new CodacyCli(mockRootPath)
+      assert.strictEqual(cli.isInCodacyFolder(`${mockRootPath}/.codacy/generated/Semgrep/rules.yaml`), true)
+      assert.strictEqual(cli.isInCodacyFolder('.codacy/codacy.config.json'), true)
+      assert.strictEqual(cli.isInCodacyFolder(`${mockRootPath}/src/index.ts`), false)
+      assert.strictEqual(cli.isInCodacyFolder(`${mockRootPath}/.codacy-other/file.ts`), false)
+    })
+
+    test('analyze skips files inside .codacy/ without running the analyzer', async () => {
+      const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codacy-cli-test-'))
+      try {
+        await writeCodacyConfig(tmpRoot, createCodacyConfig({ source: 'local', languages: [], tools: [] }))
+        const cli = new CodacyCli(tmpRoot)
+        let installed = false
+        ;(cli as any).installMissingToolsInBackground = () => {
+          installed = true
+        }
+
+        const results = await cli.analyze({ file: path.join(tmpRoot, '.codacy', 'codacy.config.json') })
+
+        assert.deepStrictEqual(results, [])
+        assert.strictEqual(installed, false)
+      } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true })
+      }
+    })
+  })
+
+  suite('Tools that need a manual install', () => {
+    const unavailable = (toolId: string, extra: Record<string, unknown> = {}) => ({
+      toolId,
+      displayName: toolId.toUpperCase(),
+      reason: 'Not installed',
+      ...extra,
+    })
+    const resultWith = (unavailableTools: any[], errors: any[] = []) =>
+      ({ capability: { ready: [], unavailable: unavailableTools, checkedAt: '' }, errors }) as any
+
+    let shown: string[]
+    let originalShowWarning: typeof vscode.window.showWarningMessage
+
+    setup(() => {
+      shown = []
+      originalShowWarning = vscode.window.showWarningMessage
+      ;(vscode.window as any).showWarningMessage = async (message: string) => {
+        shown.push(message)
+        return undefined
+      }
+    })
+
+    teardown(() => {
+      ;(vscode.window as any).showWarningMessage = originalShowWarning
+    })
+
+    test('shows one notice per tool per session, for failed and manual-only installs', () => {
+      const cli = new CodacyCli(mockRootPath)
+      const result = resultWith(
+        [
+          unavailable('manual-a', { availableVia: 'manual-install' }),
+          unavailable('failed-b'),
+          unavailable('cloud-c', { availableVia: 'cloud' }),
+        ],
+        [{ toolId: 'failed-b', phase: 'toolInstall', kind: 'InstallError', message: 'Ruby not found', level: 'error' }]
+      )
+
+      ;(cli as any).notifyToolsNeedingManualInstall(result)
+      ;(cli as any).notifyToolsNeedingManualInstall(result)
+
+      assert.strictEqual(shown.length, 1)
+      assert.ok(shown[0].includes('MANUAL-A') && shown[0].includes('FAILED-B'), shown[0])
+      assert.ok(!shown[0].includes('CLOUD-C'), shown[0])
+    })
+
+    test('installs newly unavailable tools in the background, once per tool', async () => {
+      const cli = new CodacyCli(mockRootPath)
+      let installs = 0
+      ;(cli as any).installDependencies = async () => {
+        installs++
+      }
+      const result = resultWith([unavailable('bg-missing-1'), unavailable('bg-cloud-1', { availableVia: 'cloud' })])
+
+      ;(cli as any).installMissingToolsInBackground(result)
+      ;(cli as any).installMissingToolsInBackground(result)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      assert.strictEqual(installs, 1)
+    })
+
+    test('does not install when only cloud-only tools are unavailable', async () => {
+      const cli = new CodacyCli(mockRootPath)
+      let installs = 0
+      ;(cli as any).installDependencies = async () => {
+        installs++
+      }
+
+      ;(cli as any).installMissingToolsInBackground(
+        resultWith([unavailable('only-cloud-1', { availableVia: 'cloud' })])
+      )
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      assert.strictEqual(installs, 0)
     })
   })
 

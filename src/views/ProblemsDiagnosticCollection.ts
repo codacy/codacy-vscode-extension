@@ -229,6 +229,9 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       const originalPath = document.uri.fsPath
       let pathToFile = originalPath
 
+      // Files Codacy writes itself (config, generated tool configs) are not analyzed.
+      if (this._codacyCloud.cli.isInCodacyFolder(originalPath)) return
+
       // Check if the file still exists before proceeding
       if (!fs.existsSync(pathToFile)) {
         return // File was deleted, skip analysis
