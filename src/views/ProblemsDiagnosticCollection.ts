@@ -94,6 +94,8 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
   private _isAnalysisRunning: boolean = false
   private _analysisDebounceTimeout: NodeJS.Timeout | undefined
+  /** A re-analysis requested while another analysis was running; runs when it ends. */
+  private _pendingRerun: vscode.TextDocument | undefined
 
   private readonly _subscriptions: vscode.Disposable[] = []
 
@@ -142,7 +144,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         if (!document || document.uri.scheme !== 'file') return
         const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
         if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && document.isDirty)) return
-        await this.runAnalysisAndUpdateDiagnostics(document)
+        // The install was most likely started by an analysis that is still running;
+        // re-analyze once it ends instead of dropping the request.
+        if (this._isAnalysisRunning) {
+          this._pendingRerun = document
+          return
+        }
+        await this.runAnalysisAndUpdateDiagnostics(document, { rerunIfBusy: true })
       })
     )
 
@@ -219,7 +227,14 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     return false
   }
 
-  private async runAnalysisAndUpdateDiagnostics(document: vscode.TextDocument) {
+  /**
+   * @param options.rerunIfBusy When an analysis is already running at the end of the
+   *   debounce, run this one after it instead of skipping it.
+   */
+  private async runAnalysisAndUpdateDiagnostics(
+    document: vscode.TextDocument,
+    options: { rerunIfBusy?: boolean } = {}
+  ) {
     // Clear any pending analysis
     if (this._analysisDebounceTimeout) {
       clearTimeout(this._analysisDebounceTimeout)
@@ -227,8 +242,11 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
     // Debounce the analysis for 2 seconds
     this._analysisDebounceTimeout = setTimeout(async () => {
-      // Skip if analysis is already running
-      if (this._isAnalysisRunning) return
+      // Skip if analysis is already running (or queue it, when asked to)
+      if (this._isAnalysisRunning) {
+        if (options.rerunIfBusy) this._pendingRerun = document
+        return
+      }
 
       // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
       const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
@@ -306,6 +324,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
 
         // Hide scanning status in status bar
         this._statusBar?.setCliScanning(false)
+
+        const pending = this._pendingRerun
+        this._pendingRerun = undefined
+        if (pending) void this.runAnalysisAndUpdateDiagnostics(pending, { rerunIfBusy: true })
       }
     }, 2000)
   }

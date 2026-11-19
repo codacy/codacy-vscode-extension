@@ -154,14 +154,37 @@ suite('CLI Tests', () => {
       const cli = new CodacyCli(tmpRoot, mockProvider, mockOrg, mockRepo)
       ;(cli as any)._accountToken = 'token'
       const calls = instrument(cli)
+      let attempts = 0
       ;(cli as any).updateConfig = async () => {
+        attempts++
         throw new Error('offline')
       }
 
       await cli.initialize()
+      await cli.initialize()
 
       assert.deepStrictEqual(calls, [])
       assert.ok(fs.existsSync(path.join(tmpRoot, '.codacy', 'codacy.config.json')))
+      assert.strictEqual(attempts, 2, 'a failed refresh is retried by the next initialize')
+    })
+
+    test('reinstallDependencies waits for a setup run already in progress', async () => {
+      const events: string[] = []
+      const initializing = new CodacyCli(tmpRoot)
+      ;(initializing as any).doInitialize = async () => {
+        events.push('initialize:start')
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        events.push('initialize:end')
+      }
+      const reinstalling = new CodacyCli(tmpRoot)
+      ;(reinstalling as any).installDependencies = async () => {
+        events.push('reinstall')
+        return { capability: { ready: [], unavailable: [], checkedAt: '' }, errors: [] }
+      }
+
+      await Promise.all([initializing.initialize(), reinstalling.reinstallDependencies()])
+
+      assert.deepStrictEqual(events, ['initialize:start', 'initialize:end', 'reinstall'])
     })
 
     test('serializes concurrent initialize calls across instances', async () => {

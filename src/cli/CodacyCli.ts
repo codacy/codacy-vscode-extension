@@ -37,9 +37,12 @@ export const CODACY_CONFIG_FILE = 'codacy.config.json'
  */
 let setupQueue: Promise<void> = Promise.resolve()
 
-function enqueueSetup(work: () => Promise<void>): Promise<void> {
+function enqueueSetup<T>(work: () => Promise<T>): Promise<T> {
   const run = setupQueue.then(work)
-  setupQueue = run.catch(() => undefined)
+  setupQueue = run.then(
+    () => undefined,
+    () => undefined
+  )
   return run
 }
 
@@ -275,6 +278,15 @@ export class CodacyCli {
   }
 
   /**
+   * The "Reinstall dependencies" command: the install step, queued behind any
+   * setup or background install already running, so two runs never write the
+   * same tool binaries at once.
+   */
+  public reinstallDependencies(): Promise<AnalysisResult> {
+    return enqueueSetup(() => this.installDependencies())
+  }
+
+  /**
    * Installs tools that an analysis reported as unavailable, once per tool per
    * session, in the background.
    *
@@ -375,15 +387,19 @@ export class CodacyCli {
   /**
    * Re-syncs a remote config from Codacy Cloud. On failure (e.g. offline) the
    * existing config is kept, since it is still valid for local analysis.
+   *
+   * @returns whether the refresh succeeded
    */
-  private async refreshRemoteConfig(): Promise<void> {
+  private async refreshRemoteConfig(): Promise<boolean> {
     try {
       await this.updateConfig()
       Logger.debug('Refreshed the remote Codacy config')
+      return true
     } catch (error) {
       Logger.warn(
         `Could not refresh the Codacy config from Codacy Cloud, keeping the current one: ${cleanErrorMessage(error, this._accountToken)}`
       )
+      return false
     }
   }
 
@@ -407,10 +423,10 @@ export class CodacyCli {
 
       // A remote config can change on Codacy Cloud (tools or patterns turned on or
       // off). Pull it once per session, as an incremental re-sync: no reset, and no
-      // install step (tools it adds are installed after the next analysis).
+      // install step (tools it adds are installed after the next analysis). A failed
+      // refresh is not recorded, so the next initialize() tries again.
       if (isRemote && this.hasIdentification() && !remoteConfigRefreshedRoots.has(this.rootPath)) {
-        remoteConfigRefreshedRoots.add(this.rootPath)
-        await this.refreshRemoteConfig()
+        if (await this.refreshRemoteConfig()) remoteConfigRefreshedRoots.add(this.rootPath)
       }
     }
 
