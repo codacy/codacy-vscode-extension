@@ -19,7 +19,7 @@ import {
   createLogger,
 } from '@codacy/analysis-runner'
 import { registerBuiltinAdapters, loadUnsupportedPatterns } from '@codacy/analysis-adapters'
-import type { Logger as RunnerLogger, CodacyConfig } from '@codacy/tooling'
+import type { Logger as RunnerLogger, CodacyConfig, AnalysisResult } from '@codacy/tooling'
 
 import { Config } from '../common/config'
 import { buildProxyEnv, buildProxyConfig } from '../common/proxy'
@@ -29,6 +29,39 @@ import { ProcessedSarifResult, processSarifResults } from './utils'
 
 export const CODACY_FOLDER_NAME = '.codacy'
 export const CODACY_CONFIG_FILE = 'codacy.config.json'
+
+/**
+ * Tail of the serialized setup work — {@link CodacyCli.initialize} and background
+ * tool installs — shared by all instances. Two runs installing into `~/.codacy` at
+ * once can collide (on Windows, `EBUSY` on a tool binary).
+ */
+let setupQueue: Promise<void> = Promise.resolve()
+
+function enqueueSetup<T>(work: () => Promise<T>): Promise<T> {
+  const run = setupQueue.then(work)
+  setupQueue = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
+/** Tools this session already tried to install, so each is attempted at most once. */
+const installAttemptedToolIds = new Set<string>()
+
+/** Tools the user was already told about this session (see {@link CodacyCli.notifyToolsNeedingManualInstall}). */
+const manualInstallNotifiedToolIds = new Set<string>()
+
+/** Repositories whose remote config was refreshed from Codacy Cloud this session. */
+const remoteConfigRefreshedRoots = new Set<string>()
+
+const toolsInstalledEmitter = new vscode.EventEmitter<void>()
+
+/**
+ * Fires when a background install made a tool available, so open files can be
+ * analyzed again with it instead of waiting for the next save.
+ */
+export const onToolsInstalled = toolsInstalledEmitter.event
 
 /**
  * Drives Codacy local analysis in-process via `@codacy/analysis-runner`.
@@ -223,34 +256,177 @@ export class CodacyCli {
     )
   }
 
-  public async installDependencies(): Promise<void> {
+  public async installDependencies(): Promise<AnalysisResult> {
     this.applyProxyEnv()
     try {
-      // "auto-install" downloads any missing runtimes/tools before analysis.
-      await runnerAnalyze({
+      // "install" downloads any missing runtimes/tools for the configured tool set
+      // and returns without analyzing. ("auto-install" would go on to analyze every
+      // file in the repository, which on large repos froze the extension host.)
+      const result = await runnerAnalyze({
         repositoryRoot: this.rootPath,
-        mode: 'auto-install',
+        mode: 'install',
         logger: this.createRunnerLogger(),
       })
+      // Whatever is still unavailable after an install attempt is not retried this session.
+      result.capability.unavailable.forEach((tool) => installAttemptedToolIds.add(tool.toolId))
+      this.notifyToolsNeedingManualInstall(result)
+      return result
     } catch (error) {
       const cleanedErrorMessage = cleanErrorMessage(error, this._accountToken)
       throw new Error(`Failed to install dependencies: ${cleanedErrorMessage}`)
     }
   }
 
-  public async initialize(): Promise<void> {
+  /**
+   * The "Reinstall dependencies" command: the install step, queued behind any
+   * setup or background install already running, so two runs never write the
+   * same tool binaries at once.
+   */
+  public reinstallDependencies(): Promise<AnalysisResult> {
+    return enqueueSetup(() => this.installDependencies())
+  }
+
+  /**
+   * Installs tools that an analysis reported as unavailable, once per tool per
+   * session, in the background.
+   *
+   * Setup installs the configured tools, but nothing installs one added to the
+   * config later (by `configDiscover`), or one whose install failed in an earlier
+   * session. Running the install step here also tells us which tools cannot be
+   * installed automatically, which is the only reliable signal for
+   * {@link notifyToolsNeedingManualInstall}: an analysis alone cannot tell "not
+   * installed yet" from "needs a manual install".
+   */
+  private installMissingToolsInBackground(result: AnalysisResult): void {
+    const missing = result.capability.unavailable.filter(
+      // Cloud-only tools have no local analyzer to install.
+      (tool) => tool.availableVia !== 'cloud' && !installAttemptedToolIds.has(tool.toolId)
+    )
+    if (missing.length === 0) return
+
+    const missingIds = new Set(missing.map((tool) => tool.toolId))
+    missingIds.forEach((toolId) => installAttemptedToolIds.add(toolId))
+    Logger.debug(`Installing unavailable tools: ${[...missingIds].join(', ')}`)
+    enqueueSetup(async () => {
+      const installed = await this.installDependencies()
+      if (installed?.capability.ready.some((tool) => missingIds.has(tool.toolId))) {
+        toolsInstalledEmitter.fire()
+      }
+    }).catch((error) => {
+      // The install step itself failed, not a single tool (whose failure is reported
+      // by notifyToolsNeedingManualInstall). Let the next analysis try again.
+      missingIds.forEach((toolId) => installAttemptedToolIds.delete(toolId))
+      Logger.warn(`Background tool install failed: ${cleanErrorMessage(error, this._accountToken)}`)
+    })
+  }
+
+  /**
+   * Tells the user, once per tool per session, about tools that an install attempt
+   * could not set up: the tool (or a runtime it needs, such as Ruby for SQLint) has
+   * to be installed by hand, and until then local analysis runs without it.
+   */
+  private notifyToolsNeedingManualInstall(result: AnalysisResult): void {
+    const installErrors = new Map(
+      result.errors.filter((error) => error.phase === 'toolInstall').map((error) => [error.toolId, error.message])
+    )
+    const tools = result.capability.unavailable.filter(
+      (tool) =>
+        (tool.availableVia === 'manual-install' || installErrors.has(tool.toolId)) &&
+        !manualInstallNotifiedToolIds.has(tool.toolId)
+    )
+    if (tools.length === 0) return
+
+    const names = tools.map((tool) => tool.displayName ?? tool.toolId)
+    for (const tool of tools) {
+      manualInstallNotifiedToolIds.add(tool.toolId)
+      const details = installErrors.get(tool.toolId) ?? tool.remediation ?? tool.reason
+      Logger.warn(`${tool.displayName ?? tool.toolId} could not be installed automatically: ${details}`)
+    }
+
+    const message =
+      names.length === 1
+        ? `Codacy couldn't install ${names[0]}, so local analysis runs without it. It may need a manual install of the tool or of something it requires.`
+        : `Codacy couldn't install ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}, so local analysis runs without them. They may need a manual install of the tool or of something they require.`
+    void vscode.window.showWarningMessage(message, 'Show details').then((choice) => {
+      if (choice) Logger.outputChannel.show()
+    })
+  }
+
+  /**
+   * Whether a path is inside the repository's `.codacy/` folder. Those files are
+   * written by Codacy itself (config, generated tool configs), so analyzing them,
+   * or re-running discovery when they change, is never useful.
+   */
+  public isInCodacyFolder(filePath: string): boolean {
+    const codacyFolder = path.join(this.rootPath, CODACY_FOLDER_NAME)
+    const relative = path.relative(codacyFolder, path.resolve(this.rootPath, filePath))
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+  }
+
+  /**
+   * Makes sure the repository has a config and its tools are installed.
+   *
+   * Calls are serialized across instances: `CodacyCloud.open` creates one CLI
+   * instance before the repository is identified and another after, and both run
+   * this on the same `.codacy/` folder.
+   */
+  public initialize(): Promise<void> {
+    return enqueueSetup(() => this.doInitialize())
+  }
+
+  /**
+   * Like {@link initialize}, but pulls the remote config from Codacy Cloud again
+   * even if it was already refreshed this session. Used when the user asks for a
+   * refresh after changing the repository's configuration on Codacy.
+   */
+  public refreshConfig(): Promise<void> {
+    remoteConfigRefreshedRoots.delete(this.rootPath)
+    return this.initialize()
+  }
+
+  /**
+   * Re-syncs a remote config from Codacy Cloud. On failure (e.g. offline) the
+   * existing config is kept, since it is still valid for local analysis.
+   *
+   * @returns whether the refresh succeeded
+   */
+  private async refreshRemoteConfig(): Promise<boolean> {
+    try {
+      await this.updateConfig()
+      Logger.debug('Refreshed the remote Codacy config')
+      return true
+    } catch (error) {
+      Logger.warn(
+        `Could not refresh the Codacy config from Codacy Cloud, keeping the current one: ${cleanErrorMessage(error, this._accountToken)}`
+      )
+      return false
+    }
+  }
+
+  private async doInitialize(): Promise<void> {
     const devMode = Config.devMode
     const configExists = this.configExists()
 
     let needsInitialization = !configExists
 
     if (configExists && !devMode) {
-      // Regenerate if the repo's identification state no longer matches the config
-      // (e.g. it was created remotely but we now lack a token, or vice versa).
+      // Upgrade a locally-detected config to the remote one once the repository is
+      // identified. Never go the other way: an instance without identification
+      // (created before the repository is resolved, or after logging out) must keep
+      // a remote config as is. Downgrading it made the config flip remote → local →
+      // remote on every startup, re-initializing each time.
       const config = await readCodacyConfig(this.rootPath).catch(() => null)
       const isRemote = config?.metadata?.source === 'remote'
-      if (isRemote !== this.hasIdentification()) {
+      if (!isRemote && this.hasIdentification()) {
         needsInitialization = true
+      }
+
+      // A remote config can change on Codacy Cloud (tools or patterns turned on or
+      // off). Pull it once per session, as an incremental re-sync: no reset, and no
+      // install step (tools it adds are installed after the next analysis). A failed
+      // refresh is not recorded, so the next initialize() tries again.
+      if (isRemote && this.hasIdentification() && !remoteConfigRefreshedRoots.has(this.rootPath)) {
+        if (await this.refreshRemoteConfig()) remoteConfigRefreshedRoots.add(this.rootPath)
       }
     }
 
@@ -355,13 +531,19 @@ export class CodacyCli {
   }
 
   public async analyze(options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null> {
-    await this.preflightCodacyCli(true)
-
+    // No preflight here: setup and re-initialization happen on repository open and
+    // from the setup view. Running them before every analysis regenerated the config
+    // and re-installed tools on each save.
     if (!this.isInitialized()) {
       throw new Error('Codacy is not initialized. Please install the Codacy CLI first.')
     }
 
     const { file, tool } = options
+
+    if (file && this.isInCodacyFolder(file)) {
+      Logger.debug(`Skipping analysis of Codacy's own file ${file}`)
+      return []
+    }
 
     Logger.debug(`Running Codacy analysis for ${file || 'entire workspace'}...`)
 
@@ -375,6 +557,8 @@ export class CodacyCli {
         outputFormat: 'sarif',
         logger: this.createRunnerLogger(),
       })
+
+      this.installMissingToolsInBackground(result)
 
       const sarifResult = JSON.parse(formatOutput(result, 'sarif'))
 
@@ -394,10 +578,16 @@ export class CodacyCli {
   }
 
   public async configDiscover(filePath: string): Promise<void> {
-    await this.preflightCodacyCli(true)
-
+    // A new file only refines an existing config; it must not trigger first-time
+    // setup (and its tool install) on its own.
     if (!this.isInitialized()) {
-      throw new Error('Codacy is not initialized. Please install the Codacy CLI first.')
+      Logger.debug(`Codacy local analysis is not set up. Skipping config discover for ${filePath}.`)
+      return
+    }
+
+    if (this.isInCodacyFolder(filePath)) {
+      Logger.debug(`Skipping config discover for Codacy's own file ${filePath}`)
+      return
     }
 
     if (await this.shouldSkipReconfig()) {

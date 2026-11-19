@@ -152,7 +152,7 @@ export function showPatternInStandardView(
               })
             }
             if (cli) {
-              await cli.initialize()
+              await cli.refreshConfig()
             }
             if (cli || props.commitSHA) {
               vscode.window.showInformationMessage('Refresh started. This might take some time to reflect in the UI.')

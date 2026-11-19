@@ -104,7 +104,7 @@ const registerCommands = async (context: vscode.ExtensionContext, codacyCloud: C
       await codacyCloud.cli?.setup()
     },
     'codacy.reinstallDependencies': async () => {
-      await codacyCloud.cli?.installDependencies()
+      await codacyCloud.cli?.reinstallDependencies()
     },
     'codacy.configureMCP': async () => {
       await configureMCP(codacyCloud.params)
