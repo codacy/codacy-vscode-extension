@@ -6,7 +6,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { createCodacyConfig, getRegisteredDescriptors, writeCodacyConfig } from '@codacy/analysis-runner'
 import { registerBuiltinAdapters } from '@codacy/analysis-adapters'
-import { CodacyCli, onToolsInstalled } from '../../../cli/CodacyCli'
+import { CodacyCli, onInitialized, onToolsInstalled } from '../../../cli/CodacyCli'
 import { processSarifResults } from '../../../cli/utils'
 
 suite('CLI Tests', () => {
@@ -202,6 +202,25 @@ suite('CLI Tests', () => {
       await Promise.all([slowInstance('a').initialize(), slowInstance('b').initialize()])
 
       assert.deepStrictEqual(events, ['a:start', 'a:end', 'b:start', 'b:end'])
+    })
+
+    test('signals when initialization completes, and not when it fails', async () => {
+      let fired = 0
+      const subscription = onInitialized(() => fired++)
+      try {
+        const cli = new CodacyCli(tmpRoot)
+        ;(cli as any).doInitialize = async () => undefined
+        await cli.initialize()
+        assert.strictEqual(fired, 1)
+
+        ;(cli as any).doInitialize = async () => {
+          throw new Error('setup failed')
+        }
+        await assert.rejects(() => cli.initialize())
+        assert.strictEqual(fired, 1)
+      } finally {
+        subscription.dispose()
+      }
     })
 
     test('analyze waits for setup work already in the queue', async () => {

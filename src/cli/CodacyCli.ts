@@ -67,6 +67,14 @@ const toolsInstalledEmitter = new vscode.EventEmitter<void>()
  */
 export const onToolsInstalled = toolsInstalledEmitter.event
 
+const initializedEmitter = new vscode.EventEmitter<void>()
+
+/**
+ * Fires when setup or a config refresh completed: open files can be analyzed now,
+ * and with the current config.
+ */
+export const onInitialized = initializedEmitter.event
+
 /**
  * Drives Codacy local analysis in-process via `@codacy/analysis-runner`.
  *
@@ -377,8 +385,9 @@ export class CodacyCli {
    * instance before the repository is identified and another after, and both run
    * this on the same `.codacy/` folder.
    */
-  public initialize(): Promise<void> {
-    return enqueueRunnerWork(() => this.doInitialize())
+  public async initialize(): Promise<void> {
+    await enqueueRunnerWork(() => this.doInitialize())
+    initializedEmitter.fire()
   }
 
   /**

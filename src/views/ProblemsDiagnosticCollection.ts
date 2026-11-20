@@ -11,7 +11,7 @@ import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 import { StatusBar } from './StatusBar'
-import { CodacyCli, onToolsInstalled } from '../cli/CodacyCli'
+import { CodacyCli, onInitialized, onToolsInstalled } from '../cli/CodacyCli'
 import { AnalysisRequestOptions, AnalysisScheduler } from './AnalysisScheduler'
 
 /** Wait after the last edit before analyzing, so typing doesn't queue a run per keystroke. */
@@ -148,14 +148,12 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     const activeDocument = vscode.window.activeTextEditor?.document
     if (activeDocument) this.requestAnalysis(activeDocument, { delayMs: FOCUS_DEBOUNCE_MS, focus: true })
 
-    // A background install made a tool available: analyze the active file again so
-    // its findings show up without waiting for the next change.
+    // Setup or a config refresh completed, or a background install made a tool
+    // available: earlier results are out of date (or there were none), so analyze
+    // the active file again without waiting for the next change.
     this._subscriptions.push(
-      onToolsInstalled(() => {
-        this._scheduler.resetAnalyzedVersions()
-        const document = vscode.window.activeTextEditor?.document
-        if (document) this.requestAnalysis(document, { delayMs: 0, force: true })
-      })
+      onInitialized(() => this.reanalyzeActiveFile()),
+      onToolsInstalled(() => this.reanalyzeActiveFile())
     )
 
     // Listen for file deletions and clear diagnostics for deleted files
@@ -229,6 +227,13 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       }
     }
     return false
+  }
+
+  /** Forgets which versions were analyzed and analyzes the active file again. */
+  private reanalyzeActiveFile() {
+    this._scheduler.resetAnalyzedVersions()
+    const document = vscode.window.activeTextEditor?.document
+    if (document) this.requestAnalysis(document, { delayMs: 0, force: true })
   }
 
   /** Queues a local analysis of the document, if local analysis applies to it. */
@@ -311,11 +316,12 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       return false
     } finally {
       if (pathToFile !== originalPath) {
-        // Remove the temporary file after analysis with retries
-        const deleted = await this.retryDeleteFile(pathToFile)
-        if (!deleted) {
-          Logger.error('Failed to delete temporary file after all attempts:', pathToFile)
-        }
+        // Remove the temporary file after analysis with retries. Not awaited: a locked
+        // file would otherwise hold the next queued analysis for the retry delays.
+        const tempFile = pathToFile
+        void this.retryDeleteFile(tempFile).then((deleted) => {
+          if (!deleted) Logger.error('Failed to delete temporary file after all attempts:', tempFile)
+        })
       }
 
       // Hide scanning status in status bar
