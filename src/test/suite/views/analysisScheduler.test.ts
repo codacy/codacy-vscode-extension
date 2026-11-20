@@ -162,6 +162,52 @@ suite('AnalysisScheduler', () => {
     scheduler.dispose()
   })
 
+  test('records the version a run started with, not one edited in during the run', async () => {
+    holdRuns = true
+    const scheduler = createScheduler()
+    const file = { uri: { fsPath: '/repo/a.ts' }, version: 1 }
+
+    scheduler.request(file, { delayMs: 0 })
+    await clock.tickAsync(0)
+    // Edited while running, without a request (saved-only mode skips dirty edits).
+    file.version = 2
+    finishRun?.(true)
+    await clock.tickAsync(0)
+
+    // Saving version 2 must analyze it.
+    scheduler.request(file, { delayMs: 0 })
+    await clock.tickAsync(0)
+    assert.deepStrictEqual(events, ['/repo/a.ts@1', '/repo/a.ts@2'])
+    finishRun?.(true)
+    scheduler.dispose()
+  })
+
+  test('cycling through tabs analyzes only the file where focus settles', async () => {
+    const scheduler = createScheduler()
+
+    for (const name of ['a', 'b', 'c', 'd']) {
+      scheduler.request(doc(`/repo/${name}.ts`), { delayMs: 500, focus: true })
+      await clock.tickAsync(100)
+    }
+    await clock.runAllAsync()
+
+    assert.deepStrictEqual(events, ['/repo/d.ts@1'])
+    scheduler.dispose()
+  })
+
+  test('switching tabs keeps pending edit and save requests', async () => {
+    const scheduler = createScheduler()
+
+    scheduler.request(doc('/repo/a.ts', 2), { delayMs: 2000 })
+    // Focus comes back to the edited file, then moves on.
+    scheduler.request(doc('/repo/a.ts', 2), { delayMs: 500, focus: true })
+    scheduler.request(doc('/repo/b.ts'), { delayMs: 500, focus: true })
+    await clock.runAllAsync()
+
+    assert.deepStrictEqual(events.sort(), ['/repo/a.ts@2', '/repo/b.ts@1'])
+    scheduler.dispose()
+  })
+
   test('forgetting a closed file lets its restarted versions be analyzed', async () => {
     const scheduler = createScheduler()
 

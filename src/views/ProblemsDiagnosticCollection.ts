@@ -12,7 +12,7 @@ import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 import { StatusBar } from './StatusBar'
 import { CodacyCli, onToolsInstalled } from '../cli/CodacyCli'
-import { AnalysisScheduler } from './AnalysisScheduler'
+import { AnalysisRequestOptions, AnalysisScheduler } from './AnalysisScheduler'
 
 /** Wait after the last edit before analyzing, so typing doesn't queue a run per keystroke. */
 const EDIT_DEBOUNCE_MS = 2000
@@ -141,12 +141,12 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
         this.requestAnalysis(document, { delayMs: FOCUS_DEBOUNCE_MS })
       ),
       vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor) this.requestAnalysis(editor.document, { delayMs: FOCUS_DEBOUNCE_MS })
+        if (editor) this.requestAnalysis(editor.document, { delayMs: FOCUS_DEBOUNCE_MS, focus: true })
       }),
       vscode.workspace.onDidCloseTextDocument((document) => this._scheduler.forget(document.uri.fsPath))
     )
     const activeDocument = vscode.window.activeTextEditor?.document
-    if (activeDocument) this.requestAnalysis(activeDocument, { delayMs: FOCUS_DEBOUNCE_MS })
+    if (activeDocument) this.requestAnalysis(activeDocument, { delayMs: FOCUS_DEBOUNCE_MS, focus: true })
 
     // A background install made a tool available: analyze the active file again so
     // its findings show up without waiting for the next change.
@@ -232,17 +232,38 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   /** Queues a local analysis of the document, if local analysis applies to it. */
-  private requestAnalysis(document: vscode.TextDocument, options: { delayMs: number; force?: boolean }) {
+  private requestAnalysis(document: vscode.TextDocument, options: AnalysisRequestOptions) {
     if (document.uri.scheme !== 'file') return
 
     const fsPath = document.uri.fsPath
     // Git internals and files written by the old shell-based CLI
     if (fsPath.endsWith('.git') || fsPath.endsWith('codacy-cli.log') || fsPath.endsWith('cli.sh')) return
 
-    const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
-    if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && document.isDirty)) return
+    if (!this.isAnalysisModeAllowing(document)) return
 
     this._scheduler.request(document, options)
+  }
+
+  /** Whether the `codacy.cli.analysisMode` setting allows analyzing the document as it is now. */
+  private isAnalysisModeAllowing(document: vscode.TextDocument): boolean {
+    const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
+    return analysisMode !== 'disabled' && !(analysisMode === 'only on saved files' && document.isDirty)
+  }
+
+  /** Whether local analysis is set up and applies to the document, checked when its run starts. */
+  private canAnalyzeNow(document: vscode.TextDocument): boolean {
+    // The setting, or the dirty state in saved-only mode, may have changed since the request.
+    if (!this.isAnalysisModeAllowing(document)) return false
+
+    // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+    const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.config.json')
+    const cli = this._codacyCloud.cli
+    if (!cli?.isInitialized() || !fs.existsSync(codacyCLIConfigPath)) return false
+
+    // Files Codacy writes itself (config, generated tool configs) are not analyzed,
+    // and the file may have been deleted since the request.
+    return !cli.isInCodacyFolder(document.uri.fsPath) && fs.existsSync(document.uri.fsPath)
   }
 
   /**
@@ -252,20 +273,11 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
    * @returns whether the analysis completed (it may be skipped or cancelled)
    */
   private async analyzeDocument(document: vscode.TextDocument, signal: AbortSignal): Promise<boolean> {
-    // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
-    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-    const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.config.json')
-
-    if (!this._codacyCloud.cli?.isInitialized() || !fs.existsSync(codacyCLIConfigPath)) return false
+    const cli = this._codacyCloud.cli
+    if (!cli || !this.canAnalyzeNow(document)) return false
 
     const originalPath = document.uri.fsPath
     let pathToFile = originalPath
-
-    // Files Codacy writes itself (config, generated tool configs) are not analyzed.
-    if (this._codacyCloud.cli.isInCodacyFolder(originalPath)) return false
-
-    // The file may have been deleted since the request
-    if (!fs.existsSync(pathToFile)) return false
 
     try {
       // Show scanning status in status bar
@@ -281,7 +293,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       }
 
       // Run the local analysis (the runner takes the plain path — no shell quoting)
-      const results = await this._codacyCloud.cli.analyze({ file: pathToFile, signal })
+      const results = await cli.analyze({ file: pathToFile, signal })
 
       // Cancelled: a newer request for this file replaces it.
       if (results === null || signal.aborted) return false
