@@ -11,7 +11,13 @@ import * as path from 'path'
 import Logger from '../common/logger'
 import { CodacyError, handleError } from '../common/utils'
 import { StatusBar } from './StatusBar'
-import { CodacyCli, onToolsInstalled } from '../cli/CodacyCli'
+import { CodacyCli, onInitialized, onToolsInstalled } from '../cli/CodacyCli'
+import { AnalysisRequestOptions, AnalysisScheduler } from './AnalysisScheduler'
+
+/** Wait after the last edit before analyzing, so typing doesn't queue a run per keystroke. */
+const EDIT_DEBOUNCE_MS = 2000
+/** Wait after a save or an editor switch, so cycling through tabs settles first. */
+const FOCUS_DEBOUNCE_MS = 500
 
 const patternSeverityToDiagnosticSeverity = (severity: SeverityLevel): vscode.DiagnosticSeverity => {
   switch (severity) {
@@ -92,10 +98,10 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   private _currentApiIssues: { [key in string]: PullRequestIssue[] | BranchIssue[] } = {}
   private _currentCliIssues: { [key in string]: ProcessedSarifResult[] } = {}
 
-  private _isAnalysisRunning: boolean = false
-  private _analysisDebounceTimeout: NodeJS.Timeout | undefined
-  /** A re-analysis requested while another analysis was running; runs when it ends. */
-  private _pendingRerun: vscode.TextDocument | undefined
+  /** Runs local analyses one at a time, keeping the latest request per file. */
+  private readonly _scheduler = new AnalysisScheduler<vscode.TextDocument>((document, signal) =>
+    this.analyzeDocument(document, signal)
+  )
 
   private readonly _subscriptions: vscode.Disposable[] = []
 
@@ -114,44 +120,40 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
       this.loadAPIIssues(issues)
     })
 
-    const onDidChangeTextDocument = GitProvider.instance?.onDidChangeTextDocument(async (e) => {
-      const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
+    // Opening a file only positions its remote issues. It is analyzed when it
+    // becomes the active editor, not for every file VS Code opens in the background.
+    const onDidOpenTextDocument = GitProvider.instance?.onDidOpenTextDocument((document) => {
+      this.updateApiIssuesPositions(document)
+    })
+    if (onDidOpenTextDocument) this._subscriptions.push(onDidOpenTextDocument)
 
-      // avoid if the document is a .git file
-      if (e.document.uri.fsPath.endsWith('.git')) return
-
-      // avoid it for codacy-cli.log
-      if (e.document.uri.fsPath.endsWith('codacy-cli.log')) return
-
-      // avoid it for cli.sh
-      if (e.document.uri.fsPath.endsWith('cli.sh')) return
-
+    const onDidChangeTextDocument = GitProvider.instance?.onDidChangeTextDocument((e) => {
+      // Events without content changes only flip the dirty flag.
+      if (e.contentChanges.length === 0) return
       // update positions of remote issues in the document
       this.updateApiIssuesPositions(e.document)
-
-      if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && e.document.isDirty)) return
-      // run local analysis for available tools
-      await this.runAnalysisAndUpdateDiagnostics(e.document)
+      this.requestAnalysis(e.document, { delayMs: EDIT_DEBOUNCE_MS })
     })
-
     if (onDidChangeTextDocument) this._subscriptions.push(onDidChangeTextDocument)
 
-    // A background install made a tool available: analyze the active file again so
-    // its findings show up without waiting for the next change.
     this._subscriptions.push(
-      onToolsInstalled(async () => {
-        const document = vscode.window.activeTextEditor?.document
-        if (!document || document.uri.scheme !== 'file') return
-        const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
-        if (analysisMode === 'disabled' || (analysisMode === 'only on saved files' && document.isDirty)) return
-        // The install was most likely started by an analysis that is still running;
-        // re-analyze once it ends instead of dropping the request.
-        if (this._isAnalysisRunning) {
-          this._pendingRerun = document
-          return
-        }
-        await this.runAnalysisAndUpdateDiagnostics(document, { rerunIfBusy: true })
-      })
+      vscode.workspace.onDidSaveTextDocument((document) =>
+        this.requestAnalysis(document, { delayMs: FOCUS_DEBOUNCE_MS })
+      ),
+      vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (editor) this.requestAnalysis(editor.document, { delayMs: FOCUS_DEBOUNCE_MS, focus: true })
+      }),
+      vscode.workspace.onDidCloseTextDocument((document) => this._scheduler.forget(document.uri.fsPath))
+    )
+    const activeDocument = vscode.window.activeTextEditor?.document
+    if (activeDocument) this.requestAnalysis(activeDocument, { delayMs: FOCUS_DEBOUNCE_MS, focus: true })
+
+    // Setup or a config refresh completed, or a background install made a tool
+    // available: earlier results are out of date (or there were none), so analyze
+    // the active file again without waiting for the next change.
+    this._subscriptions.push(
+      onInitialized(() => this.reanalyzeActiveFile()),
+      onToolsInstalled(() => this.reanalyzeActiveFile())
     )
 
     // Listen for file deletions and clear diagnostics for deleted files
@@ -227,109 +229,104 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
     return false
   }
 
+  /** Forgets which versions were analyzed and analyzes the active file again. */
+  private reanalyzeActiveFile() {
+    this._scheduler.resetAnalyzedVersions()
+    const document = vscode.window.activeTextEditor?.document
+    if (document) this.requestAnalysis(document, { delayMs: 0, force: true })
+  }
+
+  /** Queues a local analysis of the document, if local analysis applies to it. */
+  private requestAnalysis(document: vscode.TextDocument, options: AnalysisRequestOptions) {
+    if (document.uri.scheme !== 'file') return
+
+    const fsPath = document.uri.fsPath
+    // Git internals and files written by the old shell-based CLI
+    if (fsPath.endsWith('.git') || fsPath.endsWith('codacy-cli.log') || fsPath.endsWith('cli.sh')) return
+
+    if (!this.isAnalysisModeAllowing(document)) return
+
+    this._scheduler.request(document, options)
+  }
+
+  /** Whether the `codacy.cli.analysisMode` setting allows analyzing the document as it is now. */
+  private isAnalysisModeAllowing(document: vscode.TextDocument): boolean {
+    const analysisMode = vscode.workspace.getConfiguration().get('codacy.cli.analysisMode')
+    return analysisMode !== 'disabled' && !(analysisMode === 'only on saved files' && document.isDirty)
+  }
+
+  /** Whether local analysis is set up and applies to the document, checked when its run starts. */
+  private canAnalyzeNow(document: vscode.TextDocument): boolean {
+    // The setting, or the dirty state in saved-only mode, may have changed since the request.
+    if (!this.isAnalysisModeAllowing(document)) return false
+
+    // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+    const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.config.json')
+    const cli = this._codacyCloud.cli
+    if (!cli?.isInitialized() || !fs.existsSync(codacyCLIConfigPath)) return false
+
+    // Files Codacy writes itself (config, generated tool configs) are not analyzed,
+    // and the file may have been deleted since the request.
+    return !cli.isInCodacyFolder(document.uri.fsPath) && fs.existsSync(document.uri.fsPath)
+  }
+
   /**
-   * @param options.rerunIfBusy When an analysis is already running at the end of the
-   *   debounce, run this one after it instead of skipping it.
+   * Analyzes one document and shows its findings. Called by the scheduler, one at a
+   * time.
+   *
+   * @returns whether the analysis completed (it may be skipped or cancelled)
    */
-  private async runAnalysisAndUpdateDiagnostics(
-    document: vscode.TextDocument,
-    options: { rerunIfBusy?: boolean } = {}
-  ) {
-    // Clear any pending analysis
-    if (this._analysisDebounceTimeout) {
-      clearTimeout(this._analysisDebounceTimeout)
+  private async analyzeDocument(document: vscode.TextDocument, signal: AbortSignal): Promise<boolean> {
+    const cli = this._codacyCloud.cli
+    if (!cli || !this.canAnalyzeNow(document)) return false
+
+    const originalPath = document.uri.fsPath
+    let pathToFile = originalPath
+
+    try {
+      // Show scanning status in status bar
+      this._statusBar?.setCliScanning(true)
+
+      // check if document is saved or not
+      if (document.isDirty) {
+        // Analyze the unsaved content from a temporary file next to the document
+        // (the runner only reads files inside the repository).
+        const filePath = path.dirname(document.fileName)
+        pathToFile = path.join(filePath, `${Date.now().valueOf().toString()}-${path.basename(document.fileName)}`)
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), new TextEncoder().encode(document.getText()))
+      }
+
+      // Run the local analysis (the runner takes the plain path — no shell quoting)
+      const results = await cli.analyze({ file: pathToFile, signal })
+
+      // Cancelled: a newer request for this file replaces it.
+      if (results === null || signal.aborted) return false
+
+      this._currentCliIssues[originalPath] = results
+      this.updateDocumentDiagnostics(document)
+      return true
+    } catch (error) {
+      // If the file no longer exists, silently ignore the error
+      if (!fs.existsSync(pathToFile)) return false
+      if (error instanceof CodacyError) handleError(error, false)
+      else {
+        handleError(new CodacyError('Error running analysis', error as Error, 'CLI'))
+      }
+      return false
+    } finally {
+      if (pathToFile !== originalPath) {
+        // Remove the temporary file after analysis with retries. Not awaited: a locked
+        // file would otherwise hold the next queued analysis for the retry delays.
+        const tempFile = pathToFile
+        void this.retryDeleteFile(tempFile).then((deleted) => {
+          if (!deleted) Logger.error('Failed to delete temporary file after all attempts:', tempFile)
+        })
+      }
+
+      // Hide scanning status in status bar
+      this._statusBar?.setCliScanning(false)
     }
-
-    // Debounce the analysis for 2 seconds
-    this._analysisDebounceTimeout = setTimeout(async () => {
-      // Skip if analysis is already running (or queue it, when asked to)
-      if (this._isAnalysisRunning) {
-        if (options.rerunIfBusy) this._pendingRerun = document
-        return
-      }
-
-      // Check for the presence of the .codacy/codacy.config.json file to know if the CLI is initialized
-      const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
-      const codacyCLIConfigPath = path.join(workspacePath, '.codacy', 'codacy.config.json')
-
-      const codacyCLIConfigExists = fs.existsSync(codacyCLIConfigPath)
-
-      if (!this._codacyCloud.cli?.isInitialized() || !codacyCLIConfigExists) return
-
-      const originalPath = document.uri.fsPath
-      let pathToFile = originalPath
-
-      // Files Codacy writes itself (config, generated tool configs) are not analyzed.
-      if (this._codacyCloud.cli.isInCodacyFolder(originalPath)) return
-
-      // Check if the file still exists before proceeding
-      if (!fs.existsSync(pathToFile)) {
-        return // File was deleted, skip analysis
-      }
-
-      try {
-        this._isAnalysisRunning = true
-
-        // Show scanning status in status bar
-        this._statusBar?.setCliScanning(true)
-
-        // check if document is saved or not
-        if (document.isDirty) {
-          // use a temporary file instead for analysis
-          const fileName = path.basename(document.fileName)
-
-          // system temp directory -- doesn't work, TODO: check if the CLI can receive a base path
-          //const tmpDir = path.join(os.tmpdir(), 'codacy-vscode')
-
-          // or ... .codacy/tmp directory -- doesn't work
-          // const tmpDir = path.join(this._codacyCloud.rootUri?.path || '', '.codacy', 'tmp')
-
-          // create the temp directory if it doesn't exist
-          // await vscode.workspace.fs.createDirectory(vscode.Uri.file(tmpDir))
-
-          // same directory as the document
-          const filePath = path.dirname(document.fileName)
-          pathToFile = path.join(filePath, `${Date.now().valueOf().toString()}-${fileName}`)
-
-          // Convert string content to Uint8Array
-          const content = new TextEncoder().encode(document.getText())
-          await vscode.workspace.fs.writeFile(vscode.Uri.file(pathToFile), content)
-        }
-
-        // Run the local analysis (the runner takes the plain path — no shell quoting)
-        const results = await this._codacyCloud.cli?.analyze({ file: pathToFile })
-
-        this._currentCliIssues[originalPath] = results || []
-
-        this.updateDocumentDiagnostics(document)
-      } catch (error) {
-        // If the file no longer exists, silently ignore the error
-        if (!fs.existsSync(pathToFile)) {
-          return
-        }
-        if (error instanceof CodacyError) handleError(error, false)
-        else {
-          handleError(new CodacyError('Error running analysis', error as Error, 'CLI'))
-        }
-      } finally {
-        this._isAnalysisRunning = false
-
-        if (pathToFile !== originalPath) {
-          // Remove the temporary file after analysis with retries
-          const deleted = await this.retryDeleteFile(pathToFile)
-          if (!deleted) {
-            Logger.error('Failed to delete temporary file after all attempts:', pathToFile)
-          }
-        }
-
-        // Hide scanning status in status bar
-        this._statusBar?.setCliScanning(false)
-
-        const pending = this._pendingRerun
-        this._pendingRerun = undefined
-        if (pending) void this.runAnalysisAndUpdateDiagnostics(pending, { rerunIfBusy: true })
-      }
-    }, 2000)
   }
 
   private renameDiagnosticsForFile(oldUri: vscode.Uri, newUri: vscode.Uri) {
@@ -392,6 +389,7 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   public dispose() {
+    this._scheduler.dispose()
     this._subscriptions.forEach((subscription) => subscription.dispose())
     this.clear()
   }

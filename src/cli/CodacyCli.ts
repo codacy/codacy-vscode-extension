@@ -31,15 +31,19 @@ export const CODACY_FOLDER_NAME = '.codacy'
 export const CODACY_CONFIG_FILE = 'codacy.config.json'
 
 /**
- * Tail of the serialized setup work — {@link CodacyCli.initialize} and background
- * tool installs — shared by all instances. Two runs installing into `~/.codacy` at
- * once can collide (on Windows, `EBUSY` on a tool binary).
+ * Tail of the queue every runner call goes through — setup, tool installs, config
+ * discovery and per-file analysis — shared by all instances, so only one runs at a
+ * time. Concurrent runs pile up on large repositories, and two runs installing into
+ * `~/.codacy` at once can collide (on Windows, `EBUSY` on a tool binary).
+ *
+ * Work already running inside the queue must call the un-queued methods, or it
+ * waits on itself.
  */
-let setupQueue: Promise<void> = Promise.resolve()
+let runnerQueue: Promise<void> = Promise.resolve()
 
-function enqueueSetup<T>(work: () => Promise<T>): Promise<T> {
-  const run = setupQueue.then(work)
-  setupQueue = run.then(
+function enqueueRunnerWork<T>(work: () => Promise<T>): Promise<T> {
+  const run = runnerQueue.then(work)
+  runnerQueue = run.then(
     () => undefined,
     () => undefined
   )
@@ -63,6 +67,14 @@ const toolsInstalledEmitter = new vscode.EventEmitter<void>()
  */
 export const onToolsInstalled = toolsInstalledEmitter.event
 
+const initializedEmitter = new vscode.EventEmitter<void>()
+
+/**
+ * Fires when setup or a config refresh completed: open files can be analyzed now,
+ * and with the current config.
+ */
+export const onInitialized = initializedEmitter.event
+
 /**
  * Drives Codacy local analysis in-process via `@codacy/analysis-runner`.
  *
@@ -84,6 +96,9 @@ export class CodacyCli {
   public readonly repository?: string
 
   private _proxyEnvApplied = false
+
+  /** A config discovery that is queued but not started yet; later calls share it. */
+  private _pendingDiscover: Promise<void> | undefined
 
   constructor(rootPath: string, provider?: string, organization?: string, repository?: string) {
     this.rootPath = rootPath
@@ -283,7 +298,7 @@ export class CodacyCli {
    * same tool binaries at once.
    */
   public reinstallDependencies(): Promise<AnalysisResult> {
-    return enqueueSetup(() => this.installDependencies())
+    return enqueueRunnerWork(() => this.installDependencies())
   }
 
   /**
@@ -307,7 +322,7 @@ export class CodacyCli {
     const missingIds = new Set(missing.map((tool) => tool.toolId))
     missingIds.forEach((toolId) => installAttemptedToolIds.add(toolId))
     Logger.debug(`Installing unavailable tools: ${[...missingIds].join(', ')}`)
-    enqueueSetup(async () => {
+    enqueueRunnerWork(async () => {
       const installed = await this.installDependencies()
       if (installed?.capability.ready.some((tool) => missingIds.has(tool.toolId))) {
         toolsInstalledEmitter.fire()
@@ -370,8 +385,9 @@ export class CodacyCli {
    * instance before the repository is identified and another after, and both run
    * this on the same `.codacy/` folder.
    */
-  public initialize(): Promise<void> {
-    return enqueueSetup(() => this.doInitialize())
+  public async initialize(): Promise<void> {
+    await enqueueRunnerWork(() => this.doInitialize())
+    initializedEmitter.fire()
   }
 
   /**
@@ -530,7 +546,25 @@ export class CodacyCli {
     await this.writeConfigAndBaseline(result, next)
   }
 
-  public async analyze(options: { file?: string; tool?: string }): Promise<ProcessedSarifResult[] | null> {
+  /**
+   * Analyzes a file (or the repository), queued behind any other runner work.
+   *
+   * @param options.signal Cancels the analysis. A cancelled analysis resolves to
+   *   `null`, whether it was cancelled before or while running.
+   */
+  public analyze(options: {
+    file?: string
+    tool?: string
+    signal?: AbortSignal
+  }): Promise<ProcessedSarifResult[] | null> {
+    return enqueueRunnerWork(() => this.doAnalyze(options))
+  }
+
+  private async doAnalyze(options: {
+    file?: string
+    tool?: string
+    signal?: AbortSignal
+  }): Promise<ProcessedSarifResult[] | null> {
     // No preflight here: setup and re-initialization happen on repository open and
     // from the setup view. Running them before every analysis regenerated the config
     // and re-installed tools on each save.
@@ -538,7 +572,9 @@ export class CodacyCli {
       throw new Error('Codacy is not initialized. Please install the Codacy CLI first.')
     }
 
-    const { file, tool } = options
+    const { file, tool, signal } = options
+
+    if (signal?.aborted) return null
 
     if (file && this.isInCodacyFolder(file)) {
       Logger.debug(`Skipping analysis of Codacy's own file ${file}`)
@@ -556,7 +592,14 @@ export class CodacyCli {
         tools: tool ? [tool] : undefined,
         outputFormat: 'sarif',
         logger: this.createRunnerLogger(),
+        signal,
       })
+
+      // A cancelled run holds partial results; a newer request replaces it.
+      if (signal?.aborted) {
+        Logger.debug(`Codacy analysis cancelled for ${file || 'entire workspace'}`)
+        return null
+      }
 
       this.installMissingToolsInBackground(result)
 
@@ -577,6 +620,11 @@ export class CodacyCli {
     }
   }
 
+  /**
+   * Re-runs config discovery after a file was created, queued behind any other
+   * runner work. Discovery covers the whole repository, so calls made while one is
+   * waiting in the queue share it instead of queuing another run.
+   */
   public async configDiscover(filePath: string): Promise<void> {
     // A new file only refines an existing config; it must not trigger first-time
     // setup (and its tool install) on its own.
@@ -590,6 +638,19 @@ export class CodacyCli {
       return
     }
 
+    if (this._pendingDiscover) {
+      Logger.debug(`Config discover already queued, ${filePath} will be included`)
+      return this._pendingDiscover
+    }
+    const discover = enqueueRunnerWork(() => {
+      this._pendingDiscover = undefined
+      return this.doConfigDiscover(filePath)
+    })
+    this._pendingDiscover = discover
+    return discover
+  }
+
+  private async doConfigDiscover(filePath: string): Promise<void> {
     if (await this.shouldSkipReconfig()) {
       Logger.debug('Config is remote and no identification parameters provided. Skipping config discover.')
       return
