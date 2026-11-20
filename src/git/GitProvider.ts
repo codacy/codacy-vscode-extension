@@ -31,6 +31,9 @@ export class GitProvider implements IGitProvider {
   private _onDidChangeTextDocument = new vscode.EventEmitter<vscode.TextDocumentChangeEvent>()
   readonly onDidChangeTextDocument: vscode.Event<vscode.TextDocumentChangeEvent> = this._onDidChangeTextDocument.event
 
+  private _onDidOpenTextDocument = new vscode.EventEmitter<vscode.TextDocument>()
+  readonly onDidOpenTextDocument: vscode.Event<vscode.TextDocument> = this._onDidOpenTextDocument.event
+
   private _gitAPI: GitAPI
   private _disposables: vscode.Disposable[]
 
@@ -58,8 +61,7 @@ export class GitProvider implements IGitProvider {
     this._disposables.push(
       vscode.workspace.onDidOpenTextDocument((e) => {
         const fsPath = e.uri.fsPath
-        if (fsPath.startsWith('/') || /^[A-Za-z]:\\/.test(fsPath))
-          this._onDidChangeTextDocument.fire({ document: e, contentChanges: [], reason: undefined })
+        if (fsPath.startsWith('/') || /^[A-Za-z]:\\/.test(fsPath)) this._onDidOpenTextDocument.fire(e)
       })
     )
   }

@@ -204,6 +204,61 @@ suite('CLI Tests', () => {
       assert.deepStrictEqual(events, ['a:start', 'a:end', 'b:start', 'b:end'])
     })
 
+    test('analyze waits for setup work already in the queue', async () => {
+      const events: string[] = []
+      const initializing = new CodacyCli(tmpRoot)
+      ;(initializing as any).doInitialize = async () => {
+        events.push('initialize:start')
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        events.push('initialize:end')
+      }
+      const analyzing = new CodacyCli(tmpRoot)
+      ;(analyzing as any).doAnalyze = async () => {
+        events.push('analyze')
+        return []
+      }
+
+      await Promise.all([initializing.initialize(), analyzing.analyze({ file: path.join(tmpRoot, 'index.ts') })])
+
+      assert.deepStrictEqual(events, ['initialize:start', 'initialize:end', 'analyze'])
+    })
+
+    test('a cancelled analysis resolves to null without running the analyzer', async () => {
+      await writeConfig('local')
+      const cli = new CodacyCli(tmpRoot)
+      const controller = new AbortController()
+      controller.abort()
+
+      // An unsafe path would throw if the analyzer were reached.
+      const result = await cli.analyze({ file: 'bad\0path', signal: controller.signal })
+
+      assert.strictEqual(result, null)
+    })
+
+    test('config discover calls made while one is queued share a single run', async () => {
+      await writeConfig('local')
+      let release: () => void = () => undefined
+      const released = new Promise<void>((resolve) => (release = resolve))
+      const blocker = new CodacyCli(tmpRoot)
+      ;(blocker as any).doInitialize = () => released
+      const cli = new CodacyCli(tmpRoot)
+      const discovered: string[] = []
+      ;(cli as any).doConfigDiscover = async (filePath: string) => {
+        discovered.push(filePath)
+      }
+
+      const blocking = blocker.initialize()
+      const discovers = ['a.ts', 'b.py', 'c.rb'].map((file) => cli.configDiscover(path.join(tmpRoot, file)))
+      release()
+      await Promise.all([blocking, ...discovers])
+
+      assert.deepStrictEqual(discovered, [path.join(tmpRoot, 'a.ts')])
+
+      // Once that run started, a new call queues a new run.
+      await cli.configDiscover(path.join(tmpRoot, 'd.go'))
+      assert.strictEqual(discovered.length, 2)
+    })
+
     test('analyze does not run setup or re-initialization', async () => {
       const cli = new CodacyCli(tmpRoot)
       const calls = instrument(cli)
