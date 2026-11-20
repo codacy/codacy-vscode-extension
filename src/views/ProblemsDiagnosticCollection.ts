@@ -347,11 +347,15 @@ export class ProblemsDiagnosticCollection implements vscode.Disposable {
   }
 
   public loadAPIIssues(issues: PullRequestIssue[] | BranchIssue[]) {
-    const baseUri = this._codacyCloud.rootUri?.path
+    const rootUri = this._codacyCloud.rootUri
+    if (!rootUri) return
     const issuesByFile = groupBy(issues, (issue) => issue.commitIssue.filePath)
 
     this._currentApiIssues = Object.fromEntries(
-      Object.entries(issuesByFile).map(([filePath, issues]) => [`${baseUri}/${filePath}`, issues])
+      Object.entries(issuesByFile).map(([filePath, issues]) => [
+        vscode.Uri.joinPath(rootUri, filePath).fsPath,
+        issues,
+      ])
     )
     this.updateDiagnostics()
   }
